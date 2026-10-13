@@ -7,15 +7,19 @@ import {
   lineCells,
   objectAtVisual,
   objectPositions,
+  erase,
   paintMisfit,
+  paintTiles,
   placeEach,
+  placeObjects,
   rectFromCorners,
 } from '../../../core/plan/placement';
 import { coverageLayout, usesCoverageLayout } from '../../../core/plan/coverage-layout';
-import { cellKey } from '../../../core/plan/plan-document';
+import { Patch, cellKey } from '../../../core/plan/plan-document';
 import { RestrictionMap } from '../../../core/plan/restriction-map';
 import { NO_SELECTION, PlannerStore, Tool } from '../../../core/planner-store';
 import { wheelZoomFactor } from './camera';
+import { describeGroup } from '../selection-bar';
 import { MapRenderer, Preview } from './map-renderer';
 
 /** Screen pixels a pointer may wander before a press counts as a drag rather than a click. */
@@ -94,6 +98,9 @@ type Gesture = (
         Move: drag empty ground (Select), right-drag or Space + drag. Zoom: scroll or pinch. All shortcuts: ?
       </p>
     </div>
+    @if (dragLabel(); as label) {
+      <div class="drag-label" aria-hidden="true" [style.left.px]="label.x + 16" [style.top.px]="label.y + 16">{{ label.text }}</div>
+    }
     @if (error(); as message) {
       <div class="loading" role="alert">{{ message }}</div>
     } @else if (loading()) {
@@ -112,6 +119,10 @@ type Gesture = (
     .coords { flex: none; font-family: ui-monospace, monospace; white-space: nowrap; }
     .hint { margin: 0 0 0 auto; }
     .loading { position: absolute; pointer-events: none; }
+    .drag-label {
+      position: absolute; padding: 2px 8px; border-radius: 4px; background: rgb(0 0 0 / 0.75); color: #fff;
+      font-size: 12px; line-height: 1.6; white-space: nowrap; pointer-events: none;
+    }
     @media (max-width: 640px) { .hint { display: none; } }
     .loading { left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 14px; }
   `,
@@ -131,6 +142,10 @@ export class MapCanvas {
   protected readonly hover = signal<{ x: number; y: number } | null>(null);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
+  /** What a drag in progress will do ("Parsnip × 40 · 8 × 5"), shown by the pointer. */
+  protected readonly dragLabel = signal<{ text: string; x: number; y: number } | null>(null);
+  /** The pointer's last position over the map, in pixels from its top-left. */
+  private pointer = { x: 0, y: 0 };
   private readonly panning = signal(false);
   /** Whether the pointer is over something the Select tool can drag: an object or a selected tile. */
   private readonly overMovable = signal(false);
@@ -370,6 +385,8 @@ export class MapCanvas {
       return;
     }
     const tile = renderer.toTile(event.clientX, event.clientY);
+    const bounds = this.hostRef().nativeElement.getBoundingClientRect();
+    this.pointer = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
     if (gesture?.kind === 'stroke') extendStroke(gesture, tile);
     const previous = this.hover();
     if (previous?.x === tile.x && previous.y === tile.y && gesture?.moved !== true) return;
@@ -571,11 +588,13 @@ export class MapCanvas {
     const gesture = this.gesture;
     if (!tile || gesture?.kind === 'pan' || gesture?.kind === 'pinch' || this.spaceHeld()) {
       renderer.setPreview(null);
+      this.dragLabel.set(null);
       return;
     }
     const store = this.store;
     const options = store.options();
     const preview: Preview = {};
+    let label: string | null = null;
 
     if (gesture?.kind === 'move') {
       const dx = tile.x - gesture.startX;
@@ -594,30 +613,46 @@ export class MapCanvas {
       }
     } else if (gesture?.kind === 'place') {
       const item = findItem(gesture.itemId ?? '');
-      if (item) this.previewObjects(preview, item, this.placementRect(gesture, item, gesture.moved ? tile : null));
+      const rect = item && this.placementRect(gesture, item, gesture.moved ? tile : null);
+      if (item && rect) {
+        this.previewObjects(preview, item, rect);
+        if (gesture.moved) label = `${item.name} × ${placeObjects(store.doc, store.restrictions, item, rect, options).objects.length}`;
+      }
     } else if (gesture?.kind === 'rect') {
       const end = gesture.moved ? tile : { x: gesture.startX, y: gesture.startY };
       const rect = rectFromCorners(gesture.startX, gesture.startY, end.x, end.y);
       const tool = store.tool();
       const item = store.activeItem();
       preview.rect = { ...rect, style: tool === 'eraser' ? 'erase' : tool === 'select' ? 'select' : 'brush' };
+      const size = `${rect.width} × ${rect.height}`;
       if (tool === 'brush' && item?.kind === 'tile') {
         preview.blocked = blockedTiles(store.doc, store.restrictions, item, rect, options);
+        label = `${item.name} × ${paintTiles(store.doc, store.restrictions, item, rect, options).tiles.length} · ${size}`;
       } else if (tool === 'brush' && item && usesCoverageLayout(item) && (rect.width > 1 || rect.height > 1)) {
         // Show where the sprinklers or scarecrows will go and what they'll cover.
         preview.ghosts = coverageLayout(store.doc, store.restrictions, item, rect, options).map((at) => ({ item, ...at }));
+        label = `${item.name} × ${preview.ghosts.length} · ${size}`;
+      } else if (tool === 'eraser') {
+        label = `Erase ${describeErased(erase(store.doc, rect))} · ${size}`;
+      } else {
+        label = size;
       }
+      if (!gesture.moved) label = null;
     } else if (gesture?.kind === 'stroke') {
       const item = store.activeItem();
       if (gesture.tool === 'eraser') {
         preview.erased = gesture.cells;
+        label = `Erase ${describeErased(erase(store.doc, gesture.cells))}`;
       } else if (item?.kind === 'tile') {
         preview.blocked = blockedTiles(store.doc, store.restrictions, item, gesture.cells, options);
         const blocked = new Set(preview.blocked.map(([x, y]) => cellKey(x, y)));
         preview.tiles = gesture.cells.filter(([x, y]) => !blocked.has(cellKey(x, y))).map(([x, y]) => ({ item, x, y }));
+        label = `${item.name} × ${paintTiles(store.doc, store.restrictions, item, gesture.cells, options).tiles.length}`;
       } else if (item) {
         preview.ghosts = placeEach(store.doc, store.restrictions, item, this.strokePoints(gesture), options).objects.map((change) => ({ item, ...change.after! }));
+        label = `${item.name} × ${preview.ghosts.length}`;
       }
+      if (!gesture.moved) label = null;
     } else if (store.tool() === 'brush' && store.pasting()) {
       const at = this.pasteOrigin(tile);
       const clipboard = store.clipboard();
@@ -646,6 +681,7 @@ export class MapCanvas {
       preview.rect = { x: tile.x, y: tile.y, width: 1, height: 1, style: 'erase' };
     }
     renderer.setPreview(preview);
+    this.dragLabel.set(label ? { text: label, ...this.pointer } : null);
   }
 
   /** When a click can't put the brush's item down, says why. */
@@ -682,6 +718,14 @@ export class MapCanvas {
       preview.blocked.push(...checkObject(doc, restrictions, item, at.x, at.y, options).blocked);
     }
   }
+}
+
+/** "3 objects and 12 tiles": what an erase would remove. */
+function describeErased(patch: Patch): string {
+  return describeGroup({
+    objects: patch.objects.flatMap((change) => change.before ?? []),
+    tiles: patch.tiles.flatMap((t) => (t.before ? [{ x: t.x, y: t.y, itemId: t.before }] : [])),
+  });
 }
 
 /** Adds the cells from a stroke's last tile to the pointer's, so fast strokes leave no gaps. */
