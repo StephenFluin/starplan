@@ -46,21 +46,79 @@ export function replacesCrops(obj: CatalogItem): boolean {
   return obj.range?.group === 'sprinkler' || obj.range?.group === 'scarecrow';
 }
 
+/** Crops that grow up a trellis, which nobody can walk through. */
+const TRELLIS_CROPS = new Set(['green-bean', 'hops', 'grape']);
+
+/**
+ * Whether people can walk over a ground tile: floors, grass, and tilled soil unless a trellis or tea
+ * bush stands there. Fences, debris and markers are solid.
+ */
+export function walkable(tile: CatalogItem): boolean {
+  if (tile.category === 'paths' || tile.id === 'grass') return true;
+  return tile.category === 'crops' && tile.id !== 'trellis' && tile.id !== 'tea' && !TRELLIS_CROPS.has(tile.id);
+}
+
+/**
+ * What happens to a ground tile when a building goes over it, as in GameLocation.buildStructure:
+ * floors stay underneath (except under a Well), grass and empty tilled soil are cleared, and
+ * anything else (crops, fences, debris) is in the way.
+ */
+export function groundUnderBuilding(tile: CatalogItem, building: CatalogItem): 'keep' | 'clear' | 'block' {
+  if (tile.category === 'paths') return building.building?.floorsUnderneath === false ? 'clear' : 'keep';
+  return tile.id === 'grass' || tile.id === 'farmland' ? 'clear' : 'block';
+}
+
 /** Whether an object may sit on top of a ground tile (possibly replacing it). */
 export function tileAllowsObject(tile: CatalogItem | undefined, obj: CatalogItem): boolean {
   if (!tile) return true;
-  if (obj.category === 'buildings') return false;
+  if (obj.category === 'buildings') return groundUnderBuilding(tile, obj) !== 'block';
   if (tile.category === 'paths') return true;
   if (tile.category === 'crops' && replacesCrops(obj)) return true;
   // Giant crops grow out of tilled soil and crops.
   return obj.category === 'crops' && tile.category === 'crops';
 }
 
-/** Whether a ground tile may go underneath an object. */
+/** Whether a ground tile may go underneath a standing object. Nothing goes under a building. */
 function objectAllowsTile(obj: CatalogItem | undefined, tile: CatalogItem): boolean {
-  return !obj || tileAllowsObject(tile, obj);
+  return !obj || (obj.category !== 'buildings' && tileAllowsObject(tile, obj));
 }
 
+const tileItem = (doc: PlanDocument, x: number, y: number) => {
+  const id = doc.tileAt(x, y);
+  return id ? findItem(id) : undefined;
+};
+
+/** Whether an object other than those being moved stands on a tile. */
+function occupied(doc: PlanDocument, x: number, y: number, ignore: ReadonlySet<number>): boolean {
+  const occupant = doc.objectAt(x, y);
+  return occupant !== null && !ignore.has(occupant.uid);
+}
+
+/** Whether a tile can hold part of an object: allowed ground, nothing else there, and a ground tile it may cover. */
+function fits(doc: PlanDocument, map: RestrictionMap, item: CatalogItem, x: number, y: number, ignore: ReadonlySet<number>): boolean {
+  return !map.isBlocked(x, y, item.restriction) && !occupied(doc, x, y, ignore) && tileAllowsObject(tileItem(doc, x, y), item);
+}
+
+/** Whether people could walk over a tile: passable ground with nothing solid on it. */
+function passable(doc: PlanDocument, map: RestrictionMap, x: number, y: number, ignore: ReadonlySet<number>): boolean {
+  const tile = tileItem(doc, x, y);
+  return !map.isBlocked(x, y, 'accessible') && !occupied(doc, x, y, ignore) && (!tile || walkable(tile));
+}
+
+/** Whether a tile is a path in the game's sense: a floor, grass or soil to walk on, with nothing on it. */
+function onPath(doc: PlanDocument, map: RestrictionMap, x: number, y: number, ignore: ReadonlySet<number>): boolean {
+  const tile = tileItem(doc, x, y);
+  return map.inBounds(x, y) && tile !== undefined && walkable(tile) && !occupied(doc, x, y, ignore);
+}
+
+/**
+ * Whether an object fits at a position: its footprint in bounds, on ground its restriction allows
+ * and clear of other objects. A building, as in the game, also needs its extra placement tiles free
+ * and the tile in front of its door buildable or a path.
+ *
+ * `ignore` lists objects being moved, which don't get in the way. `from` is where the object stands
+ * now when it is being moved or swapped: like the game, it may keep standing on those tiles.
+ */
 export function checkObject(
   doc: PlanDocument,
   map: RestrictionMap,
@@ -69,25 +127,34 @@ export function checkObject(
   y: number,
   options: PlacementOptions,
   ignore: ReadonlySet<number> = new Set(),
+  from?: PlacedObject,
 ): PlacementCheck {
-  const blocked: [number, number][] = [];
+  const blocked = new Map<string, [number, number]>();
+  const block = (tx: number, ty: number) => blocked.set(`${tx},${ty}`, [tx, ty]);
+  const standing = (tx: number, ty: number) => from !== undefined && inFootprint(from, findItem(from.itemId), tx, ty);
   for (const [tx, ty] of footprint({ x, y }, item)) {
-    if (!map.inBounds(tx, ty)) {
-      blocked.push([tx, ty]);
-      continue;
+    if (!map.inBounds(tx, ty) || (!options.anywhere && !standing(tx, ty) && !fits(doc, map, item, tx, ty, ignore))) block(tx, ty);
+  }
+  const rules = item.building;
+  if (rules && !options.anywhere) {
+    for (const area of rules.placementTiles ?? []) {
+      for (const [tx, ty] of footprint({ x: x + area.x, y: y + area.y }, area)) {
+        const free = area.passableOnly ? passable(doc, map, tx, ty, ignore) : fits(doc, map, item, tx, ty, ignore);
+        if (!free) block(tx, ty);
+      }
     }
-    if (options.anywhere) continue;
-    const occupant = doc.objectAt(tx, ty);
-    const tile = doc.tileAt(tx, ty);
-    if (
-      map.isBlocked(tx, ty, item.restriction) ||
-      (occupant && !ignore.has(occupant.uid)) ||
-      !tileAllowsObject(tile ? findItem(tile) : undefined, item)
-    ) {
-      blocked.push([tx, ty]);
+    if (rules.door) {
+      const tx = x + rules.door.x;
+      const ty = y + rules.door.y + 1;
+      const own = inFootprint({ x, y }, item, tx, ty) || standing(tx, ty);
+      if (!own && !fits(doc, map, item, tx, ty, ignore) && !onPath(doc, map, tx, ty, ignore)) block(tx, ty);
     }
   }
-  return { ok: blocked.length === 0, blocked };
+  return { ok: blocked.size === 0, blocked: [...blocked.values()] };
+}
+
+function inFootprint(obj: { x: number; y: number }, item: { width: number; height: number } | undefined, x: number, y: number): boolean {
+  return x >= obj.x && y >= obj.y && x < obj.x + (item?.width ?? 1) && y < obj.y + (item?.height ?? 1);
 }
 
 function canPaintTile(doc: PlanDocument, map: RestrictionMap, item: CatalogItem, x: number, y: number, options: PlacementOptions): boolean {
@@ -128,14 +195,19 @@ export function paintTiles(doc: PlanDocument, map: RestrictionMap, item: Catalog
   return patch;
 }
 
-/** Adds tile removals for crops an object is about to replace. */
-function clearReplacedCrops(doc: PlanDocument, item: CatalogItem, x: number, y: number, patch: Patch): void {
-  if (!replacesCrops(item)) return;
+/**
+ * Adds tile removals for the ground an object clears where it lands: crops under sprinklers and
+ * scarecrows; grass, tilled soil and (under a Well) floors under buildings.
+ */
+function clearGround(doc: PlanDocument, item: CatalogItem, x: number, y: number, patch: Patch): void {
+  const building = item.category === 'buildings';
+  if (!building && !replacesCrops(item)) return;
   for (const [tx, ty] of footprint({ x, y }, item)) {
     const before = doc.tileAt(tx, ty);
-    if (before && findItem(before)?.category === 'crops' && !patch.tiles.some((t) => t.x === tx && t.y === ty)) {
-      patch.tiles.push({ x: tx, y: ty, before, after: null });
-    }
+    const tile = before ? findItem(before) : undefined;
+    if (!before || !tile) continue;
+    const clears = building ? groundUnderBuilding(tile, item) === 'clear' : tile.category === 'crops';
+    if (clears && !patch.tiles.some((t) => t.x === tx && t.y === ty)) patch.tiles.push({ x: tx, y: ty, before, after: null });
   }
 }
 
@@ -145,15 +217,11 @@ export function placeAt(doc: PlanDocument, item: CatalogItem, positions: readonl
   for (const { x, y } of positions) {
     const placed: PlacedObject = { uid: doc.allocateUid(), itemId: item.id, x, y };
     patch.objects.push({ uid: placed.uid, before: null, after: placed });
-    clearReplacedCrops(doc, item, x, y, patch);
+    clearGround(doc, item, x, y, patch);
   }
   return patch;
 }
 
-/**
- * Places copies of an object across the rectangle, stepping by its footprint.
- * A single click is just a 1x1 rectangle, which places one object.
- */
 /** Where {@link placeObjects} puts copies of an item to fill a rectangle: stepping by its footprint, so they never overlap. */
 export function objectPositions(item: CatalogItem, rect: TileRect): { x: number; y: number }[] {
   const positions: { x: number; y: number }[] = [];
@@ -165,13 +233,14 @@ export function objectPositions(item: CatalogItem, rect: TileRect): { x: number;
   return positions;
 }
 
+/** Places copies of an object across the rectangle where they fit. A click is a 1x1 rectangle, which places one. */
 export function placeObjects(doc: PlanDocument, map: RestrictionMap, item: CatalogItem, rect: TileRect, options: PlacementOptions): Patch {
   const patch = emptyPatch();
   for (const { x, y } of objectPositions(item, rect)) {
     if (!checkObject(doc, map, item, x, y, options).ok) continue;
     const placed: PlacedObject = { uid: doc.allocateUid(), itemId: item.id, x, y };
     patch.objects.push({ uid: placed.uid, before: null, after: placed });
-    clearReplacedCrops(doc, item, x, y, patch);
+    clearGround(doc, item, x, y, patch);
   }
   return patch;
 }
@@ -191,7 +260,11 @@ export function erase(doc: PlanDocument, rect: TileRect): Patch {
   return patch;
 }
 
-/** Swaps a placed object for another item in place. Returns null when the new item doesn't fit. */
+/**
+ * Swaps a placed object for another item in place. Returns null when the new item doesn't fit.
+ * Like an upgrade in the game, it only needs room for any tiles a bigger footprint adds. `map`
+ * should leave out the object's own effect on the ground (PlannerStore.restrictionsIgnoring).
+ */
 export function swapObject(
   doc: PlanDocument,
   map: RestrictionMap,
@@ -201,17 +274,21 @@ export function swapObject(
 ): Patch | null {
   const obj = doc.object(uid);
   if (!obj || obj.itemId === item.id) return null;
-  // Tiles the object already stands on stay valid (default buildings often sit on tiles the
-  // restriction data marks unbuildable); only tiles a larger footprint adds are checked.
-  const current = new Set([...footprint(obj, findItem(obj.itemId))].map(([x, y]) => `${x},${y}`));
-  const { blocked } = checkObject(doc, map, item, obj.x, obj.y, options, new Set([uid]));
-  if (blocked.some(([x, y]) => !current.has(`${x},${y}`))) return null;
+  const current = findItem(obj.itemId);
+  const ignore = new Set([uid]);
+  for (const [x, y] of footprint(obj, item)) {
+    if (inFootprint(obj, current, x, y)) continue;
+    if (!map.inBounds(x, y) || (!options.anywhere && !fits(doc, map, item, x, y, ignore))) return null;
+  }
   const patch: Patch = { tiles: [], objects: [{ uid, before: obj, after: { ...obj, itemId: item.id } }] };
-  clearReplacedCrops(doc, item, obj.x, obj.y, patch);
+  clearGround(doc, item, obj.x, obj.y, patch);
   return patch;
 }
 
-/** Moves a group of objects by an offset. Returns null when any of them can't land. */
+/**
+ * Moves a group of objects by an offset. Returns null when any of them can't land. `map` should
+ * leave out the moving objects' own effects on the ground (PlannerStore.restrictionsIgnoring).
+ */
 export function moveObjects(
   doc: PlanDocument,
   map: RestrictionMap,
@@ -226,9 +303,9 @@ export function moveObjects(
     const obj = doc.object(uid);
     const item = obj && findItem(obj.itemId);
     if (!obj || !item) continue;
-    if (!checkObject(doc, map, item, obj.x + dx, obj.y + dy, options, ignore).ok) return null;
+    if (!checkObject(doc, map, item, obj.x + dx, obj.y + dy, options, ignore, obj).ok) return null;
     patch.objects.push({ uid, before: obj, after: { ...obj, x: obj.x + dx, y: obj.y + dy } });
-    clearReplacedCrops(doc, item, obj.x + dx, obj.y + dy, patch);
+    clearGround(doc, item, obj.x + dx, obj.y + dy, patch);
   }
   return patch;
 }

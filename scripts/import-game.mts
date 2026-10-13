@@ -4,12 +4,14 @@
  *
  * Usage: node scripts/import-game.mts "<path to Content (unpacked)>"
  *
- * Writes cropped building, machine, crop and tree sprites to public/assets/game/ and their draw metadata to
- * src/app/core/data/game-art.generated.ts. Stardew Valley's art is © ConcernedApe.
+ * Writes cropped building, machine, crop and tree sprites to public/assets/game/, and their draw
+ * metadata and the buildings' placement rules to src/app/core/data/game-art.generated.ts.
+ * Stardew Valley's art is © ConcernedApe.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { type Image, crop, decodePng, encodePng } from './png.mts';
+import type { BuildingRules, GroundEffect } from '../src/app/core/data/game-art.ts';
+import { type Image, blank, crop, decodePng, encodePng, paste } from './png.mts';
 
 const TILE = 16;
 const ROOT = resolve(import.meta.dirname, '..');
@@ -21,11 +23,24 @@ if (!source) {
 }
 const content = resolve(source);
 
+interface DataRect {
+  X: number;
+  Y: number;
+  Width: number;
+  Height: number;
+}
+
 interface BuildingData {
   Texture: string;
   Size: { X: number; Y: number };
-  SourceRect?: { X: number; Y: number; Width: number; Height: number };
+  SourceRect?: DataRect;
   DrawOffset?: string;
+  HumanDoor?: { X: number; Y: number };
+  AdditionalPlacementTiles?: { TileArea: DataRect; OnlyNeedsToBePassable: boolean }[] | null;
+  AllowsFlooringUnderneath?: boolean;
+  /** Rows of X (solid) and O (passable), which may reach past the footprint. */
+  CollisionMap?: string | null;
+  DrawLayers?: { Texture: string | null; SourceRect: DataRect; DrawPosition: string; DrawInBackground: boolean }[] | null;
 }
 
 interface Rect {
@@ -153,6 +168,81 @@ const EXTRAS: Record<string, { texture: string }> = {
   mailbox: { texture: 'Mailbox' },
 };
 
+/**
+ * The ground under and around the greenhouse, which the game sets in code (GreenhouseBuilding)
+ * rather than in data. It draws a stone path on the 3x2 doorstep below its door, and a shadow
+ * reaching one tile left of its footprint and two rows below it. doesTileHaveProperty makes the
+ * doorstep unbuildable and untillable, and the rest of that area buildable but untillable.
+ */
+function greenhouseGround(data: BuildingData): { ground: GroundEffect[]; background: Image } {
+  const { X: width, Y: height } = data.Size;
+  const door = data.HumanDoor!;
+  const ground: GroundEffect[] = [
+    { x: door.X - 1, y: door.Y + 1, width: 3, height: height + 1 - door.Y, buildable: false, tillable: false },
+    { x: -1, y: 0, width: width + 1, height: height + 1, buildable: true, tillable: false },
+    { x: 1, y: height + 1, width: width - 2, height: 1, buildable: true, tillable: false },
+  ];
+  // DrawEntranceTiles: outdoor tiles 812 (top row) and 838 (bottom row) on the doorstep. Then
+  // drawShadow, one tile left of the footprint, with a gap for the path.
+  const background = blank((width + 1) * TILE, 9 * TILE);
+  const outdoors = texture('Maps/spring_outdoorsTileSheet');
+  const columns = outdoors.width / TILE;
+  const tile = (index: number) => crop(outdoors, (index % columns) * TILE, Math.floor(index / columns) * TILE, TILE, TILE);
+  for (let i = 0; i < 3; i++) {
+    paste(background, tile(812), (door.X + i) * TILE, (door.Y + 1) * TILE);
+    paste(background, tile(838), (door.X + i) * TILE, (door.Y + 2) * TILE);
+  }
+  paste(background, crop(texture('Buildings/Greenhouse'), 112, 144, 128, 144), 0, 0);
+  return { ground, background };
+}
+
+/** Placement rules and ground art for a catalog building, from its game data. */
+function buildingRules(id: string, art: BuildingArt, data: BuildingData, spriteHeight: number, outDir: string): BuildingRules {
+  const rules: BuildingRules = { floorsUnderneath: data.AllowsFlooringUnderneath ?? true };
+  if (data.HumanDoor && data.HumanDoor.X >= 0) rules.door = { x: data.HumanDoor.X, y: data.HumanDoor.Y };
+  const placement = data.AdditionalPlacementTiles ?? [];
+  if (placement.length) {
+    rules.placementTiles = placement.map(({ TileArea: a, OnlyNeedsToBePassable }) => ({ x: a.X, y: a.Y, width: a.Width, height: a.Height, passableOnly: OnlyNeedsToBePassable }));
+  }
+  // Solid tiles of the collision map beyond the footprint (the farmhouse's mailbox).
+  const ground: GroundEffect[] = [];
+  const rows = (data.CollisionMap ?? '').trim().split('\n').map((row) => row.trim());
+  rows.forEach((row, y) => {
+    [...row].forEach((cell, x) => {
+      if (cell === 'X' && (x >= data.Size.X || y >= data.Size.Y)) ground.push({ x, y, width: 1, height: 1, solid: true });
+    });
+  });
+
+  let background: { image: Image; x: number; y: number } | null = null;
+  if (art.building === 'Greenhouse') {
+    const greenhouse = greenhouseGround(data);
+    ground.push(...greenhouse.ground);
+    background = { image: greenhouse.background, x: -TILE, y: 0 };
+  }
+  // Draw layers the game puts on the ground (the pet bowl's platform), placed from the sprite's top-left.
+  for (const layer of data.DrawLayers ?? []) {
+    if (!layer.DrawInBackground) continue;
+    if (background) throw new Error(`${id} has more than one background`);
+    const sheet = texture(layer.Texture ?? `Buildings/${art.texture ?? data.Texture.split('\\').pop()!}`);
+    const r = layer.SourceRect;
+    const [x, y] = layer.DrawPosition.split(',').map((v) => Number(v.trim()));
+    background = { image: crop(sheet, r.X, r.Y, r.Width, r.Height), x, y: data.Size.Y * TILE - spriteHeight + y };
+  }
+  if (ground.length) rules.ground = ground;
+  if (background) {
+    // Named after the texture, so variants that share one (the broken and repaired greenhouse) share the file.
+    const file = `${(art.texture ?? art.building).toLowerCase().replace(/\s+/g, '-')}-background.png`;
+    writeFileSync(join(outDir, file), encodePng(background.image));
+    rules.background = { file, x: background.x, y: background.y, width: background.image.width, height: background.image.height };
+  }
+  return rules;
+}
+
+/** A plain data value as a TypeScript literal. */
+function literal(value: unknown): string {
+  return JSON.stringify(value).replace(/"(\w+)":/g, '$1: ').replace(/,/g, ', ').replace(/{/g, '{ ').replace(/}/g, ' }');
+}
+
 const images = new Map<string, Image>();
 /** A texture by its content path, e.g. "Buildings/Coop" or "TileSheets\\Craftables". */
 function texture(name: string): Image {
@@ -176,6 +266,7 @@ function main() {
   mkdirSync(outDir, { recursive: true });
 
   const entries: string[] = [];
+  const rules: string[] = [];
   for (const [id, art] of Object.entries(BUILDINGS)) {
     const data = buildings[art.building];
     if (!data) throw new Error(`Data/Buildings.json has no "${art.building}"`);
@@ -190,6 +281,7 @@ function main() {
     entries.push(
       `  ${JSON.stringify(id)}: { file: ${JSON.stringify(file)}, width: ${rect.width}, height: ${rect.height}, offsetX: ${offsetX}, offsetY: ${offsetY}, footprint: { width: ${data.Size.X}, height: ${data.Size.Y} } },`,
     );
+    rules.push(`  ${JSON.stringify(id)}: ${literal(buildingRules(id, art, data, rect.height, outDir))},`);
   }
 
   const save = (id: string, sheet: Image, rect: Rect, footprint: { width: number; height: number }) => {
@@ -225,7 +317,7 @@ function main() {
 
   const ts = `// Generated by scripts/import-game.mts from the unpacked game content. Do not edit by hand.
 // Stardew Valley's art is © ConcernedApe.
-import { GameArt, GameSprite } from './game-art';
+import { BuildingRules, GameArt, GameSprite } from './game-art';
 
 /** Building, machine, crop and tree art by catalog id. */
 export const GAME_ART: Readonly<Record<string, GameArt>> = {
@@ -236,9 +328,14 @@ ${entries.join('\n')}
 export const GAME_SPRITES: Readonly<Record<string, GameSprite>> = {
 ${extras.join('\n')}
 };
+
+/** How each building sits on the farm, by catalog id. */
+export const BUILDING_RULES: Readonly<Record<string, BuildingRules>> = {
+${rules.join('\n')}
+};
 `;
   writeFileSync(join(ROOT, 'src/app/core/data/game-art.generated.ts'), ts);
-  console.log(`Imported ${entries.length} items and ${extras.length} extra sprites.`);
+  console.log(`Imported ${entries.length} items, ${extras.length} extra sprites and ${rules.length} buildings' rules.`);
 }
 
 main();

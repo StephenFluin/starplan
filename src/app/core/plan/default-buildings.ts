@@ -43,13 +43,20 @@ export function defaultBuildings(layout: LayoutInfo): DefaultBuilding[] {
 
 const GREENHOUSE_IDS = new Set(variantsOf('greenhouse').map((item) => item.id));
 
+export function isGreenhouse(itemId: string): boolean {
+  return GREENHOUSE_IDS.has(itemId);
+}
+
+/** Where the layout's greenhouse starts (its footprint's top-left), if it has one. */
+export function greenhouseStart(layout: LayoutInfo): TilePoint | null {
+  return layout.greenhouse ? { x: layout.greenhouse.x, y: layout.greenhouse.y + legacySpriteOffset('greenhouse') } : null;
+}
+
 /** Whether a greenhouse stands at the layout's start location. */
 export function greenhouseAtStart(doc: PlanDocument, layout: LayoutInfo): boolean {
-  if (!layout.greenhouse) return false;
-  const x = layout.greenhouse.x;
-  const y = layout.greenhouse.y + legacySpriteOffset('greenhouse');
-  const obj = doc.objectAt(x, y);
-  return obj !== null && obj.x === x && obj.y === y && GREENHOUSE_IDS.has(obj.itemId);
+  const start = greenhouseStart(layout);
+  const obj = start && doc.objectAt(start.x, start.y);
+  return Boolean(obj && start && obj.x === start.x && obj.y === start.y && isGreenhouse(obj.itemId));
 }
 
 /**

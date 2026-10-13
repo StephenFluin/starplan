@@ -48,6 +48,20 @@ export class RestrictionMap {
     return new RestrictionMap(this.width, this.height, cells);
   }
 
+  /** A copy with some tiles' bits replaced. */
+  withTiles(tiles: Iterable<readonly [x: number, y: number, bits: number]>): RestrictionMap {
+    const cells = this.cells.slice();
+    for (const [x, y, bits] of tiles) {
+      if (this.inBounds(x, y)) cells[y * this.width + x] = bits;
+    }
+    return new RestrictionMap(this.width, this.height, cells);
+  }
+
+  /** Whether another map has the same size and restrictions. */
+  equals(other: RestrictionMap): boolean {
+    return this.width === other.width && this.height === other.height && this.cells.every((bits, i) => bits === other.cells[i]);
+  }
+
   inBounds(x: number, y: number): boolean {
     return x >= 0 && y >= 0 && x < this.width && y < this.height;
   }

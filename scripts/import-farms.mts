@@ -6,8 +6,7 @@
  *
  * For each farm type it renders the spring map into public/assets/layouts/<id>.png, derives the
  * placement restrictions from the map's tile properties into public/assets/restrictions/<id>.txt,
- * writes the default building spots to src/app/core/data/farms.generated.ts, and cuts the greenhouse's
- * doorstep path out of the outdoor tilesheet.
+ * and writes the default building spots to src/app/core/data/farms.generated.ts.
  * Stardew Valley's art is © ConcernedApe.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -297,21 +296,6 @@ function encodeMask(mask: Uint8Array): string {
   return out;
 }
 
-/**
- * The stone path the game lays in front of the greenhouse door: its 3x2 doorstep, tiles 812 (top
- * row) and 838 (bottom row) of the outdoor tilesheet. Drawn with the greenhouse so it moves with it.
- */
-function greenhouseDoorstep(): Image {
-  const set: Tileset = { firstGid: 0, image: sheet('spring_outdoorsTileSheet'), columns: 0, props: new Map() };
-  set.columns = Math.floor(set.image.width / TILE);
-  const out: Image = { width: 3 * TILE, height: 2 * TILE, data: new Uint8Array(3 * TILE * 2 * TILE * 4) };
-  for (let x = 0; x < 3; x++) {
-    drawTile(out, set, 812, x * TILE, 0, 0);
-    drawTile(out, set, 838, x * TILE, TILE, 0);
-  }
-  return out;
-}
-
 // --- Output ----------------------------------------------------------------------------------
 
 function point(map: TmxMap, property: string, fallback: Point): Point {
@@ -326,8 +310,6 @@ function main() {
   const maskDir = join(ROOT, 'public/assets/restrictions');
   mkdirSync(layoutDir, { recursive: true });
   mkdirSync(maskDir, { recursive: true });
-
-  writeFileSync(join(ROOT, 'public/assets/game/greenhouse-doorstep.png'), encodePng(greenhouseDoorstep()));
 
   const entries: string[] = [];
   for (const farm of FARMS) {

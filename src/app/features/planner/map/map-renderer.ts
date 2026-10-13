@@ -27,9 +27,6 @@ const key = (x: number, y: number) => `${x},${y}`;
 /** Every farmhouse variant carries the mailbox, just right of its footprint on the bottom row. */
 const HOUSE_IDS = new Set(variantsOf('house').map((item) => item.id));
 const MAILBOX = GAME_SPRITES['mailbox'];
-/** Every greenhouse variant carries the stone path the game lays on its 3x2 doorstep. */
-const GREENHOUSE_IDS = new Set(variantsOf('greenhouse').map((item) => item.id));
-const GREENHOUSE_DOORSTEP = 'assets/game/greenhouse-doorstep.png';
 
 /** Resolves an app-relative asset path against the document base, so loaders and caches agree on one key. */
 function absoluteUrl(path: string): string {
@@ -44,8 +41,10 @@ export class MapRenderer {
   private readonly app = new Application();
   private readonly world = new Container();
   private readonly background = new Sprite();
-  /** The greenhouse's dirt patch, shown while the greenhouse stands at its start location. */
+  /** The sand the greenhouse's first move lays over its start location. */
   private readonly greenhouseDirt = new Sprite();
+  /** Art buildings draw on the ground (the greenhouse's shadow and doorstep), under floors. */
+  private readonly groundLayer = new Container();
   private readonly tileLayer = new Container();
   private readonly objectLayer = new Container({ sortableChildren: true });
   private readonly rangeLayer = new Graphics();
@@ -56,6 +55,7 @@ export class MapRenderer {
   private grid: TilingSprite | null = null;
   private readonly tileSprites = new Map<string, Sprite>();
   private readonly objectSprites = new Map<number, Container>();
+  private readonly groundSprites = new Map<number, Sprite>();
   private readonly selectedUids = new Set<number>();
   private hoveredUid: number | null = null;
   private alwaysShowRanges: readonly RangeGroup[] = [];
@@ -90,7 +90,16 @@ export class MapRenderer {
     host.appendChild(this.app.canvas);
     this.app.canvas.style.display = 'block';
 
-    this.world.addChild(this.background, this.greenhouseDirt, this.tileLayer, this.objectLayer, this.rangeLayer, this.overlayLayer, this.previewLayer);
+    this.world.addChild(
+      this.background,
+      this.greenhouseDirt,
+      this.groundLayer,
+      this.tileLayer,
+      this.objectLayer,
+      this.rangeLayer,
+      this.overlayLayer,
+      this.previewLayer,
+    );
     this.previewLayer.addChild(this.ghostLayer, this.previewGraphics);
     this.app.stage.addChild(this.world);
     this.grid = new TilingSprite({ texture: this.createGridTexture(), alpha: 0.35 });
@@ -98,11 +107,13 @@ export class MapRenderer {
     this.world.addChildAt(this.grid, this.world.getChildIndex(this.objectLayer));
 
     // Texture.from() only finds preloaded images, so load every sprite up front, including the
-    // game sprites drawn as parts of other items (the mailbox, the greenhouse doorstep).
+    // game sprites drawn as parts of other items (the mailbox) and buildings' ground art.
     await Assets.load([
-      ...CATALOG.map((item) => absoluteUrl(spriteUrl(item))),
-      ...Object.values(GAME_SPRITES).map((sprite) => absoluteUrl(`assets/game/${sprite.file}`)),
-      absoluteUrl(GREENHOUSE_DOORSTEP),
+      ...new Set([
+        ...CATALOG.map((item) => absoluteUrl(spriteUrl(item))),
+        ...CATALOG.flatMap((item) => (item.building?.background ? [absoluteUrl(`assets/game/${item.building.background.file}`)] : [])),
+        ...Object.values(GAME_SPRITES).map((sprite) => absoluteUrl(`assets/game/${sprite.file}`)),
+      ]),
     ]);
 
     this.resizeObserver = new ResizeObserver(() => {
@@ -173,8 +184,10 @@ export class MapRenderer {
     if (!this.doc) return;
     for (const sprite of this.tileSprites.values()) sprite.destroy();
     for (const sprite of this.objectSprites.values()) sprite.destroy();
+    for (const sprite of this.groundSprites.values()) sprite.destroy();
     this.tileSprites.clear();
     this.objectSprites.clear();
+    this.groundSprites.clear();
     for (const [cell, itemId] of this.doc.allTiles()) {
       const [x, y] = parseKey(cell);
       this.setTile(x, y, itemId);
@@ -229,15 +242,34 @@ export class MapRenderer {
     view.tint = this.selectedUids.has(obj.uid) ? 0x9ecbff : 0xffffff;
     this.objectLayer.addChild(view);
     this.objectSprites.set(obj.uid, view);
+    const ground = this.createGroundSprite(item);
+    if (ground) {
+      ground.position.set(obj.x * TILE + ground.x, obj.y * TILE + ground.y);
+      this.groundLayer.addChild(ground);
+      this.groundSprites.set(obj.uid, ground);
+    }
+  }
+
+  /** The art a building draws on the ground, positioned relative to its footprint's top-left. */
+  private createGroundSprite(item: CatalogItem): Sprite | null {
+    const art = item.building?.background;
+    if (!art) return null;
+    const sprite = new Sprite(Texture.from(absoluteUrl(`assets/game/${art.file}`)));
+    sprite.position.set(art.x, art.y);
+    sprite.setSize(art.width, art.height);
+    return sprite;
   }
 
   /**
    * An object's sprite plus anything attached to it (the farmhouse's mailbox). The view's origin is
    * the footprint's top-left; sprites sit on the footprint's bottom edge, so roofs and lids extend
-   * above it.
+   * above it. Ghosts include the art the object draws on the ground, which placed objects draw on
+   * the ground layer.
    */
-  private createObjectView(item: CatalogItem): Container {
+  private createObjectView(item: CatalogItem, withGround = false): Container {
     const view = new Container();
+    const ground = withGround && this.createGroundSprite(item);
+    if (ground) view.addChild(ground);
     const sprite = new Sprite(Texture.from(absoluteUrl(spriteUrl(item))));
     const bottom = item.height * TILE;
     if (item.art) {
@@ -257,18 +289,14 @@ export class MapRenderer {
       mailbox.position.set(item.width * TILE, bottom - MAILBOX.height);
       view.addChild(mailbox);
     }
-    if (GREENHOUSE_IDS.has(item.id)) {
-      // The path fills the game's 3x2 doorstep, two tiles in from the left, below the footprint.
-      const path = new Sprite(Texture.from(absoluteUrl(GREENHOUSE_DOORSTEP)));
-      path.position.set(2 * TILE, bottom);
-      view.addChild(path);
-    }
     return view;
   }
 
   private removeObject(uid: number): void {
     this.objectSprites.get(uid)?.destroy();
     this.objectSprites.delete(uid);
+    this.groundSprites.get(uid)?.destroy();
+    this.groundSprites.delete(uid);
   }
 
   // --- Overlays ------------------------------------------------------------
@@ -354,7 +382,7 @@ export class MapRenderer {
         for (const [x, y] of rangeTiles(ghost.item.range, ghost.x, ghost.y)) g.rect(x * TILE, y * TILE, TILE, TILE);
         g.fill({ color: ghost.item.range.color, alpha: 0.45 });
       }
-      const view = this.createObjectView(ghost.item);
+      const view = this.createObjectView(ghost.item, true);
       view.position.set(ghost.x * TILE, ghost.y * TILE);
       view.alpha = 0.7;
       this.ghostLayer.addChild(view);

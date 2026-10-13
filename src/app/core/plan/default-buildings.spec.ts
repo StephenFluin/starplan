@@ -1,14 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { LAYOUTS } from '../data/layouts';
+import { findItem } from '../data/catalog';
+import { restrictionsWithBuildings } from './building-ground';
 import { addDefaultBuildings, applyEdit, defaultBuildings, greenhouseDirtShown } from './default-buildings';
 import { PlanDocument, invertPatch } from './plan-document';
-import { PlacementOptions, moveObjects } from './placement';
+import { PlacementOptions, erase, moveObjects, paintTiles, placeObjects } from './placement';
 import { RestrictionMap } from './restriction-map';
 
 const options: PlacementOptions = { anywhere: false, overwrite: true };
 const regular = LAYOUTS.find((l) => l.id === 'regular')!;
 
-/** A new Standard Farm, with restrictions chosen like PlannerStore.restrictions. */
+/** A new Standard Farm, with restrictions worked out like PlannerStore.restrictionsIgnoring. */
 function standardFarm() {
   const base = RestrictionMap.decode(regular.width, regular.height, readFileSync('public/assets/restrictions/regular.txt', 'utf8'));
   const dirt = regular.greenhouseDirt!;
@@ -17,8 +19,9 @@ function standardFarm() {
   doc.apply(addDefaultBuildings(doc, regular));
   return {
     doc,
-    get map(): RestrictionMap {
-      return greenhouseDirtShown(doc, regular) ? withDirt : base;
+    /** Restrictions now, leaving out objects about to move. */
+    map(...moving: number[]): RestrictionMap {
+      return restrictionsWithBuildings(greenhouseDirtShown(doc, regular) ? withDirt : base, doc, new Set(moving));
     },
   };
 }
@@ -36,11 +39,11 @@ describe('default buildings', () => {
   it('lets the pet bowl move and return, but keeps the fence behind it', () => {
     const { doc, map } = standardFarm();
     const uid = doc.objectAt(53, 7)!.uid;
-    const away = moveObjects(doc, map, [uid], -3, 1, options)!;
+    const away = moveObjects(doc, map(uid), [uid], -3, 1, options)!;
     expect(away).not.toBeNull();
     doc.apply(away);
-    expect(moveObjects(doc, map, [uid], 3, -1, options)).not.toBeNull();
-    expect(map.isBlocked(53, 6, 'accessible')).toBe(true);
+    expect(moveObjects(doc, map(uid), [uid], 3, -1, options)).not.toBeNull();
+    expect(map().isBlocked(53, 6, 'accessible')).toBe(true);
   });
 
   for (const [name, start, moves] of [
@@ -54,10 +57,10 @@ describe('default buildings', () => {
       const { doc } = farm;
       const uid = doc.objectAt(start.x, start.y)!.uid;
       for (const dx of moves) {
-        const there = moveObjects(doc, farm.map, [uid], dx, 0, options);
+        const there = moveObjects(doc, farm.map(uid), [uid], dx, 0, options);
         expect(there, `move by ${dx}`).not.toBeNull();
         applyEdit(doc, regular, there!);
-        const back = moveObjects(doc, farm.map, [uid], -dx, 0, options);
+        const back = moveObjects(doc, farm.map(uid), [uid], -dx, 0, options);
         expect(back, `move back from ${dx}`).not.toBeNull();
         applyEdit(doc, regular, back!);
       }
@@ -71,28 +74,51 @@ describe('default buildings', () => {
     const farm = standardFarm();
     const { doc } = farm;
     const uid = doc.objectAt(25, 10)!.uid;
-    expect(farm.map.isBlocked(33, 12, 'buildable')).toBe(true);
-    expect(moveObjects(doc, farm.map, [uid], 3, 0, options)).toBeNull();
+    expect(farm.map(uid).isBlocked(33, 12, 'buildable')).toBe(true);
+    expect(moveObjects(doc, farm.map(uid), [uid], 3, 0, options)).toBeNull();
 
-    const away = moveObjects(doc, farm.map, [uid], -3, 0, options)!;
+    const away = moveObjects(doc, farm.map(uid), [uid], -3, 0, options)!;
     applyEdit(doc, regular, away);
     expect(doc.greenhouseMoved).toBe(true);
-    expect(farm.map.isBlocked(33, 12, 'buildable')).toBe(false);
-    expect(moveObjects(doc, farm.map, [uid], 6, 0, options)).not.toBeNull();
+    expect(farm.map(uid).isBlocked(33, 12, 'buildable')).toBe(false);
+    expect(moveObjects(doc, farm.map(uid), [uid], 6, 0, options)).not.toBeNull();
 
     // Undoing the first move brings the grass back.
     doc.apply(invertPatch(away));
     expect(greenhouseDirtShown(doc, regular)).toBe(false);
-    expect(farm.map.isBlocked(33, 12, 'buildable')).toBe(true);
+    expect(farm.map(uid).isBlocked(33, 12, 'buildable')).toBe(true);
+  });
+
+  it('lets the greenhouse move over a cobblestone path, which stays under it', () => {
+    const farm = standardFarm();
+    const { doc } = farm;
+    const uid = doc.objectAt(25, 10)!.uid;
+    applyEdit(doc, regular, moveObjects(doc, farm.map(uid), [uid], -3, 0, options)!);
+    doc.apply(paintTiles(doc, farm.map(), findItem('road')!, { x: 30, y: 10, width: 4, height: 8 }, options));
+    const over = moveObjects(doc, farm.map(uid), [uid], 6, 0, options);
+    expect(over).not.toBeNull();
+    applyEdit(doc, regular, over!);
+    expect(doc.tileAt(31, 12)).toBe('road');
+    // Its doorstep and door now stand on the path.
+    expect(doc.objectAt(31, 16)).toBeNull();
+    expect(doc.tileAt(31, 16)).toBe('road');
+  });
+
+  it('lets a deleted greenhouse be built again where it started', () => {
+    const farm = standardFarm();
+    const { doc } = farm;
+    applyEdit(doc, regular, erase(doc, { x: 25, y: 10, width: 1, height: 1 }));
+    expect(doc.objectAt(25, 10)).toBeNull();
+    expect(placeObjects(doc, farm.map(), findItem('greenhouse')!, { x: 25, y: 10, width: 1, height: 1 }, options).objects).toHaveLength(1);
   });
 
   it('lets the shipping bin move and return', () => {
     const { doc, map } = standardFarm();
     const uid = doc.objectAt(71, 14)!.uid;
-    const away = moveObjects(doc, map, [uid], 3, 0, options)!;
+    const away = moveObjects(doc, map(uid), [uid], 3, 0, options)!;
     expect(away).not.toBeNull();
     doc.apply(away);
-    expect(moveObjects(doc, map, [uid], -3, 0, options)).not.toBeNull();
+    expect(moveObjects(doc, map(uid), [uid], -3, 0, options)).not.toBeNull();
   });
 
   // Nothing in the map data should reserve the ground in front of a default building.
@@ -104,7 +130,7 @@ describe('default buildings', () => {
       const { doc, map } = standardFarm();
       const uid = doc.objectAt(start.x, start.y)!.uid;
       for (const dy of steps) {
-        expect(moveObjects(doc, map, [uid], 0, dy, options), `move down ${dy}`).not.toBeNull();
+        expect(moveObjects(doc, map(uid), [uid], 0, dy, options), `move down ${dy}`).not.toBeNull();
       }
     });
   }

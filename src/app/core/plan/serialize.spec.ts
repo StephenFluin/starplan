@@ -34,6 +34,19 @@ describe('serialize', () => {
     expect(reloaded.greenhouseMoved).toBe(true);
   });
 
+  it('counts a greenhouse saved away from its start location as moved', () => {
+    const regular = LAYOUTS.find((l) => l.id === 'regular')!;
+    const load = (objects: SavedPlan['objects']) => {
+      const doc = new PlanDocument(80, 65);
+      doc.apply(fromSaved({ v: 4, layout: 'regular', tiles: {}, objects }, doc, regular));
+      return doc.greenhouseMoved;
+    };
+    expect(load([['greenhouse-fixed', 20, 10]])).toBe(true);
+    expect(load([['greenhouse', 25, 10]])).toBe(false);
+    // Imports from the v2 planner leave out the default buildings, which are added afterwards.
+    expect(load([['keg', 5, 5]])).toBe(false);
+  });
+
   describe('pet bowl', () => {
     const regular = LAYOUTS.find((l) => l.id === 'regular')!;
     const load = (objects: SavedPlan['objects'], v: SavedPlan['v'] = 3, layout = regular) => {

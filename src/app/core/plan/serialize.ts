@@ -1,6 +1,6 @@
 import { findItem, variantsOf } from '../data/catalog';
 import { LayoutInfo, TilePoint } from '../data/layout-info';
-import { legacySpriteOffset } from './default-buildings';
+import { greenhouseStart, isGreenhouse, legacySpriteOffset } from './default-buildings';
 import { Patch, PlacedObject, PlanDocument, emptyPatch, parseKey } from './plan-document';
 
 /**
@@ -37,7 +37,8 @@ export function toSaved(layout: string, doc: PlanDocument): SavedPlan {
 
 /**
  * Builds a patch that loads a saved plan into an empty document, dropping unknown items. Given the
- * plan's layout, older plans get the pet bowl their farm image used to show as part of the map.
+ * plan's layout, older plans get the pet bowl their farm image used to show as part of the map, and
+ * a greenhouse saved away from its start location counts as moved.
  */
 export function fromSaved(saved: SavedPlan, doc: PlanDocument, layout?: LayoutInfo): Patch {
   const patch = emptyPatch();
@@ -55,8 +56,15 @@ export function fromSaved(saved: SavedPlan, doc: PlanDocument, layout?: LayoutIn
     patch.objects.push({ uid: obj.uid, before: null, after: obj });
   }
   if (saved.v < 4 && layout?.petBowl) addPaintedPetBowl(patch, doc, layout.petBowl);
-  if (saved.greenhouseMoved) patch.greenhouseMoved = { before: false, after: true };
+  if (saved.greenhouseMoved || (layout && greenhouseLeftStart(patch, layout))) patch.greenhouseMoved = { before: false, after: true };
   return patch;
+}
+
+/** Whether the plan has a greenhouse away from the layout's start location (plans saved before greenhouseMoved existed). */
+function greenhouseLeftStart(patch: Patch, layout: LayoutInfo): boolean {
+  const start = greenhouseStart(layout);
+  const greenhouses = patch.objects.flatMap((change) => (change.after && isGreenhouse(change.after.itemId) ? [change.after] : []));
+  return start !== null && greenhouses.length > 0 && !greenhouses.some((obj) => obj.x === start.x && obj.y === start.y);
 }
 
 const PET_BOWL_IDS = new Set(variantsOf('pet-bowl').map((item) => item.id));

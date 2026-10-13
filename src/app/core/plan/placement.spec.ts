@@ -1,7 +1,7 @@
 import { findItem } from '../data/catalog';
 import { PlanDocument, invertPatch } from './plan-document';
 import { PlacementOptions, checkObject, erase, moveObjects, paintTiles, placeObjects, rectFromCorners } from './placement';
-import { NOT_BUILDABLE, RestrictionMap } from './restriction-map';
+import { IMPASSABLE, NOT_BUILDABLE, RestrictionMap } from './restriction-map';
 
 const item = (id: string) => {
   const found = findItem(id);
@@ -58,13 +58,14 @@ describe('placement', () => {
     expect(checkObject(doc, blocked, item('silo'), 0, 0, { ...strict, anywhere: true }).ok).toBe(true);
   });
 
-  it('stops objects overlapping, and allows craftables on paths but not buildings', () => {
+  it('stops objects overlapping, and allows craftables on paths but not crops', () => {
     doc.apply(placeObjects(doc, map, item('silo'), { x: 0, y: 0, width: 1, height: 1 }, strict));
     expect(checkObject(doc, map, item('keg'), 2, 2, strict).ok).toBe(false);
 
     doc.apply(paintTiles(doc, map, item('road'), { x: 5, y: 5, width: 3, height: 3 }, strict));
+    doc.apply(paintTiles(doc, map, item('parsnip'), { x: 9, y: 9, width: 1, height: 1 }, strict));
     expect(checkObject(doc, map, item('keg'), 5, 5, strict).ok).toBe(true);
-    expect(checkObject(doc, map, item('well'), 5, 5, strict).ok).toBe(false);
+    expect(checkObject(doc, map, item('keg'), 9, 9, strict).ok).toBe(false);
   });
 
   it('fills a dragged rectangle with copies stepped by the footprint', () => {
@@ -92,6 +93,86 @@ describe('placement', () => {
     expect(doc.objectAt(0, 0)).toBeNull();
     expect(doc.objectAt(2, 0)).not.toBeNull();
     expect(moveObjects(doc, map, uids, 20, 0, strict)).toBeNull();
+  });
+
+  // As in the game (GameLocation.buildStructure and Data/Buildings.json).
+  describe('buildings', () => {
+    const paint = (id: string, x: number, y: number, width = 1, height = 1) => doc.apply(paintTiles(doc, map, item(id), { x, y, width, height }, strict));
+    const place = (id: string, x: number, y: number, on = map) => {
+      const patch = placeObjects(doc, on, item(id), { x, y, width: 1, height: 1 }, strict);
+      doc.apply(patch);
+      return patch;
+    };
+
+    it('go over floors, keeping them, and clear grass and tilled soil', () => {
+      paint('road', 0, 0, 3, 1);
+      paint('grass', 0, 1, 3, 1);
+      paint('farmland', 0, 2, 3, 1);
+      const patch = place('silo', 0, 0);
+      expect(patch.objects).toHaveLength(1);
+      expect(patch.tiles.map((t) => t.before)).toEqual(['grass', 'grass', 'grass', 'farmland', 'farmland', 'farmland']);
+      expect(doc.tileAt(1, 0)).toBe('road');
+      expect(doc.tileAt(1, 1)).toBeNull();
+      doc.apply(invertPatch(patch));
+      expect(doc.tileAt(1, 1)).toBe('grass');
+      expect(doc.tileAt(1, 2)).toBe('farmland');
+    });
+
+    it('lose the floor under a Well', () => {
+      paint('road', 0, 0, 3, 3);
+      expect(place('well', 0, 0).tiles).toHaveLength(9);
+      expect(doc.tileCount).toBe(0);
+    });
+
+    it("can't go over crops, fences or debris", () => {
+      for (const id of ['parsnip', 'fence', 'stone', 'trellis']) {
+        doc.clear();
+        paint(id, 1, 1);
+        expect(checkObject(doc, map, item('silo'), 0, 0, strict).blocked, id).toEqual([[1, 1]]);
+      }
+    });
+
+    it('have nothing painted under them once standing', () => {
+      place('silo', 0, 0);
+      paint('road', 0, 0, 5, 1);
+      expect(doc.tileAt(2, 0)).toBeNull();
+      expect(doc.tileAt(3, 0)).toBe('road');
+    });
+
+    it('need the tile in front of their door buildable or a path', () => {
+      // A coop's door is at (1, 2) of its 6x3 footprint.
+      const front = map.withTiles([[1, 3, NOT_BUILDABLE]]);
+      expect(checkObject(doc, front, item('coop'), 0, 0, strict).blocked).toEqual([[1, 3]]);
+      paint('road', 1, 3);
+      expect(checkObject(doc, front, item('coop'), 0, 0, strict).ok).toBe(true);
+      place('keg', 1, 3);
+      expect(checkObject(doc, front, item('coop'), 0, 0, strict).blocked).toEqual([[1, 3]]);
+    });
+
+    it("need the greenhouse's doorstep passable, though only the tile at its door buildable", () => {
+      // The doorstep is the 3x2 below the greenhouse's 7x6 footprint, two tiles in; the door is above (4, 6).
+      const unbuildable = map.withTiles([[3, 6, NOT_BUILDABLE], [5, 6, NOT_BUILDABLE], [4, 7, NOT_BUILDABLE]]);
+      expect(checkObject(doc, unbuildable, item('greenhouse'), 1, 0, strict).ok).toBe(true);
+      paint('parsnip', 3, 6);
+      expect(checkObject(doc, unbuildable, item('greenhouse'), 1, 0, strict).ok).toBe(true);
+      paint('fence', 5, 7);
+      expect(checkObject(doc, unbuildable, item('greenhouse'), 1, 0, strict).blocked).toEqual([[5, 7]]);
+      const water = map.withTiles([[4, 7, IMPASSABLE | NOT_BUILDABLE]]);
+      expect(checkObject(doc, water, item('greenhouse'), 1, 0, strict).blocked).toEqual([[4, 7], [5, 7]]);
+
+      const door = map.withTiles([[4, 6, NOT_BUILDABLE]]);
+      expect(checkObject(doc, door, item('greenhouse'), 1, 0, strict).blocked).toEqual([[5, 7], [4, 6]]);
+      paint('road', 4, 6);
+      expect(checkObject(doc, door, item('greenhouse'), 1, 0, strict).blocked).toEqual([[5, 7]]);
+    });
+
+    it('may keep standing on their own tiles when they move, as in the game', () => {
+      const unbuildable = map.withTiles([0, 1, 2].flatMap((y) => [0, 1, 2].map((x) => [x, y, NOT_BUILDABLE] as const)));
+      place('silo', 0, 0, RestrictionMap.open(10, 10));
+      const uid = doc.objectAt(0, 0)!.uid;
+      expect(moveObjects(doc, unbuildable, [uid], 1, 0, strict)).not.toBeNull();
+      expect(moveObjects(doc, unbuildable, [uid], 0, -1, strict)).toBeNull();
+    });
   });
 
   describe('replacing crops', () => {

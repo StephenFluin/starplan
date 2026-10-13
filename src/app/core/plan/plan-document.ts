@@ -57,6 +57,7 @@ export class PlanDocument {
   /** cell key -> uid of the object covering it. */
   private readonly occupancy = new Map<string, number>();
   private nextUid = 1;
+  private changes = 0;
   /**
    * Whether the greenhouse has ever left its start location. As in the game, the grass under its
    * start location is cleared for good from then on (LayoutInfo.greenhouseDirt).
@@ -67,6 +68,11 @@ export class PlanDocument {
     readonly width: number,
     readonly height: number,
   ) {}
+
+  /** Counts edits, so derived data can tell when it is stale. */
+  get version(): number {
+    return this.changes;
+  }
 
   allocateUid(): number {
     return this.nextUid++;
@@ -129,6 +135,7 @@ export class PlanDocument {
       if (change.after) this.addObject(change.after);
     }
     if (patch.greenhouseMoved) this.greenhouseMoved = patch.greenhouseMoved.after;
+    this.changes++;
   }
 
   clear(): void {
@@ -136,6 +143,7 @@ export class PlanDocument {
     this.objects.clear();
     this.occupancy.clear();
     this.greenhouseMoved = false;
+    this.changes++;
   }
 
   private addObject(obj: PlacedObject): void {
@@ -157,7 +165,8 @@ export class PlanDocument {
   }
 }
 
-export function* footprint(obj: { x: number; y: number }, item: CatalogItem | undefined): Generator<[number, number]> {
+/** The tiles an object covers: its item's footprint, or one tile if the item is unknown. */
+export function* footprint(obj: { x: number; y: number }, item: Pick<CatalogItem, 'width' | 'height'> | undefined): Generator<[number, number]> {
   const width = item?.width ?? 1;
   const height = item?.height ?? 1;
   for (let y = obj.y; y < obj.y + height; y++) {

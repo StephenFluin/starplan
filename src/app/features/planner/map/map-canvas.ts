@@ -142,8 +142,8 @@ export class MapCanvas {
       const unlisten = this.store.listen({
         patched: (patch) => {
           renderer.applyPatch(patch);
-          // Moving the greenhouse off its start location lifts its dirt patch, changing restrictions.
-          if (this.overlaidRestrictions !== this.store.restrictions) this.syncOptions();
+          // Buildings change the ground around them, and the greenhouse's first move clears the grass.
+          if (!this.overlaidRestrictions?.equals(this.store.restrictions)) this.syncOptions();
         },
         reset: () => void this.syncLayout(),
       });
@@ -496,6 +496,7 @@ export class MapCanvas {
       const dx = gesture.moved ? tile.x - gesture.startX : 0;
       const dy = gesture.moved ? tile.y - gesture.startY : 0;
       const ignore = new Set(gesture.uids);
+      const restrictions = store.restrictionsIgnoring(gesture.uids);
       preview.ghosts = [];
       preview.blocked = [];
       for (const uid of gesture.uids) {
@@ -503,7 +504,7 @@ export class MapCanvas {
         const item = obj && findItem(obj.itemId);
         if (!obj || !item) continue;
         preview.ghosts.push({ item, x: obj.x + dx, y: obj.y + dy });
-        preview.blocked.push(...checkObject(store.doc, store.restrictions, item, obj.x + dx, obj.y + dy, options, ignore).blocked);
+        preview.blocked.push(...checkObject(store.doc, restrictions, item, obj.x + dx, obj.y + dy, options, ignore, obj).blocked);
       }
     } else if (gesture?.kind === 'place') {
       const item = findItem(gesture.itemId ?? '');

@@ -103,6 +103,33 @@ export function crop(image: Image, x: number, y: number, width: number, height: 
   return { width, height, data };
 }
 
+/** A transparent image. */
+export function blank(width: number, height: number): Image {
+  return { width, height, data: new Uint8Array(width * height * 4) };
+}
+
+/** Draws an image over another at a position, blending by alpha. Parts outside the target are dropped. */
+export function paste(target: Image, image: Image, x: number, y: number): void {
+  for (let row = 0; row < image.height; row++) {
+    const ty = y + row;
+    if (ty < 0 || ty >= target.height) continue;
+    for (let col = 0; col < image.width; col++) {
+      const tx = x + col;
+      if (tx < 0 || tx >= target.width) continue;
+      const s = (row * image.width + col) * 4;
+      const d = (ty * target.width + tx) * 4;
+      const sa = image.data[s + 3] / 255;
+      const da = target.data[d + 3] / 255;
+      const a = sa + da * (1 - sa);
+      if (a === 0) continue;
+      for (let c = 0; c < 3; c++) {
+        target.data[d + c] = Math.round((image.data[s + c] * sa + target.data[d + c] * da * (1 - sa)) / a);
+      }
+      target.data[d + 3] = Math.round(a * 255);
+    }
+  }
+}
+
 function chunk(type: string, body: Buffer): Buffer {
   const head = Buffer.alloc(8);
   head.writeUInt32BE(body.length, 0);

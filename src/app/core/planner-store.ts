@@ -9,6 +9,7 @@ import { RestrictionMap } from './plan/restriction-map';
 import { SavedPlan, decodePlan, encodePlan, fromSaved, toSaved } from './plan/serialize';
 import { coverageLayout, usesCoverageLayout } from './plan/coverage-layout';
 import { addDefaultBuildings, applyEdit, greenhouseDirtShown } from './plan/default-buildings';
+import { restrictionsWithBuildings } from './plan/building-ground';
 import { LocalPlanInfo, LocalPlans, newPlanId } from './local-plans';
 
 export type Tool = 'brush' | 'eraser' | 'select';
@@ -54,10 +55,31 @@ export class PlannerStore {
   /** The layout's restrictions, and the same with the greenhouse's dirt patch laid over them. */
   private baseRestrictions = RestrictionMap.open(DEFAULT_LAYOUT.width, DEFAULT_LAYOUT.height);
   private dirtRestrictions: RestrictionMap | null = null;
+  /** Restriction maps for the document as it stands, by the objects they leave out. */
+  private restrictionCache: { doc: PlanDocument; version: number; ground: RestrictionMap; maps: Map<string, RestrictionMap> } | null = null;
 
-  /** Where things can go now: the game keeps the greenhouse's dirt patch until the greenhouse moves. */
+  /**
+   * Where things can go now: the farm's ground (with the dirt patch the greenhouse's first move lays),
+   * as the buildings on it change it.
+   */
   get restrictions(): RestrictionMap {
-    return this.dirtRestrictions && greenhouseDirtShown(this.doc, this.layoutState()) ? this.dirtRestrictions : this.baseRestrictions;
+    return this.restrictionsIgnoring([]);
+  }
+
+  /** The same, leaving out objects about to move or change: a moving building doesn't change the ground. */
+  restrictionsIgnoring(uids: readonly number[]): RestrictionMap {
+    const ground = this.dirtRestrictions && greenhouseDirtShown(this.doc, this.layoutState()) ? this.dirtRestrictions : this.baseRestrictions;
+    let cache = this.restrictionCache;
+    if (cache?.doc !== this.doc || cache.version !== this.doc.version || cache.ground !== ground) {
+      cache = this.restrictionCache = { doc: this.doc, version: this.doc.version, ground, maps: new Map() };
+    }
+    const key = [...uids].sort((a, b) => a - b).join();
+    let map = cache.maps.get(key);
+    if (!map) {
+      map = restrictionsWithBuildings(ground, this.doc, new Set(uids));
+      cache.maps.set(key, map);
+    }
+    return map;
   }
 
   /** Bumped after every change to the document, for derived UI state. */
@@ -168,7 +190,7 @@ export class PlannerStore {
   /** Moves objects by an offset. Returns false (and changes nothing) when the move is blocked. */
   move(uids: readonly number[], dx: number, dy: number): boolean {
     if (dx === 0 && dy === 0) return true;
-    const patch = moveObjects(this.doc, this.restrictions, uids, dx, dy, this.options());
+    const patch = moveObjects(this.doc, this.restrictionsIgnoring(uids), uids, dx, dy, this.options());
     if (!patch) return false;
     this.commit(patch);
     return true;
@@ -178,7 +200,7 @@ export class PlannerStore {
   changeVariant(uid: number, item: CatalogItem): boolean {
     const obj = this.doc.object(uid);
     if (obj?.itemId === item.id) return true;
-    const patch = swapObject(this.doc, this.restrictions, uid, item, this.options());
+    const patch = swapObject(this.doc, this.restrictionsIgnoring([uid]), uid, item, this.options());
     if (!patch) return false;
     this.commit(patch);
     return true;
