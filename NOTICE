@@ -8,18 +8,21 @@ Stardew Valley game art
 Stardew Valley, its name, and all of its art (including the sprites and farm
 map images in public/assets/sprites, public/assets/layouts and
 public/assets/game) are © ConcernedApe LLC. They are used here, unmodified
-apart from cropping, for non-commercial fan purposes only, and are not covered
-by this project's code license. If ConcernedApe asks, they will be removed.
+apart from cropping and assembling map tiles, for non-commercial fan purposes
+only, and are not covered by this project's code license. If ConcernedApe
+asks, they will be removed.
 
-- public/assets/sprites and public/assets/layouts: copied from the v2
-  Stardew Valley planner repository (see below), whose author extracted them
-  from the game.
+- public/assets/sprites and the interior images in public/assets/layouts:
+  copied from the v2 Stardew Valley planner repository (see below), whose
+  author extracted them from the game.
+- The farm images in public/assets/layouts: rendered from the game's own map
+  files by scripts/import-farms.mts.
 - public/assets/game: cropped from the game's own content files by
   scripts/import-game.mts.
 
 v2 Stardew Valley farm planner
 ------------------------------
-Item data, farm layout metadata and placement restriction maps are derived
-from the Stardew Valley farm planner by Henrik Peinar
+Item data, interior layout metadata and their placement restriction maps are
+derived from the Stardew Valley farm planner by Henrik Peinar
 (https://github.com/hpeinar/stardewplanner), licensed under the Apache
 License, Version 2.0.

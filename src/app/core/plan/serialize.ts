@@ -8,7 +8,7 @@ import { Patch, PlacedObject, PlanDocument, emptyPatch, parseKey } from './plan-
  * v1: farmhouse and greenhouse positions are the sprite's top-left corner (as in the v2 planner).
  * v2: object positions are the footprint's top-left corner, with a 9x6 farmhouse footprint.
  * v3: as v2, with the game's 9x5 farmhouse footprint (one row lower).
- * v4: as v3, with the pet bowl as an object (it used to be painted into the farm image).
+ * v4: as v3, with the pet bowl as an object (older farm images had it painted in).
  */
 export interface SavedPlan {
   v: 1 | 2 | 3 | 4;
@@ -35,7 +35,7 @@ export function toSaved(layout: string, doc: PlanDocument): SavedPlan {
 
 /**
  * Builds a patch that loads a saved plan into an empty document, dropping unknown items. Given the
- * plan's layout, older plans get the pet bowl their farm image used to show.
+ * plan's layout, older plans get the pet bowl their farm image used to show as part of the map.
  */
 export function fromSaved(saved: SavedPlan, doc: PlanDocument, layout?: LayoutInfo): Patch {
   const patch = emptyPatch();
@@ -52,7 +52,7 @@ export function fromSaved(saved: SavedPlan, doc: PlanDocument, layout?: LayoutIn
     const obj: PlacedObject = { uid: doc.allocateUid(), itemId: item.id, x, y: y + migrationOffset(saved.v, item.id) };
     patch.objects.push({ uid: obj.uid, before: null, after: obj });
   }
-  if (saved.v < 4 && layout?.petBowl && layout.baked) addPaintedPetBowl(patch, doc, layout.petBowl);
+  if (saved.v < 4 && layout?.petBowl) addPaintedPetBowl(patch, doc, layout.petBowl);
   return patch;
 }
 

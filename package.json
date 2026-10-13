@@ -7,6 +7,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "import-v2": "node scripts/import-v2.mts",
+    "import-farms": "node scripts/import-farms.mts",
+    "import-game": "node scripts/import-game.mts",
     "test": "ng test"
   },
   "private": true,

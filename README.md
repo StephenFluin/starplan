@@ -48,7 +48,16 @@ npm run build
 
 ### Game data
 
-Sprites, farm layouts and placement restriction maps are imported from a checkout of the v2 planner:
+The farm maps, building art and their placement rules come from your own copy of the game, unpacked with [StardewXnbHack](https://github.com/Pathoschild/StardewXnbHack):
+
+```bash
+npm run import-farms -- "<Stardew Valley>/Content (unpacked)"
+npm run import-game -- "<Stardew Valley>/Content (unpacked)"
+```
+
+`import-farms` renders each farm type's map and derives its buildable, tillable and accessible tiles from the map's tile properties (writing `public/assets/layouts`, `public/assets/restrictions` and `src/app/core/data/farms.generated.ts`). `import-game` crops building art into `public/assets/game`.
+
+Item sprites, building interiors and community layouts are imported from a checkout of the v2 planner:
 
 ```bash
 git clone --depth 1 https://github.com/hpeinar/stardewplanner.git ../stardewplanner
@@ -142,9 +151,9 @@ OWNER_ID=$(curl -s "https://api.github.com/repos/$REPO" | python3 -c 'import jso
 Starplan is an unofficial, personal, non-commercial fan project. It is not affiliated with, endorsed by, or sponsored by ConcernedApe LLC, and it has no ads and takes no payments or donations.
 
 - **Stardew Valley art:** Stardew Valley, its name and all of its art (the sprites and farm map images under `public/assets`) are © ConcernedApe LLC. They are used for non-commercial fan purposes only and are not covered by this project's code license. If ConcernedApe asks, they will be removed.
-  - `public/assets/sprites` and `public/assets/layouts` come from the [v2 Stardew Valley planner](https://github.com/hpeinar/stardewplanner), whose author extracted them from the game.
-  - `public/assets/game` is cropped from the game's own content by `scripts/import-game.mts`, run against a copy of the game unpacked with [StardewXnbHack](https://github.com/Pathoschild/StardewXnbHack).
-- **v2 planner:** item data, layout metadata and placement restriction maps are derived from the [v2 Stardew Valley planner](https://github.com/hpeinar/stardewplanner) by Henrik Peinar, licensed under Apache-2.0.
+  - The farm images in `public/assets/layouts` are rendered from the game's own maps by `scripts/import-farms.mts`, and `public/assets/game` is cropped from the game's own content by `scripts/import-game.mts`, both run against a copy of the game unpacked with [StardewXnbHack](https://github.com/Pathoschild/StardewXnbHack).
+  - `public/assets/sprites` and the interior images in `public/assets/layouts` come from the [v2 Stardew Valley planner](https://github.com/hpeinar/stardewplanner), whose author extracted them from the game.
+- **v2 planner:** item data, interior layout metadata and their placement restriction maps are derived from the [v2 Stardew Valley planner](https://github.com/hpeinar/stardewplanner) by Henrik Peinar, licensed under Apache-2.0.
 - **Code:** original. No code from the closed-source v3 planner is used.
 
 See [NOTICE](NOTICE) for the full attribution.

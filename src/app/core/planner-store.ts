@@ -2,13 +2,13 @@ import { PLATFORM_ID, Service, computed, effect, inject, signal } from '@angular
 import { isPlatformBrowser } from '@angular/common';
 import { CatalogItem, RangeGroup, findItem, variantsOf } from './data/catalog';
 import { LayoutInfo } from './data/layout-info';
-import { LAYOUTS } from './data/layouts.generated';
+import { LAYOUTS } from './data/layouts';
 import { Patch, PlanDocument, emptyPatch, invertPatch, isEmptyPatch } from './plan/plan-document';
 import { PlacementOptions, TileRect, erase, moveObjects, paintTiles, placeAt, placeObjects, swapObject } from './plan/placement';
 import { RestrictionMap } from './plan/restriction-map';
 import { SavedPlan, decodePlan, encodePlan, fromSaved, toSaved } from './plan/serialize';
 import { coverageLayout, usesCoverageLayout } from './plan/coverage-layout';
-import { addDefaultBuildings, openDefaultSpots } from './plan/default-buildings';
+import { addDefaultBuildings } from './plan/default-buildings';
 import { LocalPlanInfo, LocalPlans, newPlanId } from './local-plans';
 
 export type Tool = 'brush' | 'eraser' | 'select';
@@ -333,9 +333,7 @@ export class PlannerStore {
     try {
       const response = await fetch(`assets/restrictions/${layout.id}.txt`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const map = RestrictionMap.decode(layout.width, layout.height, await response.text());
-      openDefaultSpots(map, layout);
-      return map;
+      return RestrictionMap.decode(layout.width, layout.height, await response.text());
     } catch (error) {
       console.error(`Could not load restrictions for ${layout.id}; placement is unrestricted.`, error);
       return RestrictionMap.open(layout.width, layout.height);
@@ -343,7 +341,7 @@ export class PlannerStore {
   }
 
   private defaultBuildings(layout: LayoutInfo): Patch {
-    return { tiles: [], objects: addDefaultBuildings(this.doc, layout) };
+    return addDefaultBuildings(this.doc, layout);
   }
 
   /** Makes the loaded document the open plan, with fresh history. */

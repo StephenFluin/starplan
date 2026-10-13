@@ -1,7 +1,7 @@
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource, TilingSprite } from 'pixi.js';
 import { CATALOG, CatalogItem, RangeGroup, findItem, spriteUrl, variantsOf } from '../../../core/data/catalog';
 import { GAME_SPRITES } from '../../../core/data/game-art.generated';
-import { LayoutInfo, TilePoint } from '../../../core/data/layout-info';
+import { LayoutInfo } from '../../../core/data/layout-info';
 import { Patch, PlacedObject, PlanDocument, parseKey } from '../../../core/plan/plan-document';
 import { TileRect } from '../../../core/plan/placement';
 import { rangeTiles } from '../../../core/plan/range';
@@ -27,17 +27,9 @@ const key = (x: number, y: number) => `${x},${y}`;
 /** Every farmhouse variant carries the mailbox, just right of its footprint on the bottom row. */
 const HOUSE_IDS = new Set(variantsOf('house').map((item) => item.id));
 const MAILBOX = GAME_SPRITES['mailbox'];
-/** Every greenhouse variant carries the stone path in front of its door (see BakedFeatures.greenhouseDoorstep). */
+/** Every greenhouse variant carries the stone path the game lays on its 3x2 doorstep. */
 const GREENHOUSE_IDS = new Set(variantsOf('greenhouse').map((item) => item.id));
-
-/** Copies a block of tiles out of an image into its own texture. */
-function cutTexture(image: CanvasImageSource, at: TilePoint, width: number, height: number): Texture {
-  const canvas = document.createElement('canvas');
-  canvas.width = width * TILE;
-  canvas.height = height * TILE;
-  canvas.getContext('2d')!.drawImage(image, at.x * TILE, at.y * TILE, width * TILE, height * TILE, 0, 0, width * TILE, height * TILE);
-  return Texture.from(canvas);
-}
+const GREENHOUSE_DOORSTEP = 'assets/game/greenhouse-doorstep.png';
 
 /** Resolves an app-relative asset path against the document base, so loaders and caches agree on one key. */
 function absoluteUrl(path: string): string {
@@ -52,10 +44,6 @@ export class MapRenderer {
   private readonly app = new Application();
   private readonly world = new Container();
   private readonly background = new Sprite();
-  /** Ground tiled over features painted into the background (see LayoutInfo.baked). */
-  private readonly groundPatches = new Container();
-  /** The greenhouse's stone path, cut from the background before it is covered up. */
-  private greenhouseDoorstep: Texture | null = null;
   private readonly tileLayer = new Container();
   private readonly objectLayer = new Container({ sortableChildren: true });
   private readonly rangeLayer = new Graphics();
@@ -98,17 +86,19 @@ export class MapRenderer {
     host.appendChild(this.app.canvas);
     this.app.canvas.style.display = 'block';
 
-    this.world.addChild(this.background, this.groundPatches, this.tileLayer, this.objectLayer, this.rangeLayer, this.overlayLayer, this.previewLayer);
+    this.world.addChild(this.background, this.tileLayer, this.objectLayer, this.rangeLayer, this.overlayLayer, this.previewLayer);
     this.previewLayer.addChild(this.ghostLayer, this.previewGraphics);
     this.app.stage.addChild(this.world);
     this.grid = new TilingSprite({ texture: this.createGridTexture(), alpha: 0.35 });
-    this.world.addChildAt(this.grid, 3);
+    // Above ground tiles, below objects.
+    this.world.addChildAt(this.grid, this.world.getChildIndex(this.objectLayer));
 
     // Texture.from() only finds preloaded images, so load every sprite up front, including the
-    // game sprites drawn as parts of other items (the mailbox).
+    // game sprites drawn as parts of other items (the mailbox, the greenhouse doorstep).
     await Assets.load([
       ...CATALOG.map((item) => absoluteUrl(spriteUrl(item))),
       ...Object.values(GAME_SPRITES).map((sprite) => absoluteUrl(`assets/game/${sprite.file}`)),
+      absoluteUrl(GREENHOUSE_DOORSTEP),
     ]);
 
     this.resizeObserver = new ResizeObserver(() => {
@@ -151,7 +141,6 @@ export class MapRenderer {
       this.background.texture = await Assets.load<Texture>(absoluteUrl(`assets/layouts/${layout.image}`));
       this.background.width = layout.width * TILE;
       this.background.height = layout.height * TILE;
-      this.coverBakedFeatures(layout);
       if (this.grid) {
         this.grid.width = layout.width * TILE;
         this.grid.height = layout.height * TILE;
@@ -244,42 +233,13 @@ export class MapRenderer {
       mailbox.position.set(item.width * TILE, bottom - MAILBOX.height);
       view.addChild(mailbox);
     }
-    if (GREENHOUSE_IDS.has(item.id) && this.greenhouseDoorstep) {
+    if (GREENHOUSE_IDS.has(item.id)) {
       // The path fills the game's 3x2 doorstep, two tiles in from the left, below the footprint.
-      const path = new Sprite(this.greenhouseDoorstep);
+      const path = new Sprite(Texture.from(absoluteUrl(GREENHOUSE_DOORSTEP)));
       path.position.set(2 * TILE, bottom);
       view.addChild(path);
     }
     return view;
-  }
-
-  /**
-   * Hides the farmhouse foundation, mailbox, shipping bin, greenhouse foundation and pet bowl painted
-   * into the farm image by tiling clean ground over them; they are drawn as movable objects instead.
-   */
-  private coverBakedFeatures(layout: LayoutInfo): void {
-    for (const child of this.groundPatches.removeChildren()) child.destroy();
-    this.greenhouseDoorstep = null;
-    const baked = layout.baked;
-    const image = this.background.texture.source.resource as CanvasImageSource | undefined;
-    if (!baked || !image) return;
-
-    if (baked.greenhouseDoorstep) this.greenhouseDoorstep = cutTexture(image, baked.greenhouseDoorstep, 3, 2);
-    const grounds = new Map<string, Texture>();
-    for (const area of baked.cover) {
-      const sample = area.ground ?? baked.groundSample;
-      const sampleKey = key(sample.x, sample.y);
-      let ground = grounds.get(sampleKey);
-      if (!ground) {
-        ground = cutTexture(image, sample, 2, 2);
-        grounds.set(sampleKey, ground);
-      }
-      const patch = new TilingSprite({ texture: ground, width: area.width * TILE, height: area.height * TILE });
-      patch.position.set(area.x * TILE, area.y * TILE);
-      // Keep the tiling aligned with the map grid so neighbouring patches line up.
-      patch.tilePosition.set(-area.x * TILE, -area.y * TILE);
-      this.groundPatches.addChild(patch);
-    }
   }
 
   private removeObject(uid: number): void {

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { LAYOUTS } from '../data/layouts.generated';
-import { addDefaultBuildings, defaultBuildings, openDefaultSpots } from './default-buildings';
+import { LAYOUTS } from '../data/layouts';
+import { addDefaultBuildings, defaultBuildings } from './default-buildings';
 import { PlanDocument } from './plan-document';
 import { PlacementOptions, moveObjects } from './placement';
 import { RestrictionMap } from './restriction-map';
@@ -10,9 +10,8 @@ const regular = LAYOUTS.find((l) => l.id === 'regular')!;
 
 function standardFarm(): { doc: PlanDocument; map: RestrictionMap } {
   const map = RestrictionMap.decode(regular.width, regular.height, readFileSync('public/assets/restrictions/regular.txt', 'utf8'));
-  openDefaultSpots(map, regular);
   const doc = new PlanDocument(regular.width, regular.height);
-  doc.apply({ tiles: [], objects: addDefaultBuildings(doc, regular) });
+  doc.apply(addDefaultBuildings(doc, regular));
   return { doc, map };
 }
 
@@ -43,7 +42,8 @@ describe('default buildings', () => {
     it(`lets the ${name} move a few tiles left or right and back again`, () => {
       const { doc, map } = standardFarm();
       const uid = doc.objectAt(start.x, start.y)!.uid;
-      for (const dx of [-3, -1, 1, 3]) {
+      // The game's map data marks the ground three tiles to the right of both as unbuildable.
+      for (const dx of [-3, -1, 1]) {
         const there = moveObjects(doc, map, [uid], dx, 0, options);
         expect(there, `move by ${dx}`).not.toBeNull();
         doc.apply(there!);
@@ -57,15 +57,13 @@ describe('default buildings', () => {
   it('lets the shipping bin move and return', () => {
     const { doc, map } = standardFarm();
     const uid = doc.objectAt(71, 14)!.uid;
-    // Three tiles right is open ground (straight down is marked unbuildable in the map data).
     const away = moveObjects(doc, map, [uid], 3, 0, options)!;
     expect(away).not.toBeNull();
     doc.apply(away);
     expect(moveObjects(doc, map, [uid], -3, 0, options)).not.toBeNull();
   });
 
-  // The v2 data reserves the doorstep in front of each default building (e.g. 64,17 below the
-  // farmhouse door). Those reservations must not block the building once it moves.
+  // Nothing in the map data should reserve the ground in front of a default building.
   for (const [name, start, steps] of [
     ['farmhouse', { x: 59, y: 12 }, [1, 2, 3]],
     ['greenhouse', { x: 25, y: 10 }, [1, 2]],
@@ -78,4 +76,15 @@ describe('default buildings', () => {
       }
     });
   }
+
+  it('starts the Meadowlands Farm with a coop in a fenced yard', () => {
+    const meadowlands = LAYOUTS.find((l) => l.id === 'ranching')!;
+    const doc = new PlanDocument(meadowlands.width, meadowlands.height);
+    doc.apply(addDefaultBuildings(doc, meadowlands));
+    expect(doc.objectAt(54, 9)?.itemId).toBe('coop');
+    expect(doc.objectAt(62, 13)?.itemId).toBe('gate');
+    expect(doc.tileAt(47, 20)).toBe('fence');
+    expect(doc.tileAt(62, 7)).toBe('fence');
+    expect(doc.tileAt(62, 13)).toBeNull();
+  });
 });

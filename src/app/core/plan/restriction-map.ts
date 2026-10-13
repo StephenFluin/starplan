@@ -48,34 +48,6 @@ export class RestrictionMap {
     return (this.cells[y * this.width + x] & BIT_FOR[restriction]) !== 0;
   }
 
-  /** Clears every restriction in an area, e.g. a spot only blocked because a default building stood there. */
-  openArea(x: number, y: number, width: number, height: number): void {
-    this.forEachIn(x, y, width, height, (i) => (this.cells[i] = 0));
-  }
-
-  /**
-   * Clears every restriction on the tiles in an area that are impassable or unbuildable, e.g. where
-   * something painted into the background stood. Open ground there keeps its tillability.
-   */
-  openBlocked(x: number, y: number, width: number, height: number): void {
-    this.forEachIn(x, y, width, height, (i) => {
-      if (this.cells[i] & (IMPASSABLE | NOT_BUILDABLE)) this.cells[i] = 0;
-    });
-  }
-
-  /** Makes the passable tiles in an area buildable; impassable terrain stays blocked. */
-  allowBuildingIn(x: number, y: number, width: number, height: number): void {
-    this.forEachIn(x, y, width, height, (i) => {
-      if ((this.cells[i] & IMPASSABLE) === 0) this.cells[i] &= ~NOT_BUILDABLE;
-    });
-  }
-
-  private forEachIn(x: number, y: number, width: number, height: number, fn: (index: number) => void): void {
-    for (let ty = Math.max(0, y); ty < Math.min(this.height, y + height); ty++) {
-      for (let tx = Math.max(0, x); tx < Math.min(this.width, x + width); tx++) fn(ty * this.width + tx);
-    }
-  }
-
   /** Raw restriction bits for a tile (0 when out of bounds). */
   bits(x: number, y: number): number {
     return this.inBounds(x, y) ? this.cells[y * this.width + x] : 0;

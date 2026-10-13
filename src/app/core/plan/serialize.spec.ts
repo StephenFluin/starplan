@@ -1,4 +1,4 @@
-import { LAYOUTS } from '../data/layouts.generated';
+import { LAYOUTS } from '../data/layouts';
 import { PlanDocument } from './plan-document';
 import { SavedPlan, decodePlan, encodePlan, fromSaved, fromV2, parsePlanJson, toSaved } from './serialize';
 
@@ -42,8 +42,8 @@ describe('serialize', () => {
       expect(load([['keg', 5, 5]], 4)).toEqual([['keg', 5, 5]]);
     });
 
-    it("doesn't add one where the farm image never painted it", () => {
-      expect(load([], 3, LAYOUTS.find((l) => l.id === 'ranching')!)).toEqual([]);
+    it("doesn't add one to layouts without a pet bowl spot", () => {
+      expect(load([], 3, LAYOUTS.find((l) => l.id === 'barn')!)).toEqual([]);
     });
   });
 
