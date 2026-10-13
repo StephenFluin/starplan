@@ -15,6 +15,10 @@
       {
         "source": "**/*.html",
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      },
+      {
+        "regex": "^[^.]*$",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       }
     ]
   }
