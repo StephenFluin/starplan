@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { NgOptimizedImage } from '@angular/common';
 import { CATALOG, CATEGORIES, Category, CatalogItem, spriteUrl } from '../../core/data/catalog';
 import { PlannerStore } from '../../core/planner-store';
@@ -73,6 +73,14 @@ export class ItemPalette {
   protected readonly categories = CATEGORIES;
   protected readonly activeCategory = signal<Category>('paths');
   protected readonly query = signal('');
+
+  constructor() {
+    // Show the brush's category when it changes from elsewhere (picking an item off the map, quick search).
+    effect(() => {
+      const item = this.store.activeItem();
+      if (item && !untracked(() => this.query())) this.activeCategory.set(item.category);
+    });
+  }
 
   protected readonly visibleItems = computed(() => {
     const query = this.query().trim().toLowerCase();

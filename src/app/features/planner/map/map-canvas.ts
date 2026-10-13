@@ -71,12 +71,19 @@ type Gesture = (
       (dblclick)="onDoubleClick($event)"
       (contextmenu)="onContextMenu($event)"
     ></div>
-    <p id="map-navigation-hint" class="hint">
-      Move: drag empty ground (Select), right-drag or Space + drag. Zoom: scroll or pinch, or double-click.
-    </p>
-    @if (hover(); as tile) {
-      <div class="coords" aria-hidden="true">{{ tile.x }}, {{ tile.y }}</div>
-    }
+    <div class="bar">
+      @if (hover(); as tile) {
+        <span class="coords" aria-hidden="true">
+          {{ tile.x }}, {{ tile.y }}
+          @if (hoverLabel(); as label) {
+            · {{ label }}
+          }
+        </span>
+      }
+      <p id="map-navigation-hint" class="hint">
+        Move: drag empty ground (Select), right-drag or Space + drag. Zoom: scroll or pinch, or double-click.
+      </p>
+    </div>
     @if (error(); as message) {
       <div class="loading" role="alert">{{ message }}</div>
     } @else if (loading()) {
@@ -87,16 +94,14 @@ type Gesture = (
     :host { position: relative; display: block; overflow: hidden; background: #1b1410; }
     .host { position: absolute; inset: 0; outline: none; touch-action: none; }
     .host:focus-visible { box-shadow: inset 0 0 0 3px #fbbf24; }
-    .coords, .loading {
-      position: absolute; padding: 2px 8px; border-radius: 4px;
-      background: rgb(0 0 0 / 0.65); color: #fff; font: 12px/1.6 ui-monospace, monospace; pointer-events: none;
-    }
-    .coords { left: 8px; bottom: 8px; }
-    .hint {
-      position: absolute; right: 8px; bottom: 8px; max-width: calc(100% - 120px); margin: 0; padding: 2px 8px;
-      border-radius: 4px; background: rgb(0 0 0 / 0.65); color: #fff; font-size: 12px; line-height: 1.6;
+    .bar {
+      position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; align-items: flex-end; gap: 8px;
       pointer-events: none;
     }
+    .coords, .hint, .loading { padding: 2px 8px; border-radius: 4px; background: rgb(0 0 0 / 0.65); color: #fff; font-size: 12px; line-height: 1.6; }
+    .coords { flex: none; font-family: ui-monospace, monospace; white-space: nowrap; }
+    .hint { margin: 0 0 0 auto; }
+    .loading { position: absolute; pointer-events: none; }
     @media (max-width: 640px) { .hint { display: none; } }
     .loading { left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 14px; }
   `,
@@ -128,10 +133,22 @@ export class MapCanvas {
     return this.overMovable() ? 'move' : 'grab';
   });
 
+  /** The names of what's under the pointer: an object, and the ground tile under it. */
+  protected readonly hoverLabel = computed(() => {
+    const tile = this.hover();
+    this.store.revision();
+    if (!tile) return '';
+    const obj = objectAtVisual(this.store.doc, tile.x, tile.y);
+    const ground = this.store.doc.tileAt(tile.x, tile.y);
+    return [obj && findItem(obj.itemId)?.name, ground && findItem(ground)?.name].filter(Boolean).join(' on ');
+  });
+
   /** Right click: open the quick item search at the given screen position. */
   readonly quickSearch = output<{ x: number; y: number }>();
   /** Select-tool click (without dragging) on an object that has variants. */
   readonly variantRequest = output<{ uid: number; x: number; y: number }>();
+  /** Alt + click (or I) made the item under the pointer the brush. */
+  readonly picked = output<CatalogItem>();
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -201,6 +218,25 @@ export class MapCanvas {
     this.renderer?.panBy(dx, dy);
   }
 
+  /**
+   * Makes the item under the pointer (an object, or else the ground tile) the brush, like an
+   * eyedropper. Returns it, or null when there's nothing there.
+   */
+  pickHovered(): CatalogItem | null {
+    const tile = this.hover();
+    return tile ? this.pickAt(tile) : null;
+  }
+
+  private pickAt(tile: { x: number; y: number }): CatalogItem | null {
+    const obj = objectAtVisual(this.store.doc, tile.x, tile.y);
+    const id = obj?.itemId ?? this.store.doc.tileAt(tile.x, tile.y);
+    const item = id ? findItem(id) : undefined;
+    if (!item) return null;
+    this.store.selectItem(item);
+    this.picked.emit(item);
+    return item;
+  }
+
   /** Abandons an in-progress edit gesture. Returns true if there was one. */
   cancel(): boolean {
     if (!this.gesture || this.gesture.kind === 'pan' || this.gesture.kind === 'pinch') return false;
@@ -262,7 +298,11 @@ export class MapCanvas {
     const tile = renderer.toTile(event.clientX, event.clientY);
     const tool = this.store.tool();
     const item = this.store.activeItem();
-    if (tool === 'select') {
+    if (event.altKey) {
+      // Alt + click picks up the item there as the brush, like an eyedropper.
+      this.gesture = null;
+      this.pickAt(tile);
+    } else if (tool === 'select') {
       const hit = objectAtVisual(this.store.doc, tile.x, tile.y);
       const selection = this.store.selection();
       if (hit && event.shiftKey) {

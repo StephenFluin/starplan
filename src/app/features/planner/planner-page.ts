@@ -40,7 +40,11 @@ const NUDGE_LARGE = 5;
       </aside>
       <main>
         <h1 class="visually-hidden">Stardew Valley farm planner</h1>
-        <app-map-canvas (quickSearch)="quickSearchAt.set($event)" (variantRequest)="variantPicker.set($event)" />
+        <app-map-canvas
+          (quickSearch)="quickSearchAt.set($event)"
+          (variantRequest)="variantPicker.set($event)"
+          (picked)="announce('Picked ' + $event.name + '.')"
+        />
       </main>
       @if (counterOpen()) {
         <aside class="counter" aria-label="Item count"><app-item-counter (closed)="counterOpen.set(false)" /></aside>
@@ -74,7 +78,7 @@ const NUDGE_LARGE = 5;
     app-map-canvas { flex: 1; }
     .status:empty { display: none; }
     .status {
-      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); margin: 0; padding: 8px 14px;
+      position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%); margin: 0; padding: 8px 14px;
       border-radius: 6px; background: var(--panel); border: 1px solid var(--border); box-shadow: 0 4px 16px rgb(0 0 0 / 0.4);
     }
     @media (max-width: 720px) {
@@ -212,6 +216,9 @@ export class PlannerPage {
         return this.store.tool.set('brush');
       case 'g':
         return this.store.setOption('showGrid', !this.store.options().showGrid);
+      case 'i':
+        if (!map.pickHovered()) this.announce('Point at something on the map to pick it up.');
+        return;
       case 'r':
         return this.store.setOption('brushShape', 'rectangle');
       case 'f':
@@ -306,7 +313,7 @@ export class PlannerPage {
     URL.revokeObjectURL(url);
   }
 
-  private announce(message: string): void {
+  protected announce(message: string): void {
     this.status.set(message);
     clearTimeout(this.statusTimer);
     this.statusTimer = setTimeout(() => this.status.set(''), 4000);
