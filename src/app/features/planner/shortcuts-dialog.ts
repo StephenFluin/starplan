@@ -6,7 +6,7 @@ interface Shortcut {
 }
 
 /** On Apple keyboards the shortcuts use ⌘ rather than Ctrl. */
-const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl';
+export const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl';
 
 const SECTIONS: readonly { title: string; shortcuts: readonly Shortcut[] }[] = [
   {

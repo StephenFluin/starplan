@@ -44,6 +44,16 @@ describe('PlannerStore', () => {
     expect(store.pasteAt(11, 2)).toEqual({ itemId: 'parsnip', reason: { kind: 'object', itemId: 'sprinkler' } });
   });
 
+  it('goes back to the tool it was using when pasting stops', () => {
+    store.tool.set('select');
+    store.selectArea({ x: 2, y: 2, width: 3, height: 3 });
+    store.copySelection();
+    store.startPasting();
+    store.stopPasting();
+    expect(store.pasting()).toBe(false);
+    expect(store.tool()).toBe('select');
+  });
+
   it('cuts the selection', () => {
     store.selectArea({ x: 2, y: 2, width: 3, height: 3 });
     store.cutSelection();

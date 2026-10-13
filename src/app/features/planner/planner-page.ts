@@ -1,7 +1,6 @@
 import { Component, ElementRef, afterNextRender, inject, signal, viewChild } from '@angular/core';
 import { Analytics } from '../../core/analytics';
 import { NO_SELECTION, PlannerStore, Tool, isEmptySelection } from '../../core/planner-store';
-import { Group } from '../../core/plan/placement';
 import { parsePlanJson } from '../../core/plan/serialize';
 import { blockedMessage } from './block-message';
 import { ItemCounter } from './item-counter';
@@ -9,26 +8,18 @@ import { ItemPalette } from './item-palette';
 import { MapCanvas } from './map/map-canvas';
 import { PlannerToolbar, ToolbarAction } from './planner-toolbar';
 import { QuickSearch } from './quick-search';
-import { ShortcutsDialog } from './shortcuts-dialog';
+import { SelectionAction, SelectionBar, describeGroup } from './selection-bar';
+import { MOD, ShortcutsDialog } from './shortcuts-dialog';
 import { VariantPicker } from './variant-picker';
 import { CatalogItem } from '../../core/data/catalog';
 
 const PAN_STEP = 64;
-
-/** "3 objects and 12 tiles", for messages about copying. */
-function describeGroup(group: Group | null): string {
-  const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
-  const parts = [];
-  if (group?.objects.length) parts.push(count(group.objects.length, 'object'));
-  if (group?.tiles.length) parts.push(count(group.tiles.length, 'tile'));
-  return parts.join(' and ') || 'nothing';
-}
 /** Tiles Shift + an arrow key moves the selection. */
 const NUDGE_LARGE = 5;
 
 @Component({
   selector: 'app-planner-page',
-  imports: [PlannerToolbar, ItemPalette, MapCanvas, ItemCounter, QuickSearch, VariantPicker, ShortcutsDialog],
+  imports: [PlannerToolbar, ItemPalette, MapCanvas, ItemCounter, QuickSearch, VariantPicker, ShortcutsDialog, SelectionBar],
   host: { '(document:keydown)': 'onKeydown($event)' },
   template: `
     <header>
@@ -50,6 +41,9 @@ const NUDGE_LARGE = 5;
           (picked)="announce('Picked ' + $event.name + '.')"
           (blocked)="announce(blockedMessage($event))"
         />
+        @if (store.pasting() || hasSelection()) {
+          <app-selection-bar (action)="onSelectionAction($event)" (changeType)="openVariantPicker($event.uid, $event.anchor)" />
+        }
       </main>
       @if (counterOpen()) {
         <aside class="counter" aria-label="Item count"><app-item-counter (closed)="counterOpen.set(false)" /></aside>
@@ -82,7 +76,8 @@ const NUDGE_LARGE = 5;
       font-size: 11px; line-height: 1.4; color: var(--muted);
     }
     aside.counter { border-right: 0; border-left: 1px solid var(--border); }
-    main { flex: 1; min-width: 0; display: flex; }
+    main { position: relative; flex: 1; min-width: 0; display: flex; }
+    app-selection-bar { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 5; max-width: calc(100% - 16px); }
     app-map-canvas { flex: 1; }
     .status:empty { display: none; }
     .status {
@@ -96,7 +91,7 @@ const NUDGE_LARGE = 5;
   `,
 })
 export class PlannerPage {
-  private readonly store = inject(PlannerStore);
+  protected readonly store = inject(PlannerStore);
   private readonly analytics = inject(Analytics);
   private readonly map = viewChild.required(MapCanvas);
   private readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
@@ -201,21 +196,14 @@ export class PlannerPage {
       this.store.selectAll();
       return;
     }
-    if (mod && (key === 'c' || key === 'x' || key === 'd') && !isEmptySelection(this.store.selection())) {
+    if (mod && (key === 'c' || key === 'x' || key === 'd') && this.hasSelection()) {
       event.preventDefault();
-      if (key === 'x') {
-        this.announce(`Cut ${describeGroup(this.store.cutSelection())}. Press Ctrl+V to paste.`);
-      } else if (key === 'c') {
-        this.announce(`Copied ${describeGroup(this.store.copySelection())}. Press Ctrl+V to paste.`);
-      } else {
-        this.store.copySelection();
-        this.startPasting();
-      }
+      this.onSelectionAction(key === 'x' ? 'cut' : key === 'c' ? 'copy' : 'duplicate');
       return;
     }
     if (mod && key === 'v') {
       event.preventDefault();
-      if (!this.startPasting()) this.announce('Nothing copied yet. Select something and press Ctrl+C.');
+      if (!this.startPasting()) this.announce(`Nothing copied yet. Select something and press ${MOD}+C.`);
       return;
     }
     if (mod || event.altKey) return;
@@ -256,14 +244,14 @@ export class PlannerPage {
         return map.fit();
       case 'delete':
       case 'backspace':
-        if (!isEmptySelection(this.store.selection())) {
+        if (this.hasSelection()) {
           event.preventDefault();
           this.store.deleteSelection();
         }
         return;
       case 'escape':
         if (map.cancel()) return;
-        if (this.store.pasting()) this.store.pasting.set(false);
+        if (this.store.pasting()) this.store.stopPasting();
         else this.store.selection.set(NO_SELECTION);
         return;
       case 'arrowleft':
@@ -284,6 +272,40 @@ export class PlannerPage {
         return;
       }
     }
+  }
+
+  protected hasSelection(): boolean {
+    return !isEmptySelection(this.store.selection());
+  }
+
+  protected onSelectionAction(action: SelectionAction): void {
+    switch (action) {
+      case 'copy':
+        this.announce(`Copied ${describeGroup(this.store.copySelection())}. Press ${MOD}+V to paste.`);
+        return;
+      case 'cut':
+        this.announce(`Cut ${describeGroup(this.store.cutSelection())}. Press ${MOD}+V to paste.`);
+        return;
+      case 'duplicate':
+        this.store.copySelection();
+        this.startPasting();
+        return;
+      case 'delete':
+        this.store.deleteSelection();
+        return;
+      case 'deselect':
+        this.store.selection.set(NO_SELECTION);
+        return;
+      case 'stop-paste':
+        this.store.stopPasting();
+        return;
+    }
+  }
+
+  /** Opens the variant picker for an object, below the given element. */
+  protected openVariantPicker(uid: number, anchor: HTMLElement): void {
+    const bounds = anchor.getBoundingClientRect();
+    this.variantPicker.set({ uid, x: bounds.left, y: bounds.bottom + 4 });
   }
 
   private startPasting(): boolean {

@@ -128,6 +128,8 @@ export class PlannerStore {
   readonly clipboard = signal<Group | null>(null);
   /** Whether the Place tool puts down copies of the clipboard rather than the active item. */
   readonly pasting = signal(false);
+  /** The tool to go back to when pasting stops. */
+  private toolBeforePaste: Tool = 'select';
   readonly options = signal<PlannerOptions>({
     anywhere: false,
     overwrite: true,
@@ -321,9 +323,17 @@ export class PlannerStore {
   /** Makes the Place tool put down copies of the clipboard. Returns false when the clipboard is empty. */
   startPasting(): boolean {
     if (!this.clipboard()) return false;
+    if (!this.pasting()) this.toolBeforePaste = this.tool();
     this.tool.set('brush');
     this.pasting.set(true);
     return true;
+  }
+
+  /** Stops pasting, going back to the tool used before. */
+  stopPasting(): void {
+    if (!this.pasting()) return;
+    this.pasting.set(false);
+    this.tool.set(this.toolBeforePaste);
   }
 
   /** What pasting the clipboard with its top-left at a tile would do, without doing it. */
