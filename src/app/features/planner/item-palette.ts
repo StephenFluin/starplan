@@ -12,13 +12,12 @@ import { PlannerStore } from '../../core/planner-store';
       <span class="visually-hidden">Search items</span>
       <input type="search" placeholder="Search items…" [value]="query()" (input)="query.set($any($event.target).value)" />
     </label>
-    <div class="tabs" role="tablist" aria-label="Item categories">
+    <div class="tabs" role="group" aria-label="Item categories">
       @for (category of categories; track category.id) {
         <button
           type="button"
-          role="tab"
-          [attr.aria-selected]="category.id === activeCategory()"
-          [class.active]="category.id === activeCategory()"
+          [attr.aria-pressed]="isShowing(category.id)"
+          [class.active]="isShowing(category.id)"
           (click)="activeCategory.set(category.id); query.set('')"
         >
           {{ category.name }}
@@ -91,6 +90,11 @@ export class ItemPalette {
 
   protected sprite(item: CatalogItem): string {
     return spriteUrl(item);
+  }
+
+  /** Whether the list shows a category (rather than search results or another category). */
+  protected isShowing(category: Category): boolean {
+    return !this.query().trim() && category === this.activeCategory();
   }
 
   /** Whether the Place tool is putting down this item. */
