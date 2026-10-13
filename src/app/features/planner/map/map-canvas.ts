@@ -5,6 +5,7 @@ import { coverageLayout, usesCoverageLayout } from '../../../core/plan/coverage-
 import { RestrictionMap } from '../../../core/plan/restriction-map';
 import { PlannerStore, Tool } from '../../../core/planner-store';
 import { MapRenderer, Preview } from './map-renderer';
+import { WheelGesture } from './wheel-gesture';
 
 type Drag = (
   | { kind: 'rect'; startX: number; startY: number }
@@ -29,7 +30,8 @@ type Drag = (
       #host
       class="host"
       role="application"
-      aria-label="Farm map. Use the toolbar or keyboard shortcuts to edit."
+      aria-label="Farm map. Use the toolbar or keyboard shortcuts to edit, and the arrow keys to move around."
+      aria-describedby="map-navigation-hint"
       tabindex="0"
       (pointerdown)="onPointerDown($event)"
       (pointermove)="onPointerMove($event)"
@@ -38,6 +40,9 @@ type Drag = (
       (wheel)="onWheel($event)"
       (contextmenu)="onContextMenu($event)"
     ></div>
+    <p id="map-navigation-hint" class="hint">
+      Move around: two-finger scroll, Space + drag, middle-drag or arrow keys. Zoom: pinch or scroll wheel.
+    </p>
     @if (hover(); as tile) {
       <div class="coords" aria-hidden="true">{{ tile.x }}, {{ tile.y }}</div>
     }
@@ -56,6 +61,12 @@ type Drag = (
       background: rgb(0 0 0 / 0.65); color: #fff; font: 12px/1.6 ui-monospace, monospace; pointer-events: none;
     }
     .coords { left: 8px; bottom: 8px; }
+    .hint {
+      position: absolute; right: 8px; bottom: 8px; max-width: calc(100% - 120px); margin: 0; padding: 2px 8px;
+      border-radius: 4px; background: rgb(0 0 0 / 0.65); color: #fff; font-size: 12px; line-height: 1.6;
+      pointer-events: none;
+    }
+    @media (max-width: 640px) { .hint { display: none; } }
     .loading { left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 14px; }
   `,
 })
@@ -65,6 +76,7 @@ export class MapCanvas {
   private renderer: MapRenderer | null = null;
   private drag: Drag | null = null;
   protected spaceHeld = false;
+  private readonly wheel = new WheelGesture();
   /** The restriction map the overlay was last drawn from. */
   private overlaidRestrictions: RestrictionMap | null = null;
 
@@ -273,9 +285,9 @@ export class MapCanvas {
     event.preventDefault();
     const renderer = this.renderer;
     if (!renderer) return;
-    // Pinch gestures arrive as ctrl+wheel; a plain wheel also zooms, like most map editors.
-    const factor = Math.exp(-event.deltaY * (event.ctrlKey ? 0.01 : 0.0015));
-    renderer.zoomAt(factor, event.clientX, event.clientY);
+    const action = this.wheel.handle(event as WheelEvent & { wheelDeltaY?: number });
+    if (action.kind === 'zoom') renderer.zoomAt(action.factor, event.clientX, event.clientY);
+    else renderer.panBy(action.dx, action.dy);
   }
 
   protected onContextMenu(event: MouseEvent): void {
