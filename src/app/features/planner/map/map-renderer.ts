@@ -22,6 +22,8 @@ export interface Preview {
   rect?: TileRect & { style: 'brush' | 'erase' | 'select' };
   /** Tiles that block the current action. */
   blocked?: [number, number][];
+  /** Tiles a freehand eraser stroke will clear. */
+  erased?: [number, number][];
 }
 
 const key = (x: number, y: number) => `${x},${y}`;
@@ -412,6 +414,10 @@ export class MapRenderer {
       g.rect(x * TILE, y * TILE, width * TILE, height * TILE)
         .fill({ color, alpha: style === 'brush' ? 0.2 : 0.25 })
         .stroke({ color, width: 1 / this.zoom, alpha: 0.9 });
+    }
+    if (preview?.erased?.length) {
+      for (const [x, y] of preview.erased) g.rect(x * TILE, y * TILE, TILE, TILE);
+      g.fill({ color: 0xef4444, alpha: 0.25 });
     }
     if (preview?.blocked?.length) {
       for (const [x, y] of preview.blocked) g.rect(x * TILE, y * TILE, TILE, TILE);

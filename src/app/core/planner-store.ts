@@ -4,7 +4,7 @@ import { CatalogItem, RangeGroup, findItem, variantsOf } from './data/catalog';
 import { LayoutInfo } from './data/layout-info';
 import { LAYOUTS } from './data/layouts';
 import { Patch, PlanDocument, cellKey, emptyPatch, invertPatch, isEmptyPatch, parseKey } from './plan/plan-document';
-import { Group, GroupPlacement, PlacementOptions, TileRect, erase, paintTiles, placeAt, placeObjects, putGroup, swapObject } from './plan/placement';
+import { Area, Group, GroupPlacement, PlacementOptions, TileRect, erase, paintTiles, placeAt, placeEach, placeObjects, putGroup, swapObject } from './plan/placement';
 import { RestrictionMap } from './plan/restriction-map';
 import { SavedPlan, decodePlan, encodePlan, fromSaved, toSaved } from './plan/serialize';
 import { coverageLayout, usesCoverageLayout } from './plan/coverage-layout';
@@ -14,6 +14,8 @@ import { LocalPlanInfo, LocalPlans, newPlanId } from './local-plans';
 
 export type Tool = 'brush' | 'eraser' | 'select';
 export type RestrictionOverlay = 'none' | 'buildable' | 'tillable';
+/** How Place and Erase drags work: fill the dragged rectangle, or follow the pointer. */
+export type BrushShape = 'rectangle' | 'freehand';
 /** Selected objects, and ground tiles (by cell key) that move, copy and delete with them. */
 export interface Selection {
   objects: readonly number[];
@@ -30,6 +32,7 @@ export function isEmptySelection(selection: Selection): boolean {
 export type SaveState = 'empty' | 'saving' | 'saved' | 'error';
 
 export interface PlannerOptions extends PlacementOptions {
+  brushShape: BrushShape;
   showGrid: boolean;
   restrictionOverlay: RestrictionOverlay;
   /** Range groups drawn for every placed object, not only on hover. */
@@ -114,6 +117,7 @@ export class PlannerStore {
   readonly options = signal<PlannerOptions>({
     anywhere: false,
     overwrite: true,
+    brushShape: 'rectangle',
     showGrid: true,
     restrictionOverlay: 'none',
     alwaysShowRanges: [],
@@ -204,8 +208,23 @@ export class PlannerStore {
     );
   }
 
-  erase(rect: TileRect): void {
-    this.commit(erase(this.doc, rect));
+  /**
+   * Applies the active brush along a freehand stroke: a tile on each cell, or a copy of an object at
+   * each position where it fits clear of the others.
+   */
+  paintStroke(points: readonly { x: number; y: number }[]): void {
+    const item = this.activeItem();
+    if (!item) return;
+    const options = this.options();
+    this.commit(
+      item.kind === 'tile'
+        ? paintTiles(this.doc, this.restrictions, item, points.map(({ x, y }): [number, number] => [x, y]), options)
+        : placeEach(this.doc, this.restrictions, item, points, options),
+    );
+  }
+
+  erase(area: Area): void {
+    this.commit(erase(this.doc, area));
   }
 
   /** Moves the selection by an offset. Returns false (and changes nothing) when it doesn't fit there. */

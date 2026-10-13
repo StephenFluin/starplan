@@ -212,6 +212,10 @@ export class PlannerPage {
         return this.store.tool.set('brush');
       case 'g':
         return this.store.setOption('showGrid', !this.store.options().showGrid);
+      case 'r':
+        return this.store.setOption('brushShape', 'rectangle');
+      case 'f':
+        return this.store.setOption('brushShape', 'freehand');
       case 'v': {
         const { objects } = this.store.selection();
         if (objects.length !== 1) return;

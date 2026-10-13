@@ -1,6 +1,6 @@
 import { findItem } from '../data/catalog';
 import { PlanDocument, invertPatch } from './plan-document';
-import { Group, PlacementOptions, checkObject, erase, moveObjects, paintTiles, placeObjects, putGroup, rectFromCorners } from './placement';
+import { Group, PlacementOptions, checkObject, erase, lineCells, moveObjects, paintTiles, placeEach, placeObjects, putGroup, rectFromCorners } from './placement';
 import { IMPASSABLE, NOT_BUILDABLE, RestrictionMap } from './restriction-map';
 
 const item = (id: string) => {
@@ -66,6 +66,28 @@ describe('placement', () => {
     doc.apply(paintTiles(doc, map, item('parsnip'), { x: 9, y: 9, width: 1, height: 1 }, strict));
     expect(checkObject(doc, map, item('keg'), 5, 5, strict).ok).toBe(true);
     expect(checkObject(doc, map, item('keg'), 9, 9, strict).ok).toBe(false);
+  });
+
+  describe('freehand strokes', () => {
+    it('join up the cells between pointer samples', () => {
+      expect(lineCells(0, 0, 3, 1)).toEqual([[0, 0], [1, 0], [2, 1], [3, 1]]);
+      expect(lineCells(2, 2, 2, 0)).toEqual([[2, 2], [2, 1], [2, 0]]);
+      expect(lineCells(1, 1, 1, 1)).toEqual([[1, 1]]);
+    });
+
+    it('paint and erase just the cells they cross', () => {
+      const stroke: [number, number][] = [[0, 0], [1, 0], [1, 1], [1, 0]];
+      const patch = paintTiles(doc, map, item('road'), stroke, strict);
+      expect(patch.tiles).toHaveLength(3);
+      doc.apply(patch);
+      doc.apply(erase(doc, [[1, 1]]));
+      expect(doc.tileCount).toBe(2);
+    });
+
+    it('place objects clear of the copies before them', () => {
+      const patch = placeEach(doc, map, item('large-rock'), [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }], strict);
+      expect(patch.objects.map((o) => o.after?.x)).toEqual([0, 2]);
+    });
   });
 
   it('fills a dragged rectangle with copies stepped by the footprint', () => {

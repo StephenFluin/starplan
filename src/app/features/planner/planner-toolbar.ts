@@ -1,6 +1,6 @@
 import { Component, inject, output, signal } from '@angular/core';
 import { RangeGroup } from '../../core/data/catalog';
-import { PlannerStore, RestrictionOverlay, Tool } from '../../core/planner-store';
+import { BrushShape, PlannerStore, RestrictionOverlay, Tool } from '../../core/planner-store';
 import { PlansMenu } from './plans-menu';
 
 export type ToolbarAction = 'zoom-in' | 'zoom-out' | 'fit' | 'share' | 'export-png' | 'export-json' | 'import-json' | 'toggle-counter' | 'new';
@@ -50,6 +50,22 @@ export type ToolbarAction = 'zoom-in' | 'zoom-out' | 'fit' | 'share' | 'export-p
         </button>
       }
     </div>
+
+    @if (store.tool() !== 'select') {
+      <div class="group" role="group" aria-label="Brush shape">
+        @for (shape of shapes; track shape.id) {
+          <button
+            type="button"
+            [attr.aria-pressed]="store.options().brushShape === shape.id"
+            [class.active]="store.options().brushShape === shape.id"
+            [title]="shape.label + ' (' + shape.key + '): ' + shape.hint"
+            (click)="store.setOption('brushShape', shape.id)"
+          >
+            {{ shape.label }}
+          </button>
+        }
+      </div>
+    }
 
     <div class="group" role="group" aria-label="History">
       <button type="button" [disabled]="!store.canUndo()" title="Undo (Ctrl+Z)" (click)="store.undo()">Undo</button>
@@ -164,6 +180,11 @@ export class PlannerToolbar {
       hint: 'click an object to select it, Shift + click to add more, Shift + drag to select an area with its ground, drag the selection or the arrow keys to move it, drag empty ground to move the map',
     },
     { id: 'eraser', label: 'Erase', key: 'E' },
+  ];
+
+  protected readonly shapes: { id: BrushShape; label: string; key: string; hint: string }[] = [
+    { id: 'rectangle', label: 'Rectangle', key: 'R', hint: 'drag to fill an area' },
+    { id: 'freehand', label: 'Freehand', key: 'F', hint: 'drag to paint along the way' },
   ];
 
   protected readonly overlays: { id: RestrictionOverlay; label: string }[] = [

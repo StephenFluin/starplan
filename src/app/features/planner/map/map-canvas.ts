@@ -1,6 +1,6 @@
 import { Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, output, signal, untracked, viewChild } from '@angular/core';
 import { CatalogItem, findItem, variantsOf } from '../../../core/data/catalog';
-import { blockedTiles, checkObject, objectAtVisual, objectPositions, rectFromCorners } from '../../../core/plan/placement';
+import { blockedTiles, checkObject, lineCells, objectAtVisual, objectPositions, placeEach, rectFromCorners } from '../../../core/plan/placement';
 import { coverageLayout, usesCoverageLayout } from '../../../core/plan/coverage-layout';
 import { cellKey } from '../../../core/plan/plan-document';
 import { RestrictionMap } from '../../../core/plan/restriction-map';
@@ -25,6 +25,8 @@ type Gesture = (
   | { kind: 'move'; startX: number; startY: number }
   /** Pasting the clipboard where the pointer is let go. */
   | { kind: 'paste' }
+  /** Painting, placing or erasing along the pointer's path (the freehand brush). */
+  | { kind: 'stroke'; cells: [number, number][]; seen: Set<string>; lastX: number; lastY: number }
   | { kind: 'pinch'; distance: number; midX: number; midY: number }
 ) & {
   /** Tool and item the gesture started with; switching either cancels it. */
@@ -280,6 +282,8 @@ export class MapCanvas {
       }
     } else if (tool === 'brush' && this.store.pasting()) {
       this.gesture = { ...base, kind: 'paste' };
+    } else if (this.store.options().brushShape === 'freehand') {
+      this.gesture = { ...base, kind: 'stroke', cells: [[tile.x, tile.y]], seen: new Set([cellKey(tile.x, tile.y)]), lastX: tile.x, lastY: tile.y };
     } else if (tool === 'brush' && item?.kind === 'object' && !usesCoverageLayout(item)) {
       const origin = objectOrigin(item, tile.x, tile.y);
       this.gesture = { ...base, kind: 'place', originX: origin.x, originY: origin.y };
@@ -314,6 +318,7 @@ export class MapCanvas {
       return;
     }
     const tile = renderer.toTile(event.clientX, event.clientY);
+    if (gesture?.kind === 'stroke') extendStroke(gesture, tile);
     const previous = this.hover();
     if (previous?.x === tile.x && previous.y === tile.y && gesture?.moved !== true) return;
     this.hover.set(tile);
@@ -369,6 +374,10 @@ export class MapCanvas {
     } else if (gesture.kind === 'paste') {
       const at = this.pasteOrigin(tile);
       if (at && this.store.pasting()) this.store.pasteAt(at.x, at.y);
+    } else if (gesture.kind === 'stroke') {
+      extendStroke(gesture, tile);
+      if (gesture.tool === 'eraser') this.store.erase(gesture.cells);
+      else this.store.paintStroke(this.strokePoints(gesture));
     } else {
       // A click (not a drag) acts on the tile it started on.
       const end = gesture.moved ? tile : { x: gesture.startX, y: gesture.startY };
@@ -540,6 +549,17 @@ export class MapCanvas {
         // Show where the sprinklers or scarecrows will go and what they'll cover.
         preview.ghosts = coverageLayout(store.doc, store.restrictions, item, rect, options).map((at) => ({ item, ...at }));
       }
+    } else if (gesture?.kind === 'stroke') {
+      const item = store.activeItem();
+      if (gesture.tool === 'eraser') {
+        preview.erased = gesture.cells;
+      } else if (item?.kind === 'tile') {
+        preview.blocked = blockedTiles(store.doc, store.restrictions, item, gesture.cells, options);
+        const blocked = new Set(preview.blocked.map(([x, y]) => cellKey(x, y)));
+        preview.tiles = gesture.cells.filter(([x, y]) => !blocked.has(cellKey(x, y))).map(([x, y]) => ({ item, x, y }));
+      } else if (item) {
+        preview.ghosts = placeEach(store.doc, store.restrictions, item, this.strokePoints(gesture), options).objects.map((change) => ({ item, ...change.after! }));
+      }
     } else if (store.tool() === 'brush' && store.pasting()) {
       const at = this.pasteOrigin(tile);
       const clipboard = store.clipboard();
@@ -570,6 +590,12 @@ export class MapCanvas {
     renderer.setPreview(preview);
   }
 
+  /** Where a freehand stroke puts things: its cells for tiles, or an object centred on each. */
+  private strokePoints(gesture: Extract<Gesture, { kind: 'stroke' }>): { x: number; y: number }[] {
+    const item = findItem(gesture.itemId ?? '');
+    return gesture.cells.map(([x, y]) => (item?.kind === 'object' ? objectOrigin(item, x, y) : { x, y }));
+  }
+
   /** Where the clipboard's top-left goes to centre it on a tile. */
   private pasteOrigin(tile: { x: number; y: number }): { x: number; y: number } | null {
     const clipboard = this.store.clipboard();
@@ -590,6 +616,18 @@ export class MapCanvas {
       preview.blocked.push(...checkObject(doc, restrictions, item, at.x, at.y, options).blocked);
     }
   }
+}
+
+/** Adds the cells from a stroke's last tile to the pointer's, so fast strokes leave no gaps. */
+function extendStroke(gesture: Extract<Gesture, { kind: 'stroke' }>, tile: { x: number; y: number }): void {
+  if (tile.x === gesture.lastX && tile.y === gesture.lastY) return;
+  for (const [x, y] of lineCells(gesture.lastX, gesture.lastY, tile.x, tile.y)) {
+    if (gesture.seen.has(cellKey(x, y))) continue;
+    gesture.seen.add(cellKey(x, y));
+    gesture.cells.push([x, y]);
+  }
+  gesture.lastX = tile.x;
+  gesture.lastY = tile.y;
 }
 
 /** The top-left tile that centres an object's footprint on a tile, as its ghost shows. */

@@ -170,32 +170,61 @@ function canPaintTile(doc: PlanDocument, map: RestrictionMap, item: CatalogItem,
   return objectAllowsTile(occupant ? findItem(occupant.itemId) : undefined, item);
 }
 
-/** Tiles in the rectangle that the given item can't be painted on. */
+/** Where to paint or erase: a rectangle, or any cells (a freehand stroke's). */
+export type Area = TileRect | Iterable<[number, number]>;
+
+/** The cells of an area; a rectangle's row by row. */
+export function cellsOf(area: Area): Iterable<[number, number]> {
+  return Symbol.iterator in area ? area : footprint(area, area);
+}
+
+/**
+ * The cells a straight line between two cells passes through, end to end and without gaps
+ * (Bresenham's line), so a fast freehand stroke doesn't skip tiles.
+ */
+export function lineCells(x0: number, y0: number, x1: number, y1: number): [number, number][] {
+  const cells: [number, number][] = [];
+  const dx = Math.abs(x1 - x0);
+  const dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1;
+  const sy = y0 < y1 ? 1 : -1;
+  let error = dx + dy;
+  for (let x = x0, y = y0; ; ) {
+    cells.push([x, y]);
+    if (x === x1 && y === y1) return cells;
+    const twice = 2 * error;
+    if (twice >= dy) {
+      error += dy;
+      x += sx;
+    }
+    if (twice <= dx) {
+      error += dx;
+      y += sy;
+    }
+  }
+}
+
+/** Cells in an area that the given item can't be painted on. */
 export function blockedTiles(
   doc: PlanDocument,
   map: RestrictionMap,
   item: CatalogItem,
-  rect: TileRect,
+  area: Area,
   options: PlacementOptions,
 ): [number, number][] {
-  const blocked: [number, number][] = [];
-  for (let y = rect.y; y < rect.y + rect.height; y++) {
-    for (let x = rect.x; x < rect.x + rect.width; x++) {
-      if (!canPaintTile(doc, map, item, x, y, options)) blocked.push([x, y]);
-    }
-  }
-  return blocked;
+  return [...cellsOf(area)].filter(([x, y]) => !canPaintTile(doc, map, item, x, y, options));
 }
 
-export function paintTiles(doc: PlanDocument, map: RestrictionMap, item: CatalogItem, rect: TileRect, options: PlacementOptions): Patch {
+/** Paints a ground tile on each cell it can go on: a rectangle's, or a freehand stroke's. */
+export function paintTiles(doc: PlanDocument, map: RestrictionMap, item: CatalogItem, area: Area, options: PlacementOptions): Patch {
   const patch = emptyPatch();
-  for (let y = rect.y; y < rect.y + rect.height; y++) {
-    for (let x = rect.x; x < rect.x + rect.width; x++) {
-      const before = doc.tileAt(x, y);
-      if (before === item.id || (before && !options.overwrite)) continue;
-      if (!canPaintTile(doc, map, item, x, y, options)) continue;
-      patch.tiles.push({ x, y, before, after: item.id });
-    }
+  const painted = new Set<string>();
+  for (const [x, y] of cellsOf(area)) {
+    const before = doc.tileAt(x, y);
+    if (painted.has(cellKey(x, y)) || before === item.id || (before && !options.overwrite)) continue;
+    if (!canPaintTile(doc, map, item, x, y, options)) continue;
+    painted.add(cellKey(x, y));
+    patch.tiles.push({ x, y, before, after: item.id });
   }
   return patch;
 }
@@ -240,27 +269,44 @@ export function objectPositions(item: CatalogItem, rect: TileRect): { x: number;
 
 /** Places copies of an object across the rectangle where they fit. A click is a 1x1 rectangle, which places one. */
 export function placeObjects(doc: PlanDocument, map: RestrictionMap, item: CatalogItem, rect: TileRect, options: PlacementOptions): Patch {
+  return placeEach(doc, map, item, objectPositions(item, rect), options);
+}
+
+/** Places a copy of an object at each position where it fits, clear of earlier copies (as along a freehand stroke). */
+export function placeEach(
+  doc: PlanDocument,
+  map: RestrictionMap,
+  item: CatalogItem,
+  positions: Iterable<{ x: number; y: number }>,
+  options: PlacementOptions,
+): Patch {
+  // Copies go onto a scratch document first, so later ones see the earlier ones.
+  const scratch = doc.clone();
   const patch = emptyPatch();
-  for (const { x, y } of objectPositions(item, rect)) {
-    if (!checkObject(doc, map, item, x, y, options).ok) continue;
-    const placed: PlacedObject = { uid: doc.allocateUid(), itemId: item.id, x, y };
-    patch.objects.push({ uid: placed.uid, before: null, after: placed });
-    clearGround(doc, item, x, y, patch);
+  for (const { x, y } of positions) {
+    if (!checkObject(scratch, map, item, x, y, options).ok) continue;
+    const placed: PlacedObject = { uid: scratch.allocateUid(), itemId: item.id, x, y };
+    const landing: Patch = { tiles: [], objects: [{ uid: placed.uid, before: null, after: placed }] };
+    clearGround(scratch, item, x, y, landing);
+    scratch.apply(landing);
+    patch.tiles.push(...landing.tiles);
+    patch.objects.push(...landing.objects);
   }
   return patch;
 }
 
-/** Removes every tile and object touching the rectangle. */
-export function erase(doc: PlanDocument, rect: TileRect): Patch {
+/** Removes every tile on the cells and every object touching them: a rectangle's, or a freehand stroke's. */
+export function erase(doc: PlanDocument, area: Area): Patch {
   const patch = emptyPatch();
-  for (let y = rect.y; y < rect.y + rect.height; y++) {
-    for (let x = rect.x; x < rect.x + rect.width; x++) {
-      const before = doc.tileAt(x, y);
-      if (before) patch.tiles.push({ x, y, before, after: null });
-    }
-  }
-  for (const obj of doc.objectsInRect(rect.x, rect.y, rect.width, rect.height)) {
-    patch.objects.push({ uid: obj.uid, before: obj, after: null });
+  const erased = new Set<string>();
+  const objects = new Set<number>();
+  for (const [x, y] of cellsOf(area)) {
+    const before = doc.tileAt(x, y);
+    if (before && !erased.has(cellKey(x, y))) patch.tiles.push({ x, y, before, after: null });
+    erased.add(cellKey(x, y));
+    const obj = doc.objectAt(x, y);
+    if (obj && !objects.has(obj.uid)) patch.objects.push({ uid: obj.uid, before: obj, after: null });
+    if (obj) objects.add(obj.uid);
   }
   return patch;
 }
