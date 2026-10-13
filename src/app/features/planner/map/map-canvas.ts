@@ -72,7 +72,7 @@ type Gesture = (
       #host
       class="host"
       role="application"
-      aria-label="Farm map. Use the toolbar or keyboard shortcuts to edit, the arrow keys to move around and plus or minus to zoom."
+      aria-label="Farm map. The arrow keys move the map under a cursor in the middle, and Enter places, selects or erases there with the current tool. Plus and minus zoom."
       aria-describedby="map-navigation-hint"
       tabindex="0"
       [style.cursor]="cursor()"
@@ -84,7 +84,10 @@ type Gesture = (
       (wheel)="onWheel($event)"
       (dblclick)="onDoubleClick($event)"
       (contextmenu)="onContextMenu($event)"
+      (keydown)="onKeydown($event)"
+      (blur)="onBlur()"
     ></div>
+    <p class="visually-hidden" aria-live="polite">{{ cursorStatus() }}</p>
     <div class="bar">
       @if (hover(); as tile) {
         <span class="coords" aria-hidden="true">
@@ -144,6 +147,10 @@ export class MapCanvas {
   protected readonly error = signal<string | null>(null);
   /** What a drag in progress will do ("Parsnip × 40 · 8 × 5"), shown by the pointer. */
   protected readonly dragLabel = signal<{ text: string; x: number; y: number } | null>(null);
+  /** Whether the hovered tile is the keyboard's cursor (kept in the middle of the view) rather than the pointer's. */
+  private readonly keyboardCursor = signal(false);
+  /** What's at the keyboard cursor, for screen readers. */
+  protected readonly cursorStatus = signal('');
   /** The pointer's last position over the map, in pixels from its top-left. */
   private pointer = { x: 0, y: 0 };
   private readonly panning = signal(false);
@@ -243,6 +250,74 @@ export class MapCanvas {
 
   panBy(dx: number, dy: number): void {
     this.renderer?.panBy(dx, dy);
+  }
+
+  /**
+   * Moves the map by whole tiles under a cursor kept in the middle of the view, which Enter acts
+   * on. The cursor starts on the middle tile.
+   */
+  moveCursor(dx: number, dy: number): void {
+    const renderer = this.renderer;
+    if (!renderer) return;
+    const from = (this.keyboardCursor() && this.hover()) || renderer.centreTile();
+    const { width, height } = this.store.layout();
+    const to = { x: Math.min(Math.max(from.x + dx, 0), width - 1), y: Math.min(Math.max(from.y + dy, 0), height - 1) };
+    this.keyboardCursor.set(true);
+    renderer.centreOn(to.x, to.y);
+    this.showCursorAt(to);
+  }
+
+  private showCursorAt(tile: { x: number; y: number }): void {
+    this.hover.set(tile);
+    const hovered = objectAtVisual(this.store.doc, tile.x, tile.y);
+    this.renderer?.setHovered(hovered?.uid ?? null);
+    this.updatePreview();
+    this.cursorStatus.set(`${tile.x}, ${tile.y}: ${this.hoverLabel() || 'empty'}`);
+  }
+
+  /** Enter does what a click would at the keyboard cursor (Shift + Enter: what a Shift + click would). */
+  protected onKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Enter' || event.ctrlKey || event.metaKey || event.altKey) return;
+    event.preventDefault();
+    const tile = this.hover();
+    if (!this.keyboardCursor() || !tile) {
+      this.moveCursor(0, 0);
+      return;
+    }
+    const store = this.store;
+    const tool = store.tool();
+    if (tool === 'select') {
+      const hit = objectAtVisual(store.doc, tile.x, tile.y);
+      if (hit && event.shiftKey) store.toggleSelected(hit.uid);
+      else store.selection.set(hit ? { objects: [hit.uid], tiles: [] } : NO_SELECTION);
+    } else if (tool === 'eraser') {
+      store.erase({ x: tile.x, y: tile.y, width: 1, height: 1 });
+    } else if (store.pasting()) {
+      const at = this.pasteOrigin(tile);
+      const failure = at ? store.pasteAt(at.x, at.y) : null;
+      if (failure) this.blocked.emit(failure);
+    } else {
+      const item = store.activeItem();
+      if (!item) return;
+      const centred = item.kind === 'object' && !usesCoverageLayout(item);
+      const at = centred ? objectOrigin(item, tile.x, tile.y) : tile;
+      this.explainBlockedClick(item, at.x, at.y);
+      store.paint({ ...at, width: centred ? item.width : 1, height: centred ? item.height : 1 });
+    }
+    this.showCursorAt(tile);
+  }
+
+  /** Whether the arrow keys are moving the keyboard cursor. */
+  get cursorActive(): boolean {
+    return this.keyboardCursor();
+  }
+
+  protected onBlur(): void {
+    if (!this.keyboardCursor()) return;
+    this.keyboardCursor.set(false);
+    this.hover.set(null);
+    this.renderer?.setHovered(null);
+    this.updatePreview();
   }
 
   /**
@@ -363,6 +438,7 @@ export class MapCanvas {
   protected onPointerMove(event: PointerEvent): void {
     const renderer = this.renderer;
     if (!renderer) return;
+    this.keyboardCursor.set(false);
     if (event.pointerType === 'touch' && this.touches.has(event.pointerId)) {
       this.touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
     }
@@ -680,6 +756,7 @@ export class MapCanvas {
     } else if (store.tool() === 'eraser') {
       preview.rect = { x: tile.x, y: tile.y, width: 1, height: 1, style: 'erase' };
     }
+    if (this.keyboardCursor()) preview.cursor = tile;
     renderer.setPreview(preview);
     this.dragLabel.set(label ? { text: label, ...this.pointer } : null);
   }

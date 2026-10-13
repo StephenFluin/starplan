@@ -24,6 +24,8 @@ export interface Preview {
   blocked?: [number, number][];
   /** Tiles a freehand eraser stroke will clear. */
   erased?: [number, number][];
+  /** The keyboard cursor's tile, outlined. */
+  cursor?: { x: number; y: number };
 }
 
 const key = (x: number, y: number) => `${x},${y}`;
@@ -419,6 +421,10 @@ export class MapRenderer {
       for (const [x, y] of preview.erased) g.rect(x * TILE, y * TILE, TILE, TILE);
       g.fill({ color: 0xef4444, alpha: 0.25 });
     }
+    if (preview?.cursor) {
+      const { x, y } = preview.cursor;
+      g.rect(x * TILE, y * TILE, TILE, TILE).stroke({ color: 0xfbbf24, width: 2 / this.zoom, alignment: 1 });
+    }
     if (preview?.blocked?.length) {
       for (const [x, y] of preview.blocked) g.rect(x * TILE, y * TILE, TILE, TILE);
       g.fill({ color: 0xff0000, alpha: 0.45 });
@@ -438,6 +444,21 @@ export class MapRenderer {
   panBy(dx: number, dy: number): void {
     this.camera.panBy(dx, dy);
     this.applyView();
+  }
+
+  /** The tile in the middle of the view. */
+  centreTile(): { x: number; y: number } {
+    const { x, y, zoom } = this.camera.view;
+    const { width, height } = this.app.renderer.screen;
+    return { x: Math.floor((width / 2 - x) / zoom / TILE), y: Math.floor((height / 2 - y) / zoom / TILE) };
+  }
+
+  /** Pans so a tile sits in the middle of the view (as near as the map's edges allow). */
+  centreOn(tileX: number, tileY: number): void {
+    this.camera.stop();
+    const { x, y, zoom } = this.camera.view;
+    const { width, height } = this.app.renderer.screen;
+    this.panBy(width / 2 - (x + (tileX + 0.5) * TILE * zoom), height / 2 - (y + (tileY + 0.5) * TILE * zoom));
   }
 
   /**

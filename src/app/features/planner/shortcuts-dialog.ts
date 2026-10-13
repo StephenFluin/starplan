@@ -17,7 +17,8 @@ const SECTIONS: readonly { title: string; shortcuts: readonly Shortcut[] }[] = [
       { keys: ['Scroll', 'Pinch'], action: 'Zoom in or out where the pointer is' },
       { keys: ['Double-click'], action: 'Zoom in there (Shift: out)' },
       { keys: ['+', '−', '0'], action: 'Zoom in, zoom out, fit the map' },
-      { keys: ['Arrow keys'], action: 'Move the map, when nothing is selected' },
+      { keys: ['Arrow keys'], action: 'Move the map a tile (Shift: five), when nothing is selected; on the map, a cursor marks the middle tile' },
+      { keys: ['Enter'], action: 'Place, select or erase at the cursor (Shift + Enter: add to the selection)' },
     ],
   },
   {

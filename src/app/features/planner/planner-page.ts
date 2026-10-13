@@ -14,7 +14,7 @@ import { VariantPicker } from './variant-picker';
 import { CatalogItem } from '../../core/data/catalog';
 
 const PAN_STEP = 64;
-/** Tiles Shift + an arrow key moves the selection. */
+/** Tiles Shift + an arrow key moves the selection or the keyboard cursor. */
 const NUDGE_LARGE = 5;
 
 @Component({
@@ -258,16 +258,23 @@ export class PlannerPage {
       case 'arrowright':
       case 'arrowup':
       case 'arrowdown': {
+        // The item list and the item count scroll with the arrow keys.
+        if (target instanceof Element && target.closest('app-item-palette, app-item-counter')) return;
         event.preventDefault();
         const x = key === 'arrowleft' ? -1 : key === 'arrowright' ? 1 : 0;
         const y = key === 'arrowup' ? -1 : key === 'arrowdown' ? 1 : 0;
-        // Arrows nudge the selection a tile (Shift: five), or else move around the map.
-        if (isEmptySelection(this.store.selection())) {
-          map.panBy(-x * PAN_STEP, -y * PAN_STEP);
-        } else {
-          const step = event.shiftKey ? NUDGE_LARGE : 1;
+        const step = event.shiftKey ? NUDGE_LARGE : 1;
+        const onMap = target instanceof Element && target.closest('app-map-canvas') !== null;
+        // Arrows nudge the selection a tile (Shift: five), or else move around the map: by whole
+        // tiles under the keyboard cursor when the map has focus.
+        if (this.hasSelection()) {
           const failure = this.store.moveSelection(x * step, y * step);
           if (failure) this.announce(blockedMessage(failure));
+          else if (map.cursorActive) map.moveCursor(x * step, y * step);
+        } else if (onMap) {
+          map.moveCursor(x * step, y * step);
+        } else {
+          map.panBy(-x * step * PAN_STEP, -y * step * PAN_STEP);
         }
         return;
       }
