@@ -1,14 +1,24 @@
-import { Component, inject, output, signal } from '@angular/core';
+import { Component, inject, input, output, signal } from '@angular/core';
 import { RangeGroup } from '../../core/data/catalog';
 import { BrushShape, PlannerStore, RestrictionOverlay, Tool } from '../../core/planner-store';
+import { DismissPopover } from './dismiss-popover';
 import { PlansMenu } from './plans-menu';
 
-export type ToolbarAction = 'zoom-in' | 'zoom-out' | 'fit' | 'share' | 'export-png' | 'export-json' | 'import-json' | 'toggle-counter' | 'new';
+export type ToolbarAction =
+  | 'zoom-in'
+  | 'zoom-out'
+  | 'fit'
+  | 'share'
+  | 'export-png'
+  | 'export-json'
+  | 'import-json'
+  | 'toggle-counter'
+  | 'new';
 
 /** Top bar with tools, history, layout choice, view options and file actions. */
 @Component({
   selector: 'app-planner-toolbar',
-  imports: [PlansMenu],
+  imports: [PlansMenu, DismissPopover],
   host: { role: 'toolbar', 'aria-label': 'Planner tools' },
   template: `
     <span class="brand">Starplan</span>
@@ -68,8 +78,12 @@ export type ToolbarAction = 'zoom-in' | 'zoom-out' | 'fit' | 'share' | 'export-p
     }
 
     <div class="group" role="group" aria-label="History">
-      <button type="button" [disabled]="!store.canUndo()" title="Undo (Ctrl+Z)" (click)="store.undo()">Undo</button>
-      <button type="button" [disabled]="!store.canRedo()" title="Redo (Ctrl+Shift+Z)" (click)="store.redo()">Redo</button>
+      <button type="button" class="icon" aria-label="Undo" title="Undo (Ctrl+Z)" [disabled]="!store.canUndo()" (click)="store.undo()">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4 3 7l3 3M3 7h6.5a3.5 3.5 0 0 1 0 7H8" /></svg>
+      </button>
+      <button type="button" class="icon" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" [disabled]="!store.canRedo()" (click)="store.redo()">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m10 4 3 3-3 3m3-3H6.5a3.5 3.5 0 0 0 0 7H8" /></svg>
+      </button>
     </div>
 
     <div class="group" role="group" aria-label="Zoom">
@@ -78,13 +92,14 @@ export type ToolbarAction = 'zoom-in' | 'zoom-out' | 'fit' | 'share' | 'export-p
       <button type="button" aria-label="Zoom in" title="Zoom in (+)" (click)="action.emit('zoom-in')">+</button>
     </div>
 
-    <div class="menu">
+    <div class="menu" (appDismissPopover)="optionsOpen.set(false)">
       <button type="button" aria-haspopup="true" [attr.aria-expanded]="optionsOpen()" (click)="optionsOpen.update((o) => !o)">
         View &amp; options
       </button>
       @if (optionsOpen()) {
         <div class="popover" role="group" aria-label="View and options">
           <label><input type="checkbox" [checked]="store.options().showGrid" (change)="store.setOption('showGrid', $any($event.target).checked)" /> Grid (G)</label>
+          <label><input type="checkbox" [checked]="counterOpen()" (change)="action.emit('toggle-counter')" /> Item count</label>
           <fieldset>
             <legend>Show placeable area</legend>
             @for (overlay of overlays; track overlay.id) {
@@ -123,14 +138,19 @@ export type ToolbarAction = 'zoom-in' | 'zoom-out' | 'fit' | 'share' | 'export-p
 
     <span class="spacer"></span>
 
-    <div class="group" role="group" aria-label="File">
-      <button type="button" title="Item count" (click)="action.emit('toggle-counter')">Count</button>
-      <button type="button" (click)="action.emit('new')">New</button>
-      <button type="button" title="Import a plan file (also accepts v2 planner JSON)" (click)="action.emit('import-json')">Import</button>
-      <button type="button" (click)="action.emit('export-json')">Export</button>
-      <button type="button" (click)="action.emit('export-png')">Image</button>
-      <button type="button" class="primary" title="Copy a link to this plan" (click)="action.emit('share')">Share</button>
+    <div class="menu" (appDismissPopover)="fileOpen.set(false)">
+      <button type="button" aria-haspopup="true" [attr.aria-expanded]="fileOpen()" (click)="fileOpen.update((o) => !o)">File</button>
+      @if (fileOpen()) {
+        <div class="popover end commands" role="group" aria-label="File">
+          @for (command of fileCommands; track command.action) {
+            <button type="button" (click)="fileOpen.set(false); action.emit(command.action)">
+              {{ command.label }}<small>{{ command.hint }}</small>
+            </button>
+          }
+        </div>
+      }
     </div>
+    <button type="button" class="primary share" title="Copy a link to this plan" (click)="action.emit('share')">Share</button>
   `,
   styles: `
     :host {
@@ -148,7 +168,10 @@ export type ToolbarAction = 'zoom-in' | 'zoom-out' | 'fit' | 'share' | 'export-p
     button:disabled { color: var(--muted); cursor: default; }
     button.active, button.primary { background: var(--accent); color: var(--accent-text); }
     .menu { position: relative; }
-    .menu > button { border: 1px solid var(--border); border-radius: 6px; }
+    .menu > button, .share { border: 1px solid var(--border); border-radius: 6px; }
+    .share { border-color: var(--accent); }
+    button.icon { display: inline-flex; align-items: center; padding: 5px 8px; }
+    button.icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
     .popover {
       position: absolute; top: calc(100% + 4px); left: 0; z-index: 10; min-width: 240px; padding: 10px;
       display: grid; gap: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
@@ -157,6 +180,10 @@ export type ToolbarAction = 'zoom-in' | 'zoom-out' | 'fit' | 'share' | 'export-p
     fieldset { margin: 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; display: grid; gap: 4px; }
     legend { padding: 0 4px; color: var(--muted); }
     label { display: flex; align-items: center; gap: 6px; }
+    .popover.end { left: auto; right: 0; }
+    .commands { gap: 2px; padding: 6px; }
+    .commands button { display: grid; text-align: left; border-radius: 6px; padding: 6px 8px; }
+    .commands small { color: var(--muted); font-size: 12px; }
     .spacer { flex: 1; }
   `,
 })
@@ -166,7 +193,17 @@ export class PlannerToolbar {
   /** Fired when the user picks a different layout. */
   readonly layoutChange = output<string>();
 
+  /** Whether the item count panel is open. */
+  readonly counterOpen = input(false);
+
   protected readonly optionsOpen = signal(false);
+  protected readonly fileOpen = signal(false);
+  protected readonly fileCommands: { action: ToolbarAction; label: string; hint: string }[] = [
+    { action: 'new', label: 'New plan', hint: 'Start over on this farm. This plan stays under your plans.' },
+    { action: 'import-json', label: 'Import plan file…', hint: 'A Starplan or v2 planner .json file' },
+    { action: 'export-json', label: 'Export plan file', hint: 'Save a .json file you can import later' },
+    { action: 'export-png', label: 'Save as image', hint: 'The whole map as a .png' },
+  ];
   protected readonly farms = this.store.layouts.filter((l) => l.kind === 'farm');
   protected readonly interiors = this.store.layouts.filter((l) => l.kind === 'interior');
   protected readonly community = this.store.layouts.filter((l) => l.kind === 'community');

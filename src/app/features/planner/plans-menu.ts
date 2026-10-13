@@ -2,12 +2,13 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { LocalPlanInfo } from '../../core/local-plans';
 import { PlannerStore } from '../../core/planner-store';
+import { DismissPopover } from './dismiss-popover';
 
 /** Toolbar menu for plans saved in this browser, with the open plan's save status. */
 @Component({
   selector: 'app-plans-menu',
   imports: [DatePipe],
-  host: { '(keydown.escape)': 'open.set(false)' },
+  hostDirectives: [DismissPopover],
   template: `
     <button type="button" class="trigger" aria-haspopup="true" [attr.aria-expanded]="open()" (click)="open.update((o) => !o)">
       <span class="name">{{ store.planName() }}</span>
@@ -83,6 +84,10 @@ import { PlannerStore } from '../../core/planner-store';
 export class PlansMenu {
   protected readonly store = inject(PlannerStore);
   protected readonly open = signal(false);
+
+  constructor() {
+    inject(DismissPopover).appDismissPopover.subscribe(() => this.open.set(false));
+  }
 
   protected readonly otherPlans = computed(() => this.store.savedPlans().filter((p) => p.id !== this.store.planId()));
 
