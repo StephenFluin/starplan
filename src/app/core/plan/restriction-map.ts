@@ -53,6 +53,16 @@ export class RestrictionMap {
     this.forEachIn(x, y, width, height, (i) => (this.cells[i] = 0));
   }
 
+  /**
+   * Clears every restriction on the tiles in an area that are impassable or unbuildable, e.g. where
+   * something painted into the background stood. Open ground there keeps its tillability.
+   */
+  openBlocked(x: number, y: number, width: number, height: number): void {
+    this.forEachIn(x, y, width, height, (i) => {
+      if (this.cells[i] & (IMPASSABLE | NOT_BUILDABLE)) this.cells[i] = 0;
+    });
+  }
+
   /** Makes the passable tiles in an area buildable; impassable terrain stays blocked. */
   allowBuildingIn(x: number, y: number, width: number, height: number): void {
     this.forEachIn(x, y, width, height, (i) => {

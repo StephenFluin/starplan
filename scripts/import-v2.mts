@@ -71,14 +71,57 @@ const STANDARD_BAKED = {
 const BAKED_WITH_BIN = new Set(['regular', 'combat', 'fishing', 'foraging', 'mining', 'fourcorners']);
 const BAKED_WITHOUT_BIN = new Set(['beach']);
 
+/**
+ * Most farm images also paint the greenhouse's dirt foundation and the stone path to its door, and
+ * the pet bowl (at the game's PetBowlLocation). Covers are in tiles; `ground` is a clean 2x2 patch
+ * that matches the surroundings. Hill-top paints the broken greenhouse itself, roof and all.
+ */
+const GREENHOUSE_BAKED: Record<string, { ground: string; doorstep: string; cover: string[] }> = {};
+for (const id of ['regular', 'combat', 'fishing', 'foraging', 'mining']) {
+  GREENHOUSE_BAKED[id] = {
+    ground: '{ x: 25, y: 18 }',
+    doorstep: '{ x: 27, y: 16 }',
+    cover: ['{ x: 24, y: 10, width: 7, height: 8 }', '{ x: 31, y: 16, width: 1, height: 2 }'],
+  };
+}
+GREENHOUSE_BAKED['mining'].cover.push('{ x: 31, y: 10, width: 1, height: 6 }', '{ x: 25, y: 8, width: 7, height: 2, ground: { x: 28, y: 8 } }');
+GREENHOUSE_BAKED['fourcorners'] = {
+  ground: '{ x: 42, y: 41 }',
+  doorstep: '{ x: 38, y: 35 }',
+  cover: ['{ x: 35, y: 29, width: 7, height: 8 }', '{ x: 42, y: 35, width: 1, height: 2 }'],
+};
+
+const PET_BOWLS: Record<string, { at: string; cover?: string[] }> = {
+  regular: { at: '{ x: 53, y: 7 }', cover: ['{ x: 53, y: 7, width: 2, height: 2, ground: { x: 25, y: 18 } }', '{ x: 54, y: 9, width: 1, height: 1, ground: { x: 25, y: 18 } }'] },
+  fourcorners: { at: '{ x: 49, y: 40 }', cover: ['{ x: 49, y: 40, width: 2, height: 2, ground: { x: 42, y: 41 } }', '{ x: 50, y: 42, width: 1, height: 1, ground: { x: 42, y: 41 } }'] },
+  // The beach bowl sits on a small dirt pad in the grass; grass over the whole pad looks right.
+  beach: { at: '{ x: 78, y: 21 }', cover: ['{ x: 77, y: 20, width: 3, height: 4, ground: { x: 38, y: 72 } }'] },
+  // The Meadowlands image paints none of the default buildings.
+  ranching: { at: '{ x: 91, y: 14 }' },
+};
+for (const id of ['combat', 'fishing', 'foraging', 'mining']) PET_BOWLS[id] = PET_BOWLS['regular'];
+
+/** Shipping bins on farms whose image doesn't paint one (from the game's ShippingBinLocation). */
+const UNPAINTED_BINS: Record<string, string> = { ranching: '{ x: 88, y: 18 }' };
+
 function bakedFields(id: string): string[] {
   const withBin = BAKED_WITH_BIN.has(id);
-  if (!withBin && !BAKED_WITHOUT_BIN.has(id)) return [];
-  const cover = [STANDARD_BAKED.house, STANDARD_BAKED.mailbox, ...(withBin ? [STANDARD_BAKED.bin] : [])];
-  const fields = [
-    `baked: { groundSample: ${STANDARD_BAKED.groundSample}, cover: [${cover.join(', ')}] }`,
+  const fields: string[] = [];
+  if (withBin) fields.push('shippingBin: { x: 71, y: 14 }');
+  else if (UNPAINTED_BINS[id]) fields.push(`shippingBin: ${UNPAINTED_BINS[id]}`);
+  if (PET_BOWLS[id]) fields.push(`petBowl: ${PET_BOWLS[id].at}`);
+  if (!withBin && !BAKED_WITHOUT_BIN.has(id)) return fields;
+
+  const greenhouse = GREENHOUSE_BAKED[id];
+  const cover = [
+    STANDARD_BAKED.house,
+    STANDARD_BAKED.mailbox,
+    ...(withBin ? [STANDARD_BAKED.bin] : []),
+    ...(greenhouse?.cover.map((area) => (area.includes('ground') ? area : area.replace(' }', `, ground: ${greenhouse.ground} }`))) ?? []),
+    ...(PET_BOWLS[id]?.cover ?? []),
   ];
-  if (withBin) fields.unshift('shippingBin: { x: 71, y: 14 }');
+  const doorstep = greenhouse ? `, greenhouseDoorstep: ${greenhouse.doorstep}` : '';
+  fields.push(`baked: { groundSample: ${STANDARD_BAKED.groundSample}, cover: [${cover.join(', ')}]${doorstep} }`);
   return fields;
 }
 

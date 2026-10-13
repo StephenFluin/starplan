@@ -22,7 +22,18 @@ describe('default buildings', () => {
       { itemId: 'house', x: 59, y: 12 },
       { itemId: 'greenhouse', x: 25, y: 10 },
       { itemId: 'shipping-bin', x: 71, y: 14 },
+      { itemId: 'pet-bowl', x: 53, y: 7 },
     ]);
+  });
+
+  it('lets the pet bowl move and return, but keeps the fence behind it', () => {
+    const { doc, map } = standardFarm();
+    const uid = doc.objectAt(53, 7)!.uid;
+    const away = moveObjects(doc, map, [uid], -3, 1, options)!;
+    expect(away).not.toBeNull();
+    doc.apply(away);
+    expect(moveObjects(doc, map, [uid], 3, -1, options)).not.toBeNull();
+    expect(map.isBlocked(53, 6, 'accessible')).toBe(true);
   });
 
   for (const [name, start] of [

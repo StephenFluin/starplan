@@ -246,7 +246,7 @@ export class PlannerStore {
   async load(saved: SavedPlan, name: string, addDefaultBuildings = false): Promise<void> {
     this.flushAutosave();
     const layout = await this.switchLayout(saved.layout);
-    this.doc.apply(fromSaved(saved, this.doc));
+    this.doc.apply(fromSaved(saved, this.doc, layout));
     if (addDefaultBuildings) this.doc.apply(this.defaultBuildings(layout));
     this.startPlan(newPlanId(), name, true);
   }
@@ -256,8 +256,8 @@ export class PlannerStore {
     const saved = this.localPlans.read(id);
     if (!saved) return false;
     this.flushAutosave();
-    await this.switchLayout(saved.layout);
-    this.doc.apply(fromSaved(saved, this.doc));
+    const layout = await this.switchLayout(saved.layout);
+    this.doc.apply(fromSaved(saved, this.doc, layout));
     const name = this.localPlans.list().find((p) => p.id === id)?.name ?? 'Untitled plan';
     this.startPlan(id, name, false);
     this.saveState.set('saved');

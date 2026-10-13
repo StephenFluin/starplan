@@ -1,9 +1,10 @@
+import { LAYOUTS } from '../data/layouts.generated';
 import { PlanDocument } from './plan-document';
 import { SavedPlan, decodePlan, encodePlan, fromSaved, fromV2, parsePlanJson, toSaved } from './serialize';
 
 describe('serialize', () => {
   const plan: SavedPlan = {
-    v: 3,
+    v: 4,
     layout: 'regular',
     tiles: { road: [1, 2, 3, 4], parsnip: [10, 10] },
     objects: [['keg', 5, 5], ['house', 59, 12]],
@@ -21,6 +22,29 @@ describe('serialize', () => {
     const doc = new PlanDocument(80, 65);
     doc.apply(fromSaved({ v: 1, layout: 'regular', tiles: {}, objects: [['house', 59, 8], ['greenhouse', 25, 6], ['keg', 5, 5]] }, doc));
     expect(toSaved('regular', doc).objects).toEqual([['keg', 5, 5], ['greenhouse', 25, 10], ['house', 59, 12]]);
+  });
+
+  describe('pet bowl', () => {
+    const regular = LAYOUTS.find((l) => l.id === 'regular')!;
+    const load = (objects: SavedPlan['objects'], v: SavedPlan['v'] = 3, layout = regular) => {
+      const doc = new PlanDocument(80, 65);
+      doc.apply(fromSaved({ v, layout: layout.id, tiles: {}, objects }, doc, layout));
+      return toSaved(layout.id, doc).objects;
+    };
+
+    it('adds the bowl that older plans showed painted into the farm image', () => {
+      expect(load([['keg', 5, 5]])).toEqual([['keg', 5, 5], ['pet-bowl', 53, 7]]);
+    });
+
+    it('leaves plans alone that already have a bowl, or something on its spot', () => {
+      expect(load([['stone-pet-bowl', 20, 20]])).toEqual([['stone-pet-bowl', 20, 20]]);
+      expect(load([['keg', 54, 8]])).toEqual([['keg', 54, 8]]);
+      expect(load([['keg', 5, 5]], 4)).toEqual([['keg', 5, 5]]);
+    });
+
+    it("doesn't add one where the farm image never painted it", () => {
+      expect(load([], 3, LAYOUTS.find((l) => l.id === 'ranching')!)).toEqual([]);
+    });
   });
 
   it("moves v2 farmhouses down a row onto the game's 9x5 footprint", () => {

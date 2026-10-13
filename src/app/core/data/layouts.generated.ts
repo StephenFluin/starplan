@@ -13,7 +13,8 @@ export const LAYOUTS: readonly LayoutInfo[] = [
     house: { x: 59, y: 8 },
     greenhouse: { x: 25, y: 6 },
     shippingBin: { x: 71, y: 14 },
-    baked: { groundSample: { x: 61, y: 10 }, cover: [{ x: 60, y: 12, width: 7, height: 5 }, { x: 68, y: 15, width: 1, height: 2 }, { x: 71, y: 13, width: 2, height: 2 }] },
+    petBowl: { x: 53, y: 7 },
+    baked: { groundSample: { x: 61, y: 10 }, cover: [{ x: 60, y: 12, width: 7, height: 5 }, { x: 68, y: 15, width: 1, height: 2 }, { x: 71, y: 13, width: 2, height: 2 }, { x: 24, y: 10, width: 7, height: 8, ground: { x: 25, y: 18 } }, { x: 31, y: 16, width: 1, height: 2, ground: { x: 25, y: 18 } }, { x: 53, y: 7, width: 2, height: 2, ground: { x: 25, y: 18 } }, { x: 54, y: 9, width: 1, height: 1, ground: { x: 25, y: 18 } }], greenhouseDoorstep: { x: 27, y: 16 } },
   },
   {
     id: "combat",
@@ -26,7 +27,8 @@ export const LAYOUTS: readonly LayoutInfo[] = [
     house: { x: 59, y: 8 },
     greenhouse: { x: 25, y: 6 },
     shippingBin: { x: 71, y: 14 },
-    baked: { groundSample: { x: 61, y: 10 }, cover: [{ x: 60, y: 12, width: 7, height: 5 }, { x: 68, y: 15, width: 1, height: 2 }, { x: 71, y: 13, width: 2, height: 2 }] },
+    petBowl: { x: 53, y: 7 },
+    baked: { groundSample: { x: 61, y: 10 }, cover: [{ x: 60, y: 12, width: 7, height: 5 }, { x: 68, y: 15, width: 1, height: 2 }, { x: 71, y: 13, width: 2, height: 2 }, { x: 24, y: 10, width: 7, height: 8, ground: { x: 25, y: 18 } }, { x: 31, y: 16, width: 1, height: 2, ground: { x: 25, y: 18 } }, { x: 53, y: 7, width: 2, height: 2, ground: { x: 25, y: 18 } }, { x: 54, y: 9, width: 1, height: 1, ground: { x: 25, y: 18 } }], greenhouseDoorstep: { x: 27, y: 16 } },
   },
   {
     id: "fishing",
@@ -39,7 +41,8 @@ export const LAYOUTS: readonly LayoutInfo[] = [
     house: { x: 59, y: 8 },
     greenhouse: { x: 25, y: 6 },
     shippingBin: { x: 71, y: 14 },
-    baked: { groundSample: { x: 61, y: 10 }, cover: [{ x: 60, y: 12, width: 7, height: 5 }, { x: 68, y: 15, width: 1, height: 2 }, { x: 71, y: 13, width: 2, height: 2 }] },
+    petBowl: { x: 53, y: 7 },
+    baked: { groundSample: { x: 61, y: 10 }, cover: [{ x: 60, y: 12, width: 7, height: 5 }, { x: 68, y: 15, width: 1, height: 2 }, { x: 71, y: 13, width: 2, height: 2 }, { x: 24, y: 10, width: 7, height: 8, ground: { x: 25, y: 18 } }, { x: 31, y: 16, width: 1, height: 2, ground: { x: 25, y: 18 } }, { x: 53, y: 7, width: 2, height: 2, ground: { x: 25, y: 18 } }, { x: 54, y: 9, width: 1, height: 1, ground: { x: 25, y: 18 } }], greenhouseDoorstep: { x: 27, y: 16 } },
   },
   {
     id: "foraging",
@@ -52,7 +55,8 @@ export const LAYOUTS: readonly LayoutInfo[] = [
     house: { x: 59, y: 8 },
     greenhouse: { x: 25, y: 6 },
     shippingBin: { x: 71, y: 14 },
-    baked: { groundSample: { x: 61, y: 10 }, cover: [{ x: 60, y: 12, width: 7, height: 5 }, { x: 68, y: 15, width: 1, height: 2 }, { x: 71, y: 13, width: 2, height: 2 }] },
+    petBowl: { x: 53, y: 7 },
+    baked: { groundSample: { x: 61, y: 10 }, cover: [{ x: 60, y: 12, width: 7, height: 5 }, { x: 68, y: 15, width: 1, height: 2 }, { x: 71, y: 13, width: 2, height: 2 }, { x: 24, y: 10, width: 7, height: 8, ground: { x: 25, y: 18 } }, { x: 31, y: 16, width: 1, height: 2, ground: { x: 25, y: 18 } }, { x: 53, y: 7, width: 2, height: 2, ground: { x: 25, y: 18 } }, { x: 54, y: 9, width: 1, height: 1, ground: { x: 25, y: 18 } }], greenhouseDoorstep: { x: 27, y: 16 } },
   },
   {
     id: "mining",
@@ -65,7 +69,8 @@ export const LAYOUTS: readonly LayoutInfo[] = [
     house: { x: 59, y: 8 },
     greenhouse: { x: 25, y: 6 },
     shippingBin: { x: 71, y: 14 },
-    baked: { groundSample: { x: 61, y: 10 }, cover: [{ x: 60, y: 12, width: 7, height: 5 }, { x: 68, y: 15, width: 1, height: 2 }, { x: 71, y: 13, width: 2, height: 2 }] },
+    petBowl: { x: 53, y: 7 },
+    baked: { groundSample: { x: 61, y: 10 }, cover: [{ x: 60, y: 12, width: 7, height: 5 }, { x: 68, y: 15, width: 1, height: 2 }, { x: 71, y: 13, width: 2, height: 2 }, { x: 24, y: 10, width: 7, height: 8, ground: { x: 25, y: 18 } }, { x: 31, y: 16, width: 1, height: 2, ground: { x: 25, y: 18 } }, { x: 31, y: 10, width: 1, height: 6, ground: { x: 25, y: 18 } }, { x: 25, y: 8, width: 7, height: 2, ground: { x: 28, y: 8 } }, { x: 53, y: 7, width: 2, height: 2, ground: { x: 25, y: 18 } }, { x: 54, y: 9, width: 1, height: 1, ground: { x: 25, y: 18 } }], greenhouseDoorstep: { x: 27, y: 16 } },
   },
   {
     id: "ranching",
@@ -77,6 +82,8 @@ export const LAYOUTS: readonly LayoutInfo[] = [
     restrictions: false,
     house: { x: 76, y: 12 },
     greenhouse: { x: 37, y: 15 },
+    shippingBin: { x: 88, y: 18 },
+    petBowl: { x: 91, y: 14 },
   },
   {
     id: "beach",
@@ -88,7 +95,8 @@ export const LAYOUTS: readonly LayoutInfo[] = [
     restrictions: true,
     house: { x: 59, y: 8 },
     greenhouse: { x: 14, y: 10 },
-    baked: { groundSample: { x: 61, y: 10 }, cover: [{ x: 60, y: 12, width: 7, height: 5 }, { x: 68, y: 15, width: 1, height: 2 }] },
+    petBowl: { x: 78, y: 21 },
+    baked: { groundSample: { x: 61, y: 10 }, cover: [{ x: 60, y: 12, width: 7, height: 5 }, { x: 68, y: 15, width: 1, height: 2 }, { x: 77, y: 20, width: 3, height: 4, ground: { x: 38, y: 72 } }] },
   },
   {
     id: "ginger_island",
@@ -110,7 +118,8 @@ export const LAYOUTS: readonly LayoutInfo[] = [
     house: { x: 59, y: 8 },
     greenhouse: { x: 36, y: 25 },
     shippingBin: { x: 71, y: 14 },
-    baked: { groundSample: { x: 61, y: 10 }, cover: [{ x: 60, y: 12, width: 7, height: 5 }, { x: 68, y: 15, width: 1, height: 2 }, { x: 71, y: 13, width: 2, height: 2 }] },
+    petBowl: { x: 49, y: 40 },
+    baked: { groundSample: { x: 61, y: 10 }, cover: [{ x: 60, y: 12, width: 7, height: 5 }, { x: 68, y: 15, width: 1, height: 2 }, { x: 71, y: 13, width: 2, height: 2 }, { x: 35, y: 29, width: 7, height: 8, ground: { x: 42, y: 41 } }, { x: 42, y: 35, width: 1, height: 2, ground: { x: 42, y: 41 } }, { x: 49, y: 40, width: 2, height: 2, ground: { x: 42, y: 41 } }, { x: 50, y: 42, width: 1, height: 1, ground: { x: 42, y: 41 } }], greenhouseDoorstep: { x: 38, y: 35 } },
   },
   {
     id: "quarry",

@@ -1,4 +1,5 @@
 import { findItem, variantsOf } from '../data/catalog';
+import { LayoutInfo, TilePoint } from '../data/layout-info';
 import { legacySpriteOffset } from './default-buildings';
 import { Patch, PlacedObject, PlanDocument, emptyPatch, parseKey } from './plan-document';
 
@@ -7,9 +8,10 @@ import { Patch, PlacedObject, PlanDocument, emptyPatch, parseKey } from './plan-
  * v1: farmhouse and greenhouse positions are the sprite's top-left corner (as in the v2 planner).
  * v2: object positions are the footprint's top-left corner, with a 9x6 farmhouse footprint.
  * v3: as v2, with the game's 9x5 farmhouse footprint (one row lower).
+ * v4: as v3, with the pet bowl as an object (it used to be painted into the farm image).
  */
 export interface SavedPlan {
-  v: 1 | 2 | 3;
+  v: 1 | 2 | 3 | 4;
   layout: string;
   /** itemId -> flat [x0, y0, x1, y1, ...] tile coordinates. */
   tiles: Record<string, number[]>;
@@ -28,11 +30,14 @@ export function toSaved(layout: string, doc: PlanDocument): SavedPlan {
     objects.push([obj.itemId, obj.x, obj.y]);
   }
   objects.sort((a, b) => a[2] - b[2] || a[1] - b[1]);
-  return { v: 3, layout, tiles, objects };
+  return { v: 4, layout, tiles, objects };
 }
 
-/** Builds a patch that loads a saved plan into an empty document, dropping unknown items. */
-export function fromSaved(saved: SavedPlan, doc: PlanDocument): Patch {
+/**
+ * Builds a patch that loads a saved plan into an empty document, dropping unknown items. Given the
+ * plan's layout, older plans get the pet bowl their farm image used to show.
+ */
+export function fromSaved(saved: SavedPlan, doc: PlanDocument, layout?: LayoutInfo): Patch {
   const patch = emptyPatch();
   for (const [itemId, coords] of Object.entries(saved.tiles)) {
     const item = findItem(itemId);
@@ -47,7 +52,25 @@ export function fromSaved(saved: SavedPlan, doc: PlanDocument): Patch {
     const obj: PlacedObject = { uid: doc.allocateUid(), itemId: item.id, x, y: y + migrationOffset(saved.v, item.id) };
     patch.objects.push({ uid: obj.uid, before: null, after: obj });
   }
+  if (saved.v < 4 && layout?.petBowl && layout.baked) addPaintedPetBowl(patch, doc, layout.petBowl);
   return patch;
+}
+
+const PET_BOWL_IDS = new Set(variantsOf('pet-bowl').map((item) => item.id));
+
+/** Adds the pet bowl at its default spot, unless the plan has one or something else is there. */
+function addPaintedPetBowl(patch: Patch, doc: PlanDocument, at: TilePoint): void {
+  const bowl = findItem('pet-bowl');
+  if (!bowl) return;
+  const objects = patch.objects.flatMap((change) => (change.after ? [change.after] : []));
+  if (objects.some((obj) => PET_BOWL_IDS.has(obj.itemId))) return;
+  const overlaps = objects.some((obj) => {
+    const item = findItem(obj.itemId);
+    return item && obj.x < at.x + bowl.width && at.x < obj.x + item.width && obj.y < at.y + bowl.height && at.y < obj.y + item.height;
+  });
+  if (overlaps) return;
+  const obj: PlacedObject = { uid: doc.allocateUid(), itemId: bowl.id, x: at.x, y: at.y };
+  patch.objects.push({ uid: obj.uid, before: null, after: obj });
 }
 
 /** Rows to move an object down when loading an older plan version. */
@@ -62,7 +85,7 @@ function migrationOffset(version: SavedPlan['v'], itemId: string): number {
 export function isSavedPlan(value: unknown): value is SavedPlan {
   if (typeof value !== 'object' || value === null) return false;
   const plan = value as Partial<SavedPlan>;
-  return (plan.v === 1 || plan.v === 2 || plan.v === 3) && typeof plan.layout === 'string' && typeof plan.tiles === 'object' && Array.isArray(plan.objects);
+  return (plan.v === 1 || plan.v === 2 || plan.v === 3 || plan.v === 4) && typeof plan.layout === 'string' && typeof plan.tiles === 'object' && Array.isArray(plan.objects);
 }
 
 interface V2Plan {
