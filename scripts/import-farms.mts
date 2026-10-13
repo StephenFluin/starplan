@@ -41,8 +41,9 @@ interface FarmSpec {
   /** Where the game puts the greenhouse when the map has no GreenhouseLocation property. */
   greenhouse: Point;
   /**
-   * The map patch the game lays at the greenhouse's start location until it is moved
-   * (Farm.ApplyGreenhouseDirt): sand over the grass the base map has there.
+   * The map patch the game lays over the greenhouse's start location once the greenhouse has first
+   * moved (Farm.ClearGreenhouseGrassTiles, farm types 0, 3, 4 and 5): sand over the grass patch the
+   * base map has there.
    */
   greenhouseDirt?: string;
   /** Objects and fences the game adds when the farm is created. */
@@ -70,8 +71,8 @@ function meadowlandsStarter(): FarmSpec['starter'] {
 
 const FARMS: FarmSpec[] = [
   { id: 'regular', name: 'Standard Farm', map: 'Farm', greenhouse: STANDARD_GREENHOUSE, greenhouseDirt: 'Farm_Greenhouse_Dirt' },
-  { id: 'fishing', name: 'Riverland Farm', map: 'Farm_Fishing', greenhouse: STANDARD_GREENHOUSE, greenhouseDirt: 'Farm_Greenhouse_Dirt' },
-  { id: 'foraging', name: 'Forest Farm', map: 'Farm_Foraging', greenhouse: STANDARD_GREENHOUSE, greenhouseDirt: 'Farm_Greenhouse_Dirt' },
+  { id: 'fishing', name: 'Riverland Farm', map: 'Farm_Fishing', greenhouse: STANDARD_GREENHOUSE },
+  { id: 'foraging', name: 'Forest Farm', map: 'Farm_Foraging', greenhouse: STANDARD_GREENHOUSE },
   { id: 'mining', name: 'Hill-top Farm', map: 'Farm_Mining', greenhouse: STANDARD_GREENHOUSE, greenhouseDirt: 'Farm_Greenhouse_Dirt' },
   { id: 'combat', name: 'Wilderness Farm', map: 'Farm_Combat', greenhouse: STANDARD_GREENHOUSE, greenhouseDirt: 'Farm_Greenhouse_Dirt' },
   {
@@ -340,7 +341,7 @@ function main() {
     const greenhouse = point(map, 'GreenhouseLocation', farm.greenhouse);
     let dirt = '';
     if (farm.greenhouseDirt) {
-      // Drawn and enforced only while the greenhouse stands at its start location, as in the game.
+      // Drawn and enforced once the greenhouse has moved, as in the game.
       const patch = readMap(farm.greenhouseDirt);
       const image = `${farm.greenhouseDirt.replace(/^Farm_/, '').replace(/_/g, '-').toLowerCase()}.png`;
       writeFileSync(join(layoutDir, image), encodePng(render(patch)));

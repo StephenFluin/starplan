@@ -54,15 +54,15 @@ export function greenhouseAtStart(doc: PlanDocument, layout: LayoutInfo): boolea
 
 /**
  * Whether the greenhouse's dirt patch (LayoutInfo.greenhouseDirt) is laid over the map: the game
- * keeps it until the greenhouse first moves.
+ * lays it once the greenhouse has first moved, and never lifts it.
  */
 export function greenhouseDirtShown(doc: PlanDocument, layout: LayoutInfo): boolean {
-  return Boolean(layout.greenhouseDirt) && !doc.greenhouseMoved && greenhouseAtStart(doc, layout);
+  return Boolean(layout.greenhouseDirt) && doc.greenhouseMoved;
 }
 
 /**
  * Applies an edit. If it is the one that first takes the greenhouse off its start location, the
- * move is recorded in it too, so undoing the edit brings the dirt patch back.
+ * move is recorded in it too, so undoing the edit brings the grass back.
  */
 export function applyEdit(doc: PlanDocument, layout: LayoutInfo, patch: Patch): void {
   const wasHome = !doc.greenhouseMoved && greenhouseAtStart(doc, layout);

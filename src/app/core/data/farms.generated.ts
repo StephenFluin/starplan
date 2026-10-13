@@ -30,7 +30,6 @@ export const FARM_LAYOUTS: readonly LayoutInfo[] = [
     greenhouse: { x: 25, y: 6 },
     shippingBin: { x: 71, y: 14 },
     petBowl: { x: 53, y: 7 },
-    greenhouseDirt: { image: "greenhouse-dirt.png", x: 25, y: 10, width: 9, height: 6, restrictions: "54a" },
   },
   {
     id: "foraging",
@@ -44,7 +43,6 @@ export const FARM_LAYOUTS: readonly LayoutInfo[] = [
     greenhouse: { x: 25, y: 6 },
     shippingBin: { x: 71, y: 14 },
     petBowl: { x: 53, y: 7 },
-    greenhouseDirt: { image: "greenhouse-dirt.png", x: 25, y: 10, width: 9, height: 6, restrictions: "54a" },
   },
   {
     id: "mining",

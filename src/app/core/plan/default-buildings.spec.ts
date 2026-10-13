@@ -64,30 +64,26 @@ describe('default buildings', () => {
     });
   }
 
-  // The base map has a grass patch, with an unbuildable edge at x = 33, where the greenhouse
-  // starts. The game covers it with sand until the greenhouse first moves; then the grass is back
-  // for good.
-  it("lifts the greenhouse's dirt patch for good once it moves, as the game does", () => {
+  // The base map has a grass patch under the greenhouse's start location, with an unbuildable
+  // edge at x = 33. As in the game (Farm.ClearGreenhouseGrassTiles), the greenhouse's first move
+  // covers it with sand for good.
+  it("clears the grass at the greenhouse's start once it first moves, as the game does", () => {
     const farm = standardFarm();
     const { doc } = farm;
     const uid = doc.objectAt(25, 10)!.uid;
-    expect(farm.map.isBlocked(33, 12, 'buildable')).toBe(false);
-
-    const away = moveObjects(doc, farm.map, [uid], 3, 0, options)!;
-    expect(away).not.toBeNull();
-    applyEdit(doc, regular, away);
-    expect(doc.greenhouseMoved).toBe(true);
     expect(farm.map.isBlocked(33, 12, 'buildable')).toBe(true);
-
-    const home = moveObjects(doc, farm.map, [uid], -3, 0, options)!;
-    applyEdit(doc, regular, home);
-    expect(greenhouseDirtShown(doc, regular)).toBe(false);
     expect(moveObjects(doc, farm.map, [uid], 3, 0, options)).toBeNull();
 
-    // Undoing the first move brings the patch back.
-    doc.apply(invertPatch(home));
+    const away = moveObjects(doc, farm.map, [uid], -3, 0, options)!;
+    applyEdit(doc, regular, away);
+    expect(doc.greenhouseMoved).toBe(true);
+    expect(farm.map.isBlocked(33, 12, 'buildable')).toBe(false);
+    expect(moveObjects(doc, farm.map, [uid], 6, 0, options)).not.toBeNull();
+
+    // Undoing the first move brings the grass back.
     doc.apply(invertPatch(away));
-    expect(greenhouseDirtShown(doc, regular)).toBe(true);
+    expect(greenhouseDirtShown(doc, regular)).toBe(false);
+    expect(farm.map.isBlocked(33, 12, 'buildable')).toBe(true);
   });
 
   it('lets the shipping bin move and return', () => {

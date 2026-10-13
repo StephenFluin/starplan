@@ -58,8 +58,8 @@ export class PlanDocument {
   private readonly occupancy = new Map<string, number>();
   private nextUid = 1;
   /**
-   * Whether the greenhouse has ever left its start location. As in the game, its dirt patch is
-   * gone for good from then on, even if the greenhouse goes back.
+   * Whether the greenhouse has ever left its start location. As in the game, the grass under its
+   * start location is cleared for good from then on (LayoutInfo.greenhouseDirt).
    */
   greenhouseMoved = false;
 

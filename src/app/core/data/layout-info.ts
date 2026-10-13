@@ -13,8 +13,8 @@ export interface StarterItem {
 }
 
 /**
- * Ground the game lays under the greenhouse until it is moved (a map patch of sand over the base
- * map's grass). When the greenhouse moves, the base map shows through again.
+ * Sand the game lays over the greenhouse's start location once the greenhouse has first moved
+ * (Farm.ClearGreenhouseGrassTiles), clearing the grass patch the base map has under it.
  */
 export interface GreenhouseDirt {
   /** Image file name under assets/layouts. */
