@@ -308,21 +308,25 @@ export class PlannerStore {
     return url.toString();
   }
 
-  /** Opens a shared link if there is one, else the last plan used in this browser, else a fresh plan. */
-  async restore(): Promise<void> {
+  /**
+   * Opens a shared link if there is one, else the last plan used in this browser, else a fresh plan.
+   * Returns which it did.
+   */
+  async restore(): Promise<'shared' | 'saved' | 'new'> {
     const hash = this.browser ? new URLSearchParams(location.hash.slice(1)).get('p') : null;
     const fromUrl = hash ? await decodePlan(hash) : null;
     if (fromUrl) {
       await this.load(fromUrl, 'Shared plan');
       // It's now in the library; drop the hash so reloading doesn't import it again.
       history.replaceState(null, '', location.pathname + location.search);
-      return;
+      return 'shared';
     }
     const current = this.localPlans.currentId ?? this.localPlans.migrateLegacyAutosave(newPlanId(), 'My farm', Date.now());
-    if (current && (await this.openPlan(current))) return;
+    if (current && (await this.openPlan(current))) return 'saved';
     const latest = this.localPlans.list()[0];
-    if (latest && (await this.openPlan(latest.id))) return;
+    if (latest && (await this.openPlan(latest.id))) return 'saved';
     await this.newPlan(DEFAULT_LAYOUT.id);
+    return 'new';
   }
 
   private async switchLayout(layoutId: string): Promise<LayoutInfo> {

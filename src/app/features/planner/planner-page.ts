@@ -1,4 +1,5 @@
 import { Component, ElementRef, afterNextRender, inject, signal, viewChild } from '@angular/core';
+import { Analytics } from '../../core/analytics';
 import { PlannerStore, Tool } from '../../core/planner-store';
 import { parsePlanJson } from '../../core/plan/serialize';
 import { ItemCounter } from './item-counter';
@@ -72,6 +73,7 @@ const PAN_STEP = 64;
 })
 export class PlannerPage {
   private readonly store = inject(PlannerStore);
+  private readonly analytics = inject(Analytics);
   private readonly map = viewChild.required(MapCanvas);
   private readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
   private statusTimer: ReturnType<typeof setTimeout> | undefined;
@@ -84,7 +86,9 @@ export class PlannerPage {
   protected readonly status = signal('');
 
   constructor() {
-    afterNextRender(() => void this.store.restore());
+    afterNextRender(async () => {
+      if ((await this.store.restore()) === 'shared') this.analytics.event({ name: 'open_shared_plan', params: { farm: this.farm() } });
+    });
   }
 
   protected async onAction(action: ToolbarAction): Promise<void> {
@@ -101,6 +105,7 @@ export class PlannerPage {
         return;
       case 'new':
         await this.store.newPlan(this.store.layout().id);
+        this.analytics.event({ name: 'new_plan', params: { farm: this.farm(), source: 'new_button' } });
         this.announce('Started a new plan. Earlier plans are under Plans.');
         return;
       case 'import-json':
@@ -108,10 +113,13 @@ export class PlannerPage {
         return;
       case 'export-json':
         this.download(new Blob([JSON.stringify(this.store.snapshot())], { type: 'application/json' }), 'json');
+        this.analytics.event({ name: 'export_plan', params: { format: 'json', farm: this.farm() } });
         return;
       case 'export-png': {
         const png = await map.exportPng();
-        if (png) this.download(png, 'png');
+        if (!png) return;
+        this.download(png, 'png');
+        this.analytics.event({ name: 'export_plan', params: { format: 'png', farm: this.farm() } });
         return;
       }
       case 'share':
@@ -121,6 +129,7 @@ export class PlannerPage {
 
   protected async changeLayout(layoutId: string): Promise<void> {
     await this.store.newPlan(layoutId);
+    this.analytics.event({ name: 'new_plan', params: { farm: this.farm(), source: 'farm_picker' } });
     this.announce('Started a new plan on this map. Earlier plans are under Plans.');
   }
 
@@ -135,6 +144,7 @@ export class PlannerPage {
       return;
     }
     await this.store.load(parsed.plan, file.name.replace(/\.json$/i, ''), parsed.legacy);
+    this.analytics.event({ name: 'import_plan', params: { format: parsed.legacy ? 'v2' : 'starplan', farm: this.farm() } });
     this.announce(`Imported ${file.name}.`);
   }
 
@@ -220,12 +230,18 @@ export class PlannerPage {
   private async share(): Promise<void> {
     const url = await this.store.shareUrl();
     history.replaceState(null, '', url);
+    this.analytics.event({ name: 'share', params: { method: 'link', content_type: 'plan', farm: this.farm() } });
     try {
       await navigator.clipboard.writeText(url);
       this.announce('Link copied. Anyone with it can open this plan.');
     } catch {
       this.announce('Link added to the address bar. Copy it from there to share.');
     }
+  }
+
+  /** The open plan's farm, for analytics. */
+  private farm(): string {
+    return this.store.layout().id;
   }
 
   private download(blob: Blob, extension: string): void {

@@ -1,6 +1,6 @@
 # Starplan
 
-A fast, open source Stardew Valley farm planner. It's a clean rewrite inspired by the original [stardew.info planner](https://github.com/hpeinar/stardewplanner), with no ads and no trackers. It only redraws when something changes, so it doesn't use CPU or GPU while it sits idle.
+A fast, open source Stardew Valley farm planner. It's a clean rewrite inspired by the original [stardew.info planner](https://github.com/hpeinar/stardewplanner), with no ads. It only redraws when something changes, so it doesn't use CPU or GPU while it sits idle.
 
 > **Unofficial fan project.** Starplan is a personal, non-commercial project. It is not affiliated with, endorsed by, or sponsored by ConcernedApe. Stardew Valley and its art are © ConcernedApe LLC.
 
@@ -40,6 +40,10 @@ Built with Angular (UI and state) and PixiJS (map rendering).
 | Two fingers (touchscreens) | Pinch to zoom, drag to pan |
 | G | Toggle grid |
 | Right click | Quick item search |
+
+## Analytics
+
+The live site uses Google Analytics (gtag.js) to count visits and a few actions: starting a new plan, sharing, exporting and importing, each with the farm type. Plans themselves are never sent anywhere. Analytics is off in development and for visitors whose browser sends Global Privacy Control or Do Not Track. Set the measurement ID in `src/app/core/analytics.ts`.
 
 ## Development
 
