@@ -1,0 +1,33 @@
+# Tests, builds and deploys the static site to Firebase Hosting on every push to main.
+# Signs in to Google Cloud without a stored key (Workload Identity Federation); see the
+# "Deployment" section of the README for the one-time setup.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  # Lets the job request a GitHub sign-in token to exchange for short-lived Google credentials.
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # Third-party actions are pinned to exact commits (version in the comment), since this job can
+      # obtain deploy credentials.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test -- --watch=false
+      - run: npm run build
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: projects/288396130511/locations/global/workloadIdentityPools/github/providers/starplan
+          service_account: github-deploy@starplan-15088.iam.gserviceaccount.com
+      - run: npx --yes firebase-tools@15.32.0 deploy --only hosting --project starplan-15088 --non-interactive

@@ -64,6 +64,77 @@ This writes `public/assets/` and `src/app/core/data/layouts.generated.ts`.
 
 See [backlog.md](backlog.md) for planned work.
 
+## Deployment
+
+The site is fully static: the planner page is prerendered at build time and everything else runs in the browser, so it's hosted on [Firebase Hosting](https://firebase.google.com/docs/hosting) with no server and no billing account needed.
+
+### Automatic deploys
+
+Every push to `main` runs [.github/workflows/deploy.yml](.github/workflows/deploy.yml) on GitHub Actions: it installs dependencies, runs the tests, builds, and deploys to Firebase Hosting. If the tests or build fail, nothing is deployed.
+
+GitHub Actions signs in to Google Cloud without any stored password or key file, using [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines): GitHub vouches that the job is running in this repository, and Google Cloud trades that for short-lived credentials for a deploy-only service account.
+
+### Deploying by hand
+
+You need to be signed in to the Firebase CLI with an account that can deploy to the project.
+
+```bash
+npm run build
+npx firebase-tools deploy --only hosting
+```
+
+The project is set in [.firebaserc](.firebaserc). To deploy somewhere else, run `npx firebase-tools use --add`.
+
+### One-time setup for automatic deploys
+
+Needed once per Firebase project (or after recreating it). Install the [Google Cloud CLI](https://cloud.google.com/sdk/docs/install), sign in with `gcloud auth login` as a project owner, and set these to your own values:
+
+```bash
+PROJECT_ID=starplan-15088
+REPO=StephenFluin/starplan
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
+DEPLOYER="github-deploy@$PROJECT_ID.iam.gserviceaccount.com"
+# GitHub's permanent numeric IDs for the repository and its owner. Unlike names, these never
+# change or get reused, so a renamed or deleted repository can't be claimed by someone else.
+REPO_ID=$(curl -s "https://api.github.com/repos/$REPO" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
+OWNER_ID=$(curl -s "https://api.github.com/repos/$REPO" | python3 -c 'import json,sys; print(json.load(sys.stdin)["owner"]["id"])')
+```
+
+1. Turn on the Google Cloud services this uses:
+
+   ```bash
+   gcloud services enable iam.googleapis.com iamcredentials.googleapis.com sts.googleapis.com firebasehosting.googleapis.com --project "$PROJECT_ID"
+   ```
+
+2. Create a service account that can only deploy to Firebase Hosting (and check which services are turned on, which the Firebase CLI does before deploying):
+
+   ```bash
+   gcloud iam service-accounts create github-deploy --project "$PROJECT_ID" --display-name "GitHub Actions deploy"
+   gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:$DEPLOYER" --role roles/firebasehosting.admin
+   gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:$DEPLOYER" --role roles/serviceusage.serviceUsageConsumer
+   ```
+
+3. Trust GitHub Actions sign-ins, but only from this repository's `main` branch:
+
+   ```bash
+   gcloud iam workload-identity-pools create github --project "$PROJECT_ID" --location global --display-name "GitHub Actions"
+   gcloud iam workload-identity-pools providers create-oidc starplan --project "$PROJECT_ID" --location global \
+     --workload-identity-pool github --display-name "starplan repository" \
+     --issuer-uri "https://token.actions.githubusercontent.com" \
+     --attribute-mapping "google.subject=assertion.sub,attribute.repository_id=assertion.repository_id,attribute.ref=assertion.ref" \
+     --attribute-condition "assertion.repository_id == '$REPO_ID' && assertion.repository_owner_id == '$OWNER_ID' && assertion.ref == 'refs/heads/main'"
+   ```
+
+4. Let workflows in this repository act as the deploy service account:
+
+   ```bash
+   gcloud iam service-accounts add-iam-policy-binding "$DEPLOYER" --project "$PROJECT_ID" \
+     --role roles/iam.workloadIdentityUser \
+     --member "principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository_id/$REPO_ID"
+   ```
+
+5. Make sure the `workload_identity_provider` line in [.github/workflows/deploy.yml](.github/workflows/deploy.yml) has your project number (`echo $PROJECT_NUMBER`), and that `service_account` and `--project` match your project.
+
 ## Credits and licensing
 
 Starplan is an unofficial, personal, non-commercial fan project. It is not affiliated with, endorsed by, or sponsored by ConcernedApe LLC, and it has no ads and takes no payments or donations.
