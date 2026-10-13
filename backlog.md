@@ -16,7 +16,7 @@ Things we want to take care of later, roughly in priority order within each sect
   - Hollow/outline rectangles (fence and path borders).
   - Patterned fills, such as crops with sprinklers spaced on a grid, or rows with walkway gaps.
   - Larger objects (e.g. 3×3 trees, sheds) fill the rectangle by stepping their footprint. Check this feels right.
-- Keyboard-only editing: a tile cursor on the map that the arrow keys move, with Enter to place or select, so the map can be edited without a pointer.
+- Keyboard rectangles: Shift + arrows to stretch a rectangle from the keyboard cursor, for filling areas without a pointer.
 - Season switcher (spring/summer/fall/winter backgrounds and tree sprites).
 - Fence and path autotiling, so connected fences and paths join up visually.
 - Import a Stardew Valley save file.
