@@ -23,15 +23,16 @@ export function usesCoverageLayout(item: CatalogItem): boolean {
  *
  * Items may go outside the area, as long as they still reach into it. Layouts are ranked by:
  * 1. the fewest items, then
- * 2. the fewest items inside the area (each one there takes a tile from the crops).
+ * 2. the fewest items inside the area (each one there takes a tile from the crops), then
+ * 3. the fewest items off the layout's grid, so rows and columns line up.
  *
  * Tiles that can't be tilled, tiles under other objects and tiles already covered by existing
  * items of the same kind are skipped. Outside the area, items never replace crops.
  *
  * For each alignment of the ideal tiling of the range's shape (square and plus-shaped sprinklers
  * have one; scarecrow circles rely on the greedy pass), the tiling is laid down inside the area,
- * leftover tiles are patched greedily (inside or outside) and redundant items dropped. The best result then has its items moved
- * outside the area wherever that keeps everything covered.
+ * leftover tiles are patched greedily (inside or outside), redundant items dropped, and items moved
+ * outside the area wherever that keeps everything covered. The best of these results wins.
  */
 export function coverageLayout(
   doc: PlanDocument,
@@ -45,7 +46,7 @@ export function coverageLayout(
 
   const offsets = rangeTiles(range, 0, 0);
   const reach = Math.max(...offsets.map(([dx, dy]) => Math.max(Math.abs(dx), Math.abs(dy))));
-  const field = new CoverageField(rect, reach, offsets);
+  const field = new CoverageField(rect, reach, offsets, gridKey(range));
   markNeeds(field, doc, map, rect, options, range.group);
 
   const placeable = new Map<number, boolean>();
@@ -64,12 +65,13 @@ export function coverageLayout(
     return ok;
   };
 
+  // Rank finished layouts: moving items outward changes how many end up inside the area.
   let best: TilePosition[] | null = null;
   for (const onLattice of lattices(range, rect)) {
-    const solution = field.solve(onLattice, canPlace);
+    const solution = field.shiftOutward(field.solve(onLattice, canPlace), canPlace);
     if (!best || field.isBetter(solution, best)) best = solution;
   }
-  return best ? field.shiftOutward(best, canPlace) : [];
+  return best ?? [];
 }
 
 /** Marks which tiles in the drawn area still need covering. */
@@ -105,7 +107,6 @@ function markNeeds(
  * (x + 2y) mod 5 lattice. Other shapes fall back to the greedy pass alone.
  */
 function* lattices(range: RangeShape, rect: TileRect): Generator<(x: number, y: number) => boolean> {
-  const mod = (n: number, m: number) => ((n % m) + m) % m;
   if (range.shape === 'square') {
     const step = range.radius * 2 + 1;
     for (let oy = 0; oy < step; oy++) {
@@ -120,6 +121,21 @@ function* lattices(range: RangeShape, rect: TileRect): Generator<(x: number, y: 
   } else {
     yield () => false;
   }
+}
+
+const mod = (n: number, m: number) => ((n % m) + m) % m;
+
+/**
+ * Which tiling class a spot belongs to: items in a tidy layout all share one. Square ranges repeat
+ * every 2r+1 tiles in both directions; the plus-shaped sprinkler along (x + 2y) mod 5.
+ */
+function gridKey(range: RangeShape): (at: TilePosition) => string {
+  if (range.shape === 'square') {
+    const step = range.radius * 2 + 1;
+    return (at) => `${mod(at.x, step)},${mod(at.y, step)}`;
+  }
+  if (range.shape === 'diamond' && range.radius === 1) return (at) => `${mod(at.x + 2 * at.y, 5)}`;
+  return () => '';
 }
 
 /** Coverage bookkeeping for one candidate layout. */
@@ -144,6 +160,7 @@ class CoverageField {
     reach: number,
     /** Tiles covered relative to the item's own tile. */
     private readonly offsets: [number, number][],
+    private readonly gridKey: (at: TilePosition) => string,
   ) {
     this.needs = new Uint8Array(target.width * target.height);
     this.area = { x: target.x - reach, y: target.y - reach, width: target.width + reach * 2, height: target.height + reach * 2 };
@@ -161,10 +178,12 @@ class CoverageField {
     return (y - this.area.y) * this.area.width + (x - this.area.x);
   }
 
-  /** Fewer items wins; on a tie, fewer items inside the drawn area. */
+  /** Fewer items wins; on a tie, fewer items inside the drawn area, then fewer off the grid. */
   isBetter(a: readonly TilePosition[], b: readonly TilePosition[]): boolean {
     if (a.length !== b.length) return a.length < b.length;
-    return this.insideCount(a) < this.insideCount(b);
+    const inside = this.insideCount(a) - this.insideCount(b);
+    if (inside !== 0) return inside < 0;
+    return this.offGridCount(a) < this.offGridCount(b);
   }
 
   /** Lattice placements, then greedy patching of anything left uncovered, then pruning. */
@@ -316,6 +335,16 @@ class CoverageField {
 
   private insideCount(layout: readonly TilePosition[]): number {
     return layout.filter((at) => this.inTarget(at.x, at.y)).length;
+  }
+
+  /** Items outside the layout's most common tiling class. */
+  private offGridCount(layout: readonly TilePosition[]): number {
+    const counts = new Map<string, number>();
+    for (const at of layout) {
+      const key = this.gridKey(at);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return layout.length - Math.max(0, ...counts.values());
   }
 
   /** Calls fn for each drawn-area tile an item at (x, y) covers. */

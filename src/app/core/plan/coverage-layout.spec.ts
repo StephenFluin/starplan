@@ -116,6 +116,23 @@ describe('coverageLayout', () => {
     expect(layout.every((at) => at.y !== 1)).toBe(true);
   });
 
+  // Rows used to come out shifted by a tile when the last one was pushed outside the area, e.g.
+  // quality sprinklers on 8x4: x = 0, 3, 6 inside and x = 1, 4, 7 below.
+  it('keeps square-range sprinklers on one grid when that costs nothing', () => {
+    for (const id of ['q-sprinkler', 'irid-sprinkler']) {
+      const step = item(id).range!.radius * 2 + 1;
+      for (let height = 2; height <= 10; height++) {
+        for (let width = 2; width <= 10; width++) {
+          const rect = { x: 15, y: 15, width, height };
+          const layout = coverageLayout(doc, map, item(id), rect, options);
+          const classes = new Set(layout.map((at) => `${at.x % step},${at.y % step}`));
+          expect(classes.size, `${id} ${width}x${height}`).toBe(1);
+          expect(dryTiles(id, rect, layout), `${id} ${width}x${height}`).toBe(0);
+        }
+      }
+    }
+  });
+
   describe('scarecrows', () => {
     it('protects a whole field with few scarecrows', () => {
       const field = new PlanDocument(60, 60);
