@@ -4,6 +4,8 @@ A fast, open source Stardew Valley farm planner. It's a clean rewrite inspired b
 
 > **Unofficial fan project.** Starplan is a personal, non-commercial project. It is not affiliated with, endorsed by, or sponsored by ConcernedApe. Stardew Valley and its art are © ConcernedApe LLC.
 
+Live at **https://starplan.fluin.io**.
+
 Built with Angular (UI and state) and PixiJS (map rendering).
 
 ## Features
