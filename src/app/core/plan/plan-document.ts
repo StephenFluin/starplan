@@ -45,7 +45,8 @@ export function invertPatch(patch: Patch): Patch {
   };
 }
 
-const key = (x: number, y: number) => `${x},${y}`;
+/** A cell's key in tile maps and selections. */
+export const cellKey = (x: number, y: number) => `${x},${y}`;
 
 /**
  * The mutable contents of a plan: one ground tile per cell plus objects with footprints.
@@ -74,16 +75,27 @@ export class PlanDocument {
     return this.changes;
   }
 
+  /** An independent copy, to try edits on. */
+  clone(): PlanDocument {
+    const copy = new PlanDocument(this.width, this.height);
+    for (const [cell, itemId] of this.tiles) copy.tiles.set(cell, itemId);
+    for (const [uid, obj] of this.objects) copy.objects.set(uid, obj);
+    for (const [cell, uid] of this.occupancy) copy.occupancy.set(cell, uid);
+    copy.nextUid = this.nextUid;
+    copy.greenhouseMoved = this.greenhouseMoved;
+    return copy;
+  }
+
   allocateUid(): number {
     return this.nextUid++;
   }
 
   tileAt(x: number, y: number): string | null {
-    return this.tiles.get(key(x, y)) ?? null;
+    return this.tiles.get(cellKey(x, y)) ?? null;
   }
 
   objectAt(x: number, y: number): PlacedObject | null {
-    const uid = this.occupancy.get(key(x, y));
+    const uid = this.occupancy.get(cellKey(x, y));
     return uid === undefined ? null : (this.objects.get(uid) ?? null);
   }
 
@@ -112,7 +124,7 @@ export class PlanDocument {
     const found = new Set<number>();
     for (let ty = y; ty < y + height; ty++) {
       for (let tx = x; tx < x + width; tx++) {
-        const uid = this.occupancy.get(key(tx, ty));
+        const uid = this.occupancy.get(cellKey(tx, ty));
         if (uid !== undefined) found.add(uid);
       }
     }
@@ -122,9 +134,9 @@ export class PlanDocument {
   apply(patch: Patch): void {
     for (const change of patch.tiles) {
       if (change.after === null) {
-        this.tiles.delete(key(change.x, change.y));
+        this.tiles.delete(cellKey(change.x, change.y));
       } else {
-        this.tiles.set(key(change.x, change.y), change.after);
+        this.tiles.set(cellKey(change.x, change.y), change.after);
       }
     }
     // Remove everything first so objects that swap or shift onto each other's tiles land cleanly.
@@ -151,7 +163,7 @@ export class PlanDocument {
     this.objects.set(obj.uid, { ...obj });
     this.nextUid = Math.max(this.nextUid, obj.uid + 1);
     for (const [x, y] of footprint(obj, item)) {
-      this.occupancy.set(key(x, y), obj.uid);
+      this.occupancy.set(cellKey(x, y), obj.uid);
     }
   }
 
@@ -159,7 +171,7 @@ export class PlanDocument {
     const obj = this.objects.get(uid);
     if (!obj) return;
     for (const [x, y] of footprint(obj, findItem(obj.itemId))) {
-      if (this.occupancy.get(key(x, y)) === uid) this.occupancy.delete(key(x, y));
+      if (this.occupancy.get(cellKey(x, y)) === uid) this.occupancy.delete(cellKey(x, y));
     }
     this.objects.delete(uid);
   }

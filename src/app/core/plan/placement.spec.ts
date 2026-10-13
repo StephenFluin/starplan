@@ -1,6 +1,6 @@
 import { findItem } from '../data/catalog';
 import { PlanDocument, invertPatch } from './plan-document';
-import { PlacementOptions, checkObject, erase, moveObjects, paintTiles, placeObjects, rectFromCorners } from './placement';
+import { Group, PlacementOptions, checkObject, erase, moveObjects, paintTiles, placeObjects, putGroup, rectFromCorners } from './placement';
 import { IMPASSABLE, NOT_BUILDABLE, RestrictionMap } from './restriction-map';
 
 const item = (id: string) => {
@@ -172,6 +172,67 @@ describe('placement', () => {
       const uid = doc.objectAt(0, 0)!.uid;
       expect(moveObjects(doc, unbuildable, [uid], 1, 0, strict)).not.toBeNull();
       expect(moveObjects(doc, unbuildable, [uid], 0, -1, strict)).toBeNull();
+    });
+  });
+
+  describe('groups', () => {
+    /** A 3x3 parsnip field with a sprinkler in the middle, as a selection would hold it. */
+    const field = (): Group => {
+      doc.apply(paintTiles(doc, map, item('parsnip'), { x: 0, y: 0, width: 3, height: 3 }, strict));
+      doc.apply(placeObjects(doc, map, item('sprinkler'), { x: 1, y: 1, width: 1, height: 1 }, strict));
+      return {
+        tiles: [...doc.allTiles()].map(([cell, itemId]) => ({ x: Number(cell.split(',')[0]), y: Number(cell.split(',')[1]), itemId })),
+        objects: [...doc.allObjects()],
+      };
+    };
+
+    it('move tiles and objects together, and undo puts them back', () => {
+      const group = field();
+      const { patch, blocked } = putGroup(doc, map, group, 4, 0, strict, true);
+      expect(blocked).toEqual([]);
+      doc.apply(patch);
+      expect(doc.tileAt(0, 0)).toBeNull();
+      expect(doc.tileAt(4, 0)).toBe('parsnip');
+      expect(doc.objectAt(5, 1)?.uid).toBe(group.objects[0].uid);
+      expect(doc.tileCount).toBe(8);
+      doc.apply(invertPatch(patch));
+      expect(doc.tileAt(0, 0)).toBe('parsnip');
+      expect(doc.tileAt(4, 0)).toBeNull();
+      expect(doc.objectAt(1, 1)?.itemId).toBe('sprinkler');
+    });
+
+    it('may land partly where they were', () => {
+      const group = field();
+      doc.apply(putGroup(doc, map, group, 1, 1, strict, true).patch);
+      expect(doc.tileAt(0, 0)).toBeNull();
+      expect(doc.tileAt(3, 3)).toBe('parsnip');
+      expect(doc.objectAt(2, 2)?.itemId).toBe('sprinkler');
+      expect(doc.tileCount).toBe(8);
+    });
+
+    it("don't land on objects or ground they can't go on", () => {
+      const group = field();
+      doc.apply(placeObjects(doc, map, item('keg'), { x: 5, y: 0, width: 1, height: 1 }, strict));
+      expect(putGroup(doc, map, group, 4, 0, strict, true).blocked).toEqual([[5, 0]]);
+      const untillable = map.withTiles([[4, 2, 4]]);
+      expect(putGroup(doc, untillable, group, 4, 1, strict, true).blocked).toEqual([[4, 2]]);
+    });
+
+    it('paint over tiles they land on only when painting over is on', () => {
+      const group = field();
+      doc.apply(paintTiles(doc, map, item('road'), { x: 4, y: 0, width: 1, height: 1 }, strict));
+      expect(putGroup(doc, map, group, 4, 0, { ...strict, overwrite: false }, true).blocked).toEqual([[4, 0]]);
+      doc.apply(putGroup(doc, map, group, 4, 0, strict, true).patch);
+      expect(doc.tileAt(4, 0)).toBe('parsnip');
+    });
+
+    it('can be copies, with new ids, leaving the originals', () => {
+      const group = field();
+      const { patch } = putGroup(doc, map, group, 0, 4, strict, false);
+      doc.apply(patch);
+      expect(doc.tileCount).toBe(16);
+      expect(doc.objectCount).toBe(2);
+      expect(doc.objectAt(1, 5)?.uid).not.toBe(group.objects[0].uid);
     });
   });
 

@@ -2,8 +2,9 @@ import { Component, DestroyRef, ElementRef, afterNextRender, computed, effect, i
 import { CatalogItem, findItem, variantsOf } from '../../../core/data/catalog';
 import { blockedTiles, checkObject, objectAtVisual, objectPositions, rectFromCorners } from '../../../core/plan/placement';
 import { coverageLayout, usesCoverageLayout } from '../../../core/plan/coverage-layout';
+import { cellKey } from '../../../core/plan/plan-document';
 import { RestrictionMap } from '../../../core/plan/restriction-map';
-import { PlannerStore, Tool } from '../../../core/planner-store';
+import { NO_SELECTION, PlannerStore, Tool } from '../../../core/planner-store';
 import { wheelZoomFactor } from './camera';
 import { MapRenderer, Preview } from './map-renderer';
 
@@ -20,7 +21,8 @@ type Gesture = (
   | { kind: 'rect'; startX: number; startY: number }
   /** Placing copies of an object, anchored where its ghost was when the press started. */
   | { kind: 'place'; originX: number; originY: number }
-  | { kind: 'move'; uids: number[]; startX: number; startY: number }
+  /** Dragging the selection. */
+  | { kind: 'move'; startX: number; startY: number }
   | { kind: 'pinch'; distance: number; midX: number; midY: number }
 ) & {
   /** Tool and item the gesture started with; switching either cancels it. */
@@ -111,14 +113,15 @@ export class MapCanvas {
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
   private readonly panning = signal(false);
-  private readonly overObject = signal(false);
+  /** Whether the pointer is over something the Select tool can drag: an object or a selected tile. */
+  private readonly overMovable = signal(false);
 
   /** Shows what a drag would do: pan the map, move an object, or draw. */
   protected readonly cursor = computed(() => {
     if (this.panning()) return 'grabbing';
     if (this.spaceHeld()) return 'grab';
     if (this.store.tool() !== 'select') return 'crosshair';
-    return this.overObject() ? 'move' : 'grab';
+    return this.overMovable() ? 'move' : 'grab';
   });
 
   /** Right click: open the quick item search at the given screen position. */
@@ -255,11 +258,16 @@ export class MapCanvas {
     const item = this.store.activeItem();
     if (tool === 'select') {
       const hit = objectAtVisual(this.store.doc, tile.x, tile.y);
-      if (hit) {
-        const selection = this.store.selection();
-        const uids = selection.includes(hit.uid) ? [...selection] : [hit.uid];
-        if (!selection.includes(hit.uid)) this.store.selection.set(uids);
-        this.gesture = { ...base, kind: 'move', uids, startX: tile.x, startY: tile.y };
+      const selection = this.store.selection();
+      if (hit && event.shiftKey) {
+        // Shift + click adds an object to the selection or takes it out.
+        this.store.toggleSelected(hit.uid);
+        this.gesture = null;
+      } else if (hit) {
+        if (!selection.objects.includes(hit.uid)) this.store.selection.set({ objects: [hit.uid], tiles: [] });
+        this.gesture = { ...base, kind: 'move', startX: tile.x, startY: tile.y };
+      } else if (selection.tiles.includes(cellKey(tile.x, tile.y))) {
+        this.gesture = { ...base, kind: 'move', startX: tile.x, startY: tile.y };
       } else if (event.shiftKey) {
         this.gesture = { ...base, kind: 'rect', startX: tile.x, startY: tile.y };
       } else {
@@ -304,7 +312,7 @@ export class MapCanvas {
     if (previous?.x === tile.x && previous.y === tile.y && gesture?.moved !== true) return;
     this.hover.set(tile);
     const hovered = objectAtVisual(this.store.doc, tile.x, tile.y);
-    this.overObject.set(hovered !== null);
+    this.overMovable.set(hovered !== null || this.store.selection().tiles.includes(cellKey(tile.x, tile.y)));
     renderer.setHovered(hovered?.uid ?? null);
     this.updatePreview();
   }
@@ -329,7 +337,7 @@ export class MapCanvas {
       } else if (gesture.button === 2) {
         this.quickSearch.emit({ x: event.clientX, y: event.clientY });
       } else if (gesture.button === 0 && this.store.tool() === 'select' && !this.spaceHeld()) {
-        this.store.selection.set([]);
+        this.store.selection.set(NO_SELECTION);
       }
       this.updatePreview();
       return;
@@ -340,13 +348,14 @@ export class MapCanvas {
       const dx = tile.x - gesture.startX;
       const dy = tile.y - gesture.startY;
       if (!gesture.moved) {
+        // A click selects just what was clicked: an object (offering its variants), or nothing on a selected tile.
         const clicked = objectAtVisual(this.store.doc, gesture.startX, gesture.startY);
+        this.store.selection.set(clicked ? { objects: [clicked.uid], tiles: [] } : NO_SELECTION);
         if (clicked && variantsOf(clicked.itemId).length > 1) {
-          this.store.selection.set([clicked.uid]);
           this.variantRequest.emit({ uid: clicked.uid, x: event.clientX, y: event.clientY });
         }
       } else if (dx !== 0 || dy !== 0) {
-        this.store.move(gesture.uids, dx, dy);
+        this.store.moveSelection(dx, dy);
       }
     } else if (gesture.kind === 'place') {
       const item = findItem(gesture.itemId ?? '');
@@ -360,7 +369,7 @@ export class MapCanvas {
           this.store.erase(rect);
           break;
         case 'select':
-          this.store.selection.set(this.store.doc.objectsInRect(rect.x, rect.y, rect.width, rect.height).map((o) => o.uid));
+          this.store.selectArea(rect);
           break;
         case 'brush':
           this.store.paint(rect);
@@ -380,7 +389,7 @@ export class MapCanvas {
   protected onPointerLeave(): void {
     if (this.gesture) return;
     this.hover.set(null);
-    this.overObject.set(false);
+    this.overMovable.set(false);
     this.renderer?.setHovered(null);
     this.updatePreview();
   }
@@ -493,18 +502,19 @@ export class MapCanvas {
     const preview: Preview = {};
 
     if (gesture?.kind === 'move') {
-      const dx = gesture.moved ? tile.x - gesture.startX : 0;
-      const dy = gesture.moved ? tile.y - gesture.startY : 0;
-      const ignore = new Set(gesture.uids);
-      const restrictions = store.restrictionsIgnoring(gesture.uids);
-      preview.ghosts = [];
-      preview.blocked = [];
-      for (const uid of gesture.uids) {
-        const obj = store.doc.object(uid);
-        const item = obj && findItem(obj.itemId);
-        if (!obj || !item) continue;
-        preview.ghosts.push({ item, x: obj.x + dx, y: obj.y + dy });
-        preview.blocked.push(...checkObject(store.doc, restrictions, item, obj.x + dx, obj.y + dy, options, ignore, obj).blocked);
+      const dx = tile.x - gesture.startX;
+      const dy = tile.y - gesture.startY;
+      if (gesture.moved && (dx !== 0 || dy !== 0)) {
+        const group = store.selectedGroup();
+        preview.ghosts = group.objects.flatMap((obj) => {
+          const item = findItem(obj.itemId);
+          return item ? [{ item, x: obj.x + dx, y: obj.y + dy }] : [];
+        });
+        preview.tiles = group.tiles.flatMap((t) => {
+          const item = findItem(t.itemId);
+          return item ? [{ item, x: t.x + dx, y: t.y + dy }] : [];
+        });
+        preview.blocked = store.tryMoveSelection(dx, dy).blocked;
       }
     } else if (gesture?.kind === 'place') {
       const item = findItem(gesture.itemId ?? '');

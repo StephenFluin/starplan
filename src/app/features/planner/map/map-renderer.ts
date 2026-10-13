@@ -7,7 +7,7 @@ import { TileRect } from '../../../core/plan/placement';
 import { greenhouseDirtShown } from '../../../core/plan/default-buildings';
 import { rangeTiles } from '../../../core/plan/range';
 import { NOT_BUILDABLE, NOT_TILLABLE, RestrictionMap } from '../../../core/plan/restriction-map';
-import { RestrictionOverlay } from '../../../core/planner-store';
+import { RestrictionOverlay, Selection } from '../../../core/planner-store';
 import { Camera } from './camera';
 
 export const TILE = 16;
@@ -16,6 +16,8 @@ export const TILE = 16;
 export interface Preview {
   /** Ghost sprites for objects being placed or moved. */
   ghosts?: { item: CatalogItem; x: number; y: number }[];
+  /** Ghost ground tiles being moved or pasted. */
+  tiles?: { item: CatalogItem; x: number; y: number }[];
   /** Drag rectangle for brushes, the eraser or marquee selection. */
   rect?: TileRect & { style: 'brush' | 'erase' | 'select' };
   /** Tiles that block the current action. */
@@ -47,6 +49,8 @@ export class MapRenderer {
   private readonly groundLayer = new Container();
   private readonly tileLayer = new Container();
   private readonly objectLayer = new Container({ sortableChildren: true });
+  /** Highlights selected ground tiles, above tiles and below objects. */
+  private readonly tileSelectionLayer = new Graphics();
   private readonly rangeLayer = new Graphics();
   private readonly overlayLayer = new Graphics();
   private readonly previewLayer = new Container();
@@ -105,6 +109,7 @@ export class MapRenderer {
     this.grid = new TilingSprite({ texture: this.createGridTexture(), alpha: 0.35 });
     // Above ground tiles, below objects.
     this.world.addChildAt(this.grid, this.world.getChildIndex(this.objectLayer));
+    this.world.addChildAt(this.tileSelectionLayer, this.world.getChildIndex(this.objectLayer));
 
     // Texture.from() only finds preloaded images, so load every sprite up front, including the
     // game sprites drawn as parts of other items (the mailbox) and buildings' ground art.
@@ -321,12 +326,19 @@ export class MapRenderer {
     this.requestRender();
   }
 
-  setSelection(uids: readonly number[]): void {
+  setSelection(selection: Selection): void {
     this.selectedUids.clear();
-    for (const uid of uids) this.selectedUids.add(uid);
+    for (const uid of selection.objects) this.selectedUids.add(uid);
     for (const [uid, view] of this.objectSprites) {
       view.tint = this.selectedUids.has(uid) ? 0x9ecbff : 0xffffff;
     }
+    const g = this.tileSelectionLayer;
+    g.clear();
+    for (const cell of selection.tiles) {
+      const [x, y] = parseKey(cell);
+      g.rect(x * TILE, y * TILE, TILE, TILE);
+    }
+    if (selection.tiles.length) g.fill({ color: 0x60a5fa, alpha: 0.4 });
     this.drawRanges();
     this.requestRender();
   }
@@ -377,6 +389,13 @@ export class MapRenderer {
     for (const child of this.ghostLayer.removeChildren()) child.destroy();
     const g = this.previewGraphics;
     g.clear();
+    for (const ghost of preview?.tiles ?? []) {
+      const sprite = new Sprite(Texture.from(absoluteUrl(spriteUrl(ghost.item))));
+      sprite.position.set(ghost.x * TILE, ghost.y * TILE);
+      sprite.setSize(TILE, TILE);
+      sprite.alpha = 0.7;
+      this.ghostLayer.addChild(sprite);
+    }
     for (const ghost of preview?.ghosts ?? []) {
       if (ghost.item.range) {
         for (const [x, y] of rangeTiles(ghost.item.range, ghost.x, ghost.y)) g.rect(x * TILE, y * TILE, TILE, TILE);

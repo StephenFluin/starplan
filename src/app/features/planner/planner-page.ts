@@ -1,6 +1,6 @@
 import { Component, ElementRef, afterNextRender, inject, signal, viewChild } from '@angular/core';
 import { Analytics } from '../../core/analytics';
-import { PlannerStore, Tool } from '../../core/planner-store';
+import { NO_SELECTION, PlannerStore, Tool, isEmptySelection } from '../../core/planner-store';
 import { parsePlanJson } from '../../core/plan/serialize';
 import { ItemCounter } from './item-counter';
 import { ItemPalette } from './item-palette';
@@ -11,6 +11,8 @@ import { VariantPicker } from './variant-picker';
 import { CatalogItem } from '../../core/data/catalog';
 
 const PAN_STEP = 64;
+/** Tiles Shift + an arrow key moves the selection. */
+const NUDGE_LARGE = 5;
 
 @Component({
   selector: 'app-planner-page',
@@ -165,6 +167,12 @@ export class PlannerPage {
       this.store.redo();
       return;
     }
+    if (mod && key === 'a') {
+      event.preventDefault();
+      this.store.tool.set('select');
+      this.store.selectAll();
+      return;
+    }
     if (mod || event.altKey) return;
 
     const map = this.map();
@@ -178,9 +186,9 @@ export class PlannerPage {
       case 'g':
         return this.store.setOption('showGrid', !this.store.options().showGrid);
       case 'v': {
-        const selection = this.store.selection();
-        if (selection.length !== 1) return;
-        const next = this.store.cycleVariant(selection[0]);
+        const { objects } = this.store.selection();
+        if (objects.length !== 1) return;
+        const next = this.store.cycleVariant(objects[0]);
         this.announce(next ? `Changed to ${next.name}.` : 'No other type fits here.');
         return;
       }
@@ -193,22 +201,28 @@ export class PlannerPage {
         return map.fit();
       case 'delete':
       case 'backspace':
-        if (this.store.selection().length) {
+        if (!isEmptySelection(this.store.selection())) {
           event.preventDefault();
           this.store.deleteSelection();
         }
         return;
       case 'escape':
-        if (!map.cancel()) this.store.selection.set([]);
+        if (!map.cancel()) this.store.selection.set(NO_SELECTION);
         return;
       case 'arrowleft':
       case 'arrowright':
       case 'arrowup':
       case 'arrowdown': {
         event.preventDefault();
-        const dx = key === 'arrowleft' ? PAN_STEP : key === 'arrowright' ? -PAN_STEP : 0;
-        const dy = key === 'arrowup' ? PAN_STEP : key === 'arrowdown' ? -PAN_STEP : 0;
-        map.panBy(dx, dy);
+        const x = key === 'arrowleft' ? -1 : key === 'arrowright' ? 1 : 0;
+        const y = key === 'arrowup' ? -1 : key === 'arrowdown' ? 1 : 0;
+        // Arrows nudge the selection a tile (Shift: five), or else move around the map.
+        if (isEmptySelection(this.store.selection())) {
+          map.panBy(-x * PAN_STEP, -y * PAN_STEP);
+        } else {
+          const step = event.shiftKey ? NUDGE_LARGE : 1;
+          if (!this.store.moveSelection(x * step, y * step)) this.announce("The selection doesn't fit there.");
+        }
         return;
       }
     }

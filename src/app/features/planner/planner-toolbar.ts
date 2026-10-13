@@ -157,7 +157,12 @@ export class PlannerToolbar {
 
   protected readonly tools: { id: Tool; label: string; key: string; hint?: string }[] = [
     { id: 'brush', label: 'Place', key: 'B' },
-    { id: 'select', label: 'Select', key: 'S', hint: 'click to select, drag objects to move them, drag empty ground to move the map, Shift + drag to select several' },
+    {
+      id: 'select',
+      label: 'Select',
+      key: 'S',
+      hint: 'click an object to select it, Shift + click to add more, Shift + drag to select an area with its ground, drag the selection or the arrow keys to move it, drag empty ground to move the map',
+    },
     { id: 'eraser', label: 'Erase', key: 'E' },
   ];
 

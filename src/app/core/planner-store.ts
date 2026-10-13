@@ -3,8 +3,8 @@ import { isPlatformBrowser } from '@angular/common';
 import { CatalogItem, RangeGroup, findItem, variantsOf } from './data/catalog';
 import { LayoutInfo } from './data/layout-info';
 import { LAYOUTS } from './data/layouts';
-import { Patch, PlanDocument, emptyPatch, invertPatch, isEmptyPatch } from './plan/plan-document';
-import { PlacementOptions, TileRect, erase, moveObjects, paintTiles, placeAt, placeObjects, swapObject } from './plan/placement';
+import { Patch, PlanDocument, cellKey, emptyPatch, invertPatch, isEmptyPatch, parseKey } from './plan/plan-document';
+import { Group, GroupPlacement, PlacementOptions, TileRect, erase, paintTiles, placeAt, placeObjects, putGroup, swapObject } from './plan/placement';
 import { RestrictionMap } from './plan/restriction-map';
 import { SavedPlan, decodePlan, encodePlan, fromSaved, toSaved } from './plan/serialize';
 import { coverageLayout, usesCoverageLayout } from './plan/coverage-layout';
@@ -14,6 +14,18 @@ import { LocalPlanInfo, LocalPlans, newPlanId } from './local-plans';
 
 export type Tool = 'brush' | 'eraser' | 'select';
 export type RestrictionOverlay = 'none' | 'buildable' | 'tillable';
+/** Selected objects, and ground tiles (by cell key) that move, copy and delete with them. */
+export interface Selection {
+  objects: readonly number[];
+  tiles: readonly string[];
+}
+
+export const NO_SELECTION: Selection = { objects: [], tiles: [] };
+
+export function isEmptySelection(selection: Selection): boolean {
+  return selection.objects.length === 0 && selection.tiles.length === 0;
+}
+
 /** Local save status of the open plan. 'empty' means nothing has been edited yet, so nothing is stored. */
 export type SaveState = 'empty' | 'saving' | 'saved' | 'error';
 
@@ -94,7 +106,7 @@ export class PlannerStore {
   readonly tool = signal<Tool>('select');
   readonly activeItem = signal<CatalogItem | null>(findItem('road') ?? null);
   readonly recentItems = signal<readonly string[]>([]);
-  readonly selection = signal<readonly number[]>([]);
+  readonly selection = signal<Selection>(NO_SELECTION);
   readonly options = signal<PlannerOptions>({
     anywhere: false,
     overwrite: true,
@@ -187,13 +199,68 @@ export class PlannerStore {
     this.commit(erase(this.doc, rect));
   }
 
-  /** Moves objects by an offset. Returns false (and changes nothing) when the move is blocked. */
-  move(uids: readonly number[], dx: number, dy: number): boolean {
+  /** Moves the selection by an offset. Returns false (and changes nothing) when it doesn't fit there. */
+  moveSelection(dx: number, dy: number): boolean {
     if (dx === 0 && dy === 0) return true;
-    const patch = moveObjects(this.doc, this.restrictionsIgnoring(uids), uids, dx, dy, this.options());
-    if (!patch) return false;
+    const { patch, blocked } = this.tryMoveSelection(dx, dy);
+    if (blocked.length) return false;
+    const { objects, tiles } = this.selection();
     this.commit(patch);
+    // The selection follows its tiles to where they landed.
+    this.selection.set({
+      objects,
+      tiles: tiles.map((cell) => {
+        const [x, y] = parseKey(cell);
+        return cellKey(x + dx, y + dy);
+      }),
+    });
     return true;
+  }
+
+  /** What moving the selection by an offset would do, without doing it. */
+  tryMoveSelection(dx: number, dy: number): GroupPlacement {
+    const selection = this.selection();
+    return putGroup(this.doc, this.restrictionsIgnoring(selection.objects), this.selectedGroup(), dx, dy, this.options(), true);
+  }
+
+  /** The selected tiles and objects, where they are now. */
+  selectedGroup(): Group {
+    const { objects, tiles } = this.selection();
+    return {
+      objects: objects.flatMap((uid) => this.doc.object(uid) ?? []),
+      tiles: tiles.flatMap((cell) => {
+        const [x, y] = parseKey(cell);
+        const itemId = this.doc.tileAt(x, y);
+        return itemId ? [{ x, y, itemId }] : [];
+      }),
+    };
+  }
+
+  /** Selects every object touching the rectangle and the ground tiles inside it. */
+  selectArea(rect: TileRect): void {
+    const tiles: string[] = [];
+    for (let y = rect.y; y < rect.y + rect.height; y++) {
+      for (let x = rect.x; x < rect.x + rect.width; x++) {
+        if (this.doc.tileAt(x, y)) tiles.push(cellKey(x, y));
+      }
+    }
+    const objects = this.doc.objectsInRect(rect.x, rect.y, rect.width, rect.height).map((obj) => obj.uid);
+    this.selection.set({ objects, tiles });
+  }
+
+  selectAll(): void {
+    this.selection.set({
+      objects: [...this.doc.allObjects()].map((obj) => obj.uid),
+      tiles: [...this.doc.allTiles()].map(([cell]) => cell),
+    });
+  }
+
+  /** Adds an object to the selection, or takes it out if it's already in. */
+  toggleSelected(uid: number): void {
+    this.selection.update(({ objects, tiles }) => ({
+      objects: objects.includes(uid) ? objects.filter((o) => o !== uid) : [...objects, uid],
+      tiles,
+    }));
   }
 
   /** Switches a placed object to another variant. Returns false when the variant doesn't fit there. */
@@ -219,13 +286,12 @@ export class PlannerStore {
   }
 
   deleteSelection(): void {
-    const patch = emptyPatch();
-    for (const uid of this.selection()) {
-      const obj = this.doc.object(uid);
-      if (obj) patch.objects.push({ uid, before: obj, after: null });
-    }
-    this.selection.set([]);
-    this.commit(patch);
+    const { objects, tiles } = this.selectedGroup();
+    this.selection.set(NO_SELECTION);
+    this.commit({
+      tiles: tiles.map((t) => ({ x: t.x, y: t.y, before: t.itemId, after: null })),
+      objects: objects.map((obj) => ({ uid: obj.uid, before: obj, after: null })),
+    });
   }
 
   commit(patch: Patch): void {
@@ -243,7 +309,6 @@ export class PlannerStore {
     const inverse = invertPatch(patch);
     this.doc.apply(inverse);
     this.redoStack.push(patch);
-    this.pruneSelection();
     this.changed(inverse);
   }
 
@@ -252,7 +317,6 @@ export class PlannerStore {
     if (!patch) return;
     this.doc.apply(patch);
     this.undoStack.push(patch);
-    this.pruneSelection();
     this.changed(patch);
   }
 
@@ -357,7 +421,7 @@ export class PlannerStore {
     const dirt = layout.greenhouseDirt;
     this.dirtRestrictions = dirt ? this.baseRestrictions.withArea(dirt.x, dirt.y, dirt.width, dirt.height, dirt.restrictions) : null;
     this.doc = new PlanDocument(layout.width, layout.height);
-    this.selection.set([]);
+    this.selection.set(NO_SELECTION);
     this.layoutState.set(layout);
     return layout;
   }
@@ -395,14 +459,19 @@ export class PlannerStore {
   }
 
   private changed(patch: Patch): void {
+    this.pruneSelection();
     this.historyState.set({ undo: this.undoStack.length, redo: this.redoStack.length });
     this.revisionState.update((r) => r + 1);
     for (const listener of this.listeners) listener.patched(patch);
     this.scheduleAutosave();
   }
 
+  /** Drops anything selected that an edit removed. */
   private pruneSelection(): void {
-    this.selection.update((uids) => uids.filter((uid) => this.doc.object(uid)));
+    const { objects, tiles } = this.selection();
+    const keptObjects = objects.filter((uid) => this.doc.object(uid));
+    const keptTiles = tiles.filter((cell) => this.doc.tileAt(...parseKey(cell)));
+    if (keptObjects.length < objects.length || keptTiles.length < tiles.length) this.selection.set({ objects: keptObjects, tiles: keptTiles });
   }
 
   private scheduleAutosave(): void {

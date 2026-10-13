@@ -1,5 +1,5 @@
 import { CatalogItem, findItem, spriteOverhang } from '../data/catalog';
-import { Patch, PlacedObject, PlanDocument, emptyPatch, footprint } from './plan-document';
+import { ObjectChange, Patch, PlacedObject, PlanDocument, TileChange, cellKey, emptyPatch, footprint, parseKey } from './plan-document';
 import { RestrictionMap } from './restriction-map';
 
 export interface TileRect {
@@ -285,10 +285,86 @@ export function swapObject(
   return patch;
 }
 
+/** Ground tiles and objects put down together: a selection being moved, or copies being pasted. */
+export interface Group {
+  tiles: readonly { x: number; y: number; itemId: string }[];
+  objects: readonly PlacedObject[];
+}
+
+/** A group's edit, or (when it doesn't fit) an empty patch and the tiles in the way. */
+export interface GroupPlacement {
+  patch: Patch;
+  blocked: [number, number][];
+}
+
 /**
- * Moves a group of objects by an offset. Returns null when any of them can't land. `map` should
- * leave out the moving objects' own effects on the ground (PlannerStore.restrictionsIgnoring).
+ * Puts a group of tiles and objects down shifted by (dx, dy), as one edit that fits whole or not at
+ * all. A `moving` group is what's on the map now: it is lifted first, so it may land partly where it
+ * was, and its objects keep their ids. Otherwise the group is new copies. `map` should leave out
+ * moving objects' own effects on the ground (PlannerStore.restrictionsIgnoring).
  */
+export function putGroup(
+  doc: PlanDocument,
+  map: RestrictionMap,
+  group: Group,
+  dx: number,
+  dy: number,
+  options: PlacementOptions,
+  moving: boolean,
+): GroupPlacement {
+  // Edits are tried on a copy, then compared with the document to make the patch.
+  const scratch = doc.clone();
+  if (moving) {
+    scratch.apply({
+      tiles: group.tiles.map((t) => ({ x: t.x, y: t.y, before: t.itemId, after: null })),
+      objects: group.objects.map((obj) => ({ uid: obj.uid, before: obj, after: null })),
+    });
+  }
+  const touched = new Set(moving ? group.tiles.map((t) => cellKey(t.x, t.y)) : []);
+  const blocked = new Map<string, [number, number]>();
+  const objects: ObjectChange[] = [];
+  // Ground first, so objects are checked against the ground they'll stand on.
+  for (const tile of group.tiles) {
+    const item = findItem(tile.itemId);
+    const x = tile.x + dx;
+    const y = tile.y + dy;
+    const there = scratch.tileAt(x, y);
+    if (!item || !canPaintTile(scratch, map, item, x, y, options) || (there !== null && there !== item.id && !options.overwrite)) {
+      blocked.set(cellKey(x, y), [x, y]);
+      continue;
+    }
+    scratch.apply({ tiles: [{ x, y, before: there, after: item.id }], objects: [] });
+    touched.add(cellKey(x, y));
+  }
+  for (const obj of group.objects) {
+    const item = findItem(obj.itemId);
+    if (!item) continue;
+    const x = obj.x + dx;
+    const y = obj.y + dy;
+    const check = checkObject(scratch, map, item, x, y, options, new Set(), moving ? obj : undefined);
+    if (!check.ok) {
+      for (const [bx, by] of check.blocked) blocked.set(cellKey(bx, by), [bx, by]);
+      continue;
+    }
+    const placed: PlacedObject = { uid: moving ? obj.uid : scratch.allocateUid(), itemId: item.id, x, y };
+    const landing: Patch = { tiles: [], objects: [{ uid: placed.uid, before: null, after: placed }] };
+    clearGround(scratch, item, x, y, landing);
+    for (const t of landing.tiles) touched.add(cellKey(t.x, t.y));
+    scratch.apply(landing);
+    objects.push({ uid: placed.uid, before: moving ? obj : null, after: placed });
+  }
+  if (blocked.size) return { patch: emptyPatch(), blocked: [...blocked.values()] };
+  const tiles: TileChange[] = [];
+  for (const cell of touched) {
+    const [x, y] = parseKey(cell);
+    const before = doc.tileAt(x, y);
+    const after = scratch.tileAt(x, y);
+    if (before !== after) tiles.push({ x, y, before, after });
+  }
+  return { patch: { tiles, objects }, blocked: [] };
+}
+
+/** Moves objects by an offset, as {@link putGroup} does. Returns null when any of them can't land. */
 export function moveObjects(
   doc: PlanDocument,
   map: RestrictionMap,
@@ -297,15 +373,7 @@ export function moveObjects(
   dy: number,
   options: PlacementOptions,
 ): Patch | null {
-  const patch = emptyPatch();
-  const ignore = new Set(uids);
-  for (const uid of uids) {
-    const obj = doc.object(uid);
-    const item = obj && findItem(obj.itemId);
-    if (!obj || !item) continue;
-    if (!checkObject(doc, map, item, obj.x + dx, obj.y + dy, options, ignore, obj).ok) return null;
-    patch.objects.push({ uid, before: obj, after: { ...obj, x: obj.x + dx, y: obj.y + dy } });
-    clearGround(doc, item, obj.x + dx, obj.y + dy, patch);
-  }
-  return patch;
+  const objects = uids.flatMap((uid) => doc.object(uid) ?? []);
+  const { patch, blocked } = putGroup(doc, map, { tiles: [], objects }, dx, dy, options, true);
+  return blocked.length ? null : patch;
 }
