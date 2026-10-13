@@ -25,13 +25,12 @@ import { PlannerStore } from '../../core/planner-store';
         </button>
       }
     </div>
-    <ul class="items" role="listbox" aria-label="Items">
+    <ul class="items" aria-label="Items">
       @for (item of visibleItems(); track item.id) {
         <li>
           <button
             type="button"
-            role="option"
-            [attr.aria-selected]="isActive(item)"
+            [attr.aria-pressed]="isActive(item)"
             [class.active]="isActive(item)"
             [title]="item.name"
             (click)="store.selectItem(item)"

@@ -30,7 +30,9 @@ const NUDGE_LARGE = 5;
   imports: [PlannerToolbar, ItemPalette, MapCanvas, ItemCounter, QuickSearch, VariantPicker],
   host: { '(document:keydown)': 'onKeydown($event)' },
   template: `
-    <app-planner-toolbar [counterOpen]="counterOpen()" (action)="onAction($event)" (layoutChange)="changeLayout($event)" />
+    <header>
+      <app-planner-toolbar [counterOpen]="counterOpen()" (action)="onAction($event)" (layoutChange)="changeLayout($event)" />
+    </header>
     <div class="body">
       <aside aria-label="Items">
         <app-item-palette />
