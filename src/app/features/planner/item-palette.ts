@@ -31,8 +31,8 @@ import { PlannerStore } from '../../core/planner-store';
           <button
             type="button"
             role="option"
-            [attr.aria-selected]="item.id === store.activeItem()?.id && store.tool() === 'brush'"
-            [class.active]="item.id === store.activeItem()?.id && store.tool() === 'brush'"
+            [attr.aria-selected]="isActive(item)"
+            [class.active]="isActive(item)"
             [title]="item.name"
             (click)="store.selectItem(item)"
           >
@@ -84,5 +84,10 @@ export class ItemPalette {
 
   protected sprite(item: CatalogItem): string {
     return spriteUrl(item);
+  }
+
+  /** Whether the Place tool is putting down this item. */
+  protected isActive(item: CatalogItem): boolean {
+    return item.id === this.store.activeItem()?.id && this.store.tool() === 'brush' && !this.store.pasting();
   }
 }

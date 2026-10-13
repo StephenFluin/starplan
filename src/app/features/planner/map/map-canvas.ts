@@ -23,6 +23,8 @@ type Gesture = (
   | { kind: 'place'; originX: number; originY: number }
   /** Dragging the selection. */
   | { kind: 'move'; startX: number; startY: number }
+  /** Pasting the clipboard where the pointer is let go. */
+  | { kind: 'paste' }
   | { kind: 'pinch'; distance: number; midX: number; midY: number }
 ) & {
   /** Tool and item the gesture started with; switching either cancels it. */
@@ -169,6 +171,8 @@ export class MapCanvas {
       // change detection, so a gesture may already have started with the new tool by now.
       const tool = this.store.tool();
       const itemId = this.store.activeItem()?.id ?? null;
+      this.store.pasting();
+      this.store.clipboard();
       untracked(() => {
         const gesture = this.gesture;
         if (gesture && gesture.kind !== 'pan' && gesture.kind !== 'pinch' && (gesture.tool !== tool || gesture.itemId !== itemId)) {
@@ -274,6 +278,8 @@ export class MapCanvas {
         // Empty ground: drag the map, like an online map.
         this.gesture = pan;
       }
+    } else if (tool === 'brush' && this.store.pasting()) {
+      this.gesture = { ...base, kind: 'paste' };
     } else if (tool === 'brush' && item?.kind === 'object' && !usesCoverageLayout(item)) {
       const origin = objectOrigin(item, tile.x, tile.y);
       this.gesture = { ...base, kind: 'place', originX: origin.x, originY: origin.y };
@@ -360,6 +366,9 @@ export class MapCanvas {
     } else if (gesture.kind === 'place') {
       const item = findItem(gesture.itemId ?? '');
       if (item) this.store.paint(this.placementRect(gesture, item, gesture.moved ? tile : null));
+    } else if (gesture.kind === 'paste') {
+      const at = this.pasteOrigin(tile);
+      if (at && this.store.pasting()) this.store.pasteAt(at.x, at.y);
     } else {
       // A click (not a drag) acts on the tile it started on.
       const end = gesture.moved ? tile : { x: gesture.startX, y: gesture.startY };
@@ -531,6 +540,20 @@ export class MapCanvas {
         // Show where the sprinklers or scarecrows will go and what they'll cover.
         preview.ghosts = coverageLayout(store.doc, store.restrictions, item, rect, options).map((at) => ({ item, ...at }));
       }
+    } else if (store.tool() === 'brush' && store.pasting()) {
+      const at = this.pasteOrigin(tile);
+      const clipboard = store.clipboard();
+      if (at && clipboard) {
+        preview.ghosts = clipboard.objects.flatMap((obj) => {
+          const item = findItem(obj.itemId);
+          return item ? [{ item, x: at.x + obj.x, y: at.y + obj.y }] : [];
+        });
+        preview.tiles = clipboard.tiles.flatMap((t) => {
+          const item = findItem(t.itemId);
+          return item ? [{ item, x: at.x + t.x, y: at.y + t.y }] : [];
+        });
+        preview.blocked = store.tryPaste(at.x, at.y)?.blocked;
+      }
     } else if (store.tool() === 'brush') {
       const item = store.activeItem();
       if (item?.kind === 'object') {
@@ -545,6 +568,15 @@ export class MapCanvas {
       preview.rect = { x: tile.x, y: tile.y, width: 1, height: 1, style: 'erase' };
     }
     renderer.setPreview(preview);
+  }
+
+  /** Where the clipboard's top-left goes to centre it on a tile. */
+  private pasteOrigin(tile: { x: number; y: number }): { x: number; y: number } | null {
+    const clipboard = this.store.clipboard();
+    if (!clipboard) return null;
+    const width = Math.max(...clipboard.tiles.map((t) => t.x + 1), ...clipboard.objects.map((o) => o.x + (findItem(o.itemId)?.width ?? 1)));
+    const height = Math.max(...clipboard.tiles.map((t) => t.y + 1), ...clipboard.objects.map((o) => o.y + (findItem(o.itemId)?.height ?? 1)));
+    return { x: tile.x - Math.floor((width - 1) / 2), y: tile.y - Math.floor((height - 1) / 2) };
   }
 
   /** Ghosts for every copy a placement would make, with the tiles that block any of them. */

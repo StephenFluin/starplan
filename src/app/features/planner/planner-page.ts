@@ -1,6 +1,7 @@
 import { Component, ElementRef, afterNextRender, inject, signal, viewChild } from '@angular/core';
 import { Analytics } from '../../core/analytics';
 import { NO_SELECTION, PlannerStore, Tool, isEmptySelection } from '../../core/planner-store';
+import { Group } from '../../core/plan/placement';
 import { parsePlanJson } from '../../core/plan/serialize';
 import { ItemCounter } from './item-counter';
 import { ItemPalette } from './item-palette';
@@ -11,6 +12,15 @@ import { VariantPicker } from './variant-picker';
 import { CatalogItem } from '../../core/data/catalog';
 
 const PAN_STEP = 64;
+
+/** "3 objects and 12 tiles", for messages about copying. */
+function describeGroup(group: Group | null): string {
+  const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
+  const parts = [];
+  if (group?.objects.length) parts.push(count(group.objects.length, 'object'));
+  if (group?.tiles.length) parts.push(count(group.tiles.length, 'tile'));
+  return parts.join(' and ') || 'nothing';
+}
 /** Tiles Shift + an arrow key moves the selection. */
 const NUDGE_LARGE = 5;
 
@@ -173,6 +183,23 @@ export class PlannerPage {
       this.store.selectAll();
       return;
     }
+    if (mod && (key === 'c' || key === 'x' || key === 'd') && !isEmptySelection(this.store.selection())) {
+      event.preventDefault();
+      if (key === 'x') {
+        this.announce(`Cut ${describeGroup(this.store.cutSelection())}. Press Ctrl+V to paste.`);
+      } else if (key === 'c') {
+        this.announce(`Copied ${describeGroup(this.store.copySelection())}. Press Ctrl+V to paste.`);
+      } else {
+        this.store.copySelection();
+        this.startPasting();
+      }
+      return;
+    }
+    if (mod && key === 'v') {
+      event.preventDefault();
+      if (!this.startPasting()) this.announce('Nothing copied yet. Select something and press Ctrl+C.');
+      return;
+    }
     if (mod || event.altKey) return;
 
     const map = this.map();
@@ -207,7 +234,9 @@ export class PlannerPage {
         }
         return;
       case 'escape':
-        if (!map.cancel()) this.store.selection.set(NO_SELECTION);
+        if (map.cancel()) return;
+        if (this.store.pasting()) this.store.pasting.set(false);
+        else this.store.selection.set(NO_SELECTION);
         return;
       case 'arrowleft':
       case 'arrowright':
@@ -226,6 +255,12 @@ export class PlannerPage {
         return;
       }
     }
+  }
+
+  private startPasting(): boolean {
+    if (!this.store.startPasting()) return false;
+    this.announce('Click to put down a copy. Press Esc when done.');
+    return true;
   }
 
   protected announceBlocked(item: CatalogItem): void {

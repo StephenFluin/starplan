@@ -1,4 +1,4 @@
-import { PLATFORM_ID, Service, computed, effect, inject, signal } from '@angular/core';
+import { PLATFORM_ID, Service, computed, effect, inject, signal, untracked } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { CatalogItem, RangeGroup, findItem, variantsOf } from './data/catalog';
 import { LayoutInfo } from './data/layout-info';
@@ -107,6 +107,10 @@ export class PlannerStore {
   readonly activeItem = signal<CatalogItem | null>(findItem('road') ?? null);
   readonly recentItems = signal<readonly string[]>([]);
   readonly selection = signal<Selection>(NO_SELECTION);
+  /** Copied tiles and objects, with their bounding box's top-left at 0, 0. */
+  readonly clipboard = signal<Group | null>(null);
+  /** Whether the Place tool puts down copies of the clipboard rather than the active item. */
+  readonly pasting = signal(false);
   readonly options = signal<PlannerOptions>({
     anywhere: false,
     overwrite: true,
@@ -135,6 +139,10 @@ export class PlannerStore {
         // Best-effort preference.
       }
     });
+    // Pasting is a mode of the Place tool; any other tool ends it.
+    effect(() => {
+      if (this.tool() !== 'brush') untracked(() => this.pasting.set(false));
+    });
     if (this.browser) {
       // Don't lose the last edit when the tab closes inside the autosave delay.
       addEventListener('pagehide', () => this.flushAutosave());
@@ -160,6 +168,7 @@ export class PlannerStore {
 
   selectItem(item: CatalogItem): void {
     this.activeItem.set(item);
+    this.pasting.set(false);
     this.tool.set('brush');
     this.recentItems.update((recent) => [item.id, ...recent.filter((id) => id !== item.id)].slice(0, MAX_RECENT));
   }
@@ -253,6 +262,53 @@ export class PlannerStore {
       objects: [...this.doc.allObjects()].map((obj) => obj.uid),
       tiles: [...this.doc.allTiles()].map(([cell]) => cell),
     });
+  }
+
+  /** Copies the selection to the clipboard. Returns what was copied, or null if nothing was selected. */
+  copySelection(): Group | null {
+    const { tiles, objects } = this.selectedGroup();
+    if (!tiles.length && !objects.length) return null;
+    const left = Math.min(...tiles.map((t) => t.x), ...objects.map((o) => o.x));
+    const top = Math.min(...tiles.map((t) => t.y), ...objects.map((o) => o.y));
+    const copy = {
+      tiles: tiles.map((t) => ({ ...t, x: t.x - left, y: t.y - top })),
+      objects: objects.map((o) => ({ ...o, x: o.x - left, y: o.y - top })),
+    };
+    this.clipboard.set(copy);
+    return copy;
+  }
+
+  /** Copies the selection to the clipboard and deletes it. Returns what was cut. */
+  cutSelection(): Group | null {
+    const copy = this.copySelection();
+    if (copy) this.deleteSelection();
+    return copy;
+  }
+
+  /** Makes the Place tool put down copies of the clipboard. Returns false when the clipboard is empty. */
+  startPasting(): boolean {
+    if (!this.clipboard()) return false;
+    this.tool.set('brush');
+    this.pasting.set(true);
+    return true;
+  }
+
+  /** What pasting the clipboard with its top-left at a tile would do, without doing it. */
+  tryPaste(x: number, y: number): GroupPlacement | null {
+    const clipboard = this.clipboard();
+    return clipboard && putGroup(this.doc, this.restrictions, clipboard, x, y, this.options(), false);
+  }
+
+  /** Pastes the clipboard with its top-left at a tile, and selects the copy. Returns false when it doesn't fit. */
+  pasteAt(x: number, y: number): boolean {
+    const result = this.tryPaste(x, y);
+    if (!result || result.blocked.length) return false;
+    this.commit(result.patch);
+    this.selection.set({
+      objects: result.patch.objects.map((change) => change.uid),
+      tiles: result.patch.tiles.filter((t) => t.after !== null).map((t) => cellKey(t.x, t.y)),
+    });
+    return true;
   }
 
   /** Adds an object to the selection, or takes it out if it's already in. */
