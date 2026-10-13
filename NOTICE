@@ -1,0 +1,25 @@
+Starplan — an unofficial, personal, non-commercial fan project.
+
+Starplan is not affiliated with, endorsed by, or sponsored by ConcernedApe LLC.
+It has no ads and accepts no payments or donations.
+
+Stardew Valley game art
+-----------------------
+Stardew Valley, its name, and all of its art (including the sprites and farm
+map images in public/assets/sprites, public/assets/layouts and
+public/assets/game) are © ConcernedApe LLC. They are used here, unmodified
+apart from cropping, for non-commercial fan purposes only, and are not covered
+by this project's code license. If ConcernedApe asks, they will be removed.
+
+- public/assets/sprites and public/assets/layouts: copied from the v2
+  Stardew Valley planner repository (see below), whose author extracted them
+  from the game.
+- public/assets/game: cropped from the game's own content files by
+  scripts/import-game.mts.
+
+v2 Stardew Valley farm planner
+------------------------------
+Item data, farm layout metadata and placement restriction maps are derived
+from the Stardew Valley farm planner by Henrik Peinar
+(https://github.com/hpeinar/stardewplanner), licensed under the Apache
+License, Version 2.0.
