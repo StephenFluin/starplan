@@ -8,10 +8,9 @@ import { greenhouseDirtShown } from '../../../core/plan/default-buildings';
 import { rangeTiles } from '../../../core/plan/range';
 import { NOT_BUILDABLE, NOT_TILLABLE, RestrictionMap } from '../../../core/plan/restriction-map';
 import { RestrictionOverlay } from '../../../core/planner-store';
+import { Camera } from './camera';
 
 export const TILE = 16;
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 6;
 
 /** What the cursor is about to do, drawn above everything else. */
 export interface Preview {
@@ -64,6 +63,8 @@ export class MapRenderer {
   private doc: PlanDocument | null = null;
   private frame = 0;
   private resizeObserver: ResizeObserver | null = null;
+  private readonly camera = new Camera();
+  private readonly reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   private destroyed = false;
 
   async init(host: HTMLElement): Promise<void> {
@@ -106,8 +107,10 @@ export class MapRenderer {
 
     this.resizeObserver = new ResizeObserver(() => {
       this.app.renderer.resize(host.clientWidth, host.clientHeight);
-      this.requestRender();
+      this.camera.resize({ width: host.clientWidth, height: host.clientHeight });
+      this.applyView();
     });
+    this.camera.resize({ width: host.clientWidth, height: host.clientHeight });
     this.resizeObserver.observe(host);
   }
 
@@ -116,7 +119,7 @@ export class MapRenderer {
   }
 
   get zoom(): number {
-    return this.world.scale.x;
+    return this.camera.view.zoom;
   }
 
   destroy(): void {
@@ -128,9 +131,16 @@ export class MapRenderer {
 
   requestRender(): void {
     if (this.frame || this.destroyed) return;
-    this.frame = requestAnimationFrame(() => {
+    this.frame = requestAnimationFrame((now) => {
       this.frame = 0;
-      if (!this.destroyed) this.app.render();
+      if (this.destroyed) return;
+      // Zoom animations and glides keep frames coming until they settle.
+      if (this.camera.moving) {
+        this.camera.step(now);
+        this.syncWorld();
+        if (this.camera.moving) this.requestRender();
+      }
+      this.app.render();
     });
   }
 
@@ -373,39 +383,56 @@ export class MapRenderer {
   }
 
   panBy(dx: number, dy: number): void {
-    this.world.position.set(this.world.x + dx, this.world.y + dy);
+    this.camera.panBy(dx, dy);
+    this.applyView();
+  }
+
+  /**
+   * Zooms by a factor around a screen point (the middle of the map by default). Animated unless
+   * `animate` is false (pinches follow the fingers directly) or the user prefers reduced motion.
+   */
+  zoomAt(factor: number, clientX?: number, clientY?: number, animate = true): void {
+    const bounds = this.app.canvas.getBoundingClientRect();
+    this.camera.animate = animate && !this.reducedMotion.matches;
+    this.camera.zoomAt(factor, clientX === undefined ? undefined : clientX - bounds.left, clientY === undefined ? undefined : clientY - bounds.top);
+    this.applyView();
+  }
+
+  /** Lets a pan glide on at a velocity in pixels per millisecond. */
+  fling(vx: number, vy: number): void {
+    this.camera.animate = !this.reducedMotion.matches;
+    this.camera.fling(vx, vy);
     this.requestRender();
   }
 
-  /** Zooms by a factor, keeping the given screen point fixed. */
-  zoomAt(factor: number, clientX?: number, clientY?: number): void {
-    const bounds = this.app.canvas.getBoundingClientRect();
-    const sx = clientX === undefined ? bounds.width / 2 : clientX - bounds.left;
-    const sy = clientY === undefined ? bounds.height / 2 : clientY - bounds.top;
-    const before = this.world.toLocal({ x: sx, y: sy });
-    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, this.zoom * factor));
-    this.world.scale.set(zoom);
-    this.world.position.set(sx - before.x * zoom, sy - before.y * zoom);
-    this.requestRender();
+  /** Stops a glide or zoom animation, e.g. when the map is grabbed again. */
+  stopMotion(): void {
+    this.camera.stop();
   }
 
   fitToView(): void {
     if (!this.layout) return;
-    const { width, height } = this.app.screen;
-    const mapWidth = this.layout.width * TILE;
-    const mapHeight = this.layout.height * TILE;
-    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.min(width / mapWidth, height / mapHeight)));
-    this.world.scale.set(zoom);
-    this.world.position.set((width - mapWidth * zoom) / 2, (height - mapHeight * zoom) / 2);
+    this.camera.map = { width: this.layout.width * TILE, height: this.layout.height * TILE };
+    this.camera.fit();
+    this.applyView();
+  }
+
+  private applyView(): void {
+    this.syncWorld();
     this.requestRender();
+  }
+
+  private syncWorld(): void {
+    const { x, y, zoom } = this.camera.view;
+    this.world.position.set(x, y);
+    this.world.scale.set(zoom);
   }
 
   /** Renders the whole map, without overlays, to a PNG. */
   async exportPng(): Promise<Blob> {
     const hidden = [this.previewLayer, this.overlayLayer, this.grid].filter((c): c is Container => Boolean(c?.visible));
     for (const c of hidden) c.visible = false;
-    const { x, y } = this.world.position;
-    const scale = this.zoom;
+    this.camera.stop();
     this.world.position.set(0, 0);
     this.world.scale.set(1);
     try {
@@ -415,8 +442,7 @@ export class MapRenderer {
         canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('PNG export failed'))), 'image/png'),
       );
     } finally {
-      this.world.position.set(x, y);
-      this.world.scale.set(scale);
+      this.syncWorld();
       for (const c of hidden) c.visible = true;
       this.requestRender();
     }

@@ -43,7 +43,7 @@ export type ToolbarAction = 'zoom-in' | 'zoom-out' | 'fit' | 'share' | 'export-p
           type="button"
           [attr.aria-pressed]="store.tool() === tool.id"
           [class.active]="store.tool() === tool.id"
-          [title]="tool.label + ' (' + tool.key + ')'"
+          [title]="tool.label + ' (' + tool.key + ')' + (tool.hint ? ': ' + tool.hint : '')"
           (click)="store.tool.set(tool.id)"
         >
           {{ tool.label }}
@@ -155,9 +155,9 @@ export class PlannerToolbar {
   protected readonly interiors = this.store.layouts.filter((l) => l.kind === 'interior');
   protected readonly community = this.store.layouts.filter((l) => l.kind === 'community');
 
-  protected readonly tools: { id: Tool; label: string; key: string }[] = [
+  protected readonly tools: { id: Tool; label: string; key: string; hint?: string }[] = [
     { id: 'brush', label: 'Place', key: 'B' },
-    { id: 'select', label: 'Select', key: 'S' },
+    { id: 'select', label: 'Select', key: 'S', hint: 'click to select, drag objects to move them, drag empty ground to move the map, Shift + drag to select several' },
     { id: 'eraser', label: 'Erase', key: 'E' },
   ];
 

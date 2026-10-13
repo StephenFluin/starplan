@@ -68,7 +68,8 @@ export class PlannerStore {
   readonly canUndo = computed(() => this.historyState().undo > 0);
   readonly canRedo = computed(() => this.historyState().redo > 0);
 
-  readonly tool = signal<Tool>('brush');
+  /** Starts in Select, where dragging the map moves it like an online map. */
+  readonly tool = signal<Tool>('select');
   readonly activeItem = signal<CatalogItem | null>(findItem('road') ?? null);
   readonly recentItems = signal<readonly string[]>([]);
   readonly selection = signal<readonly number[]>([]);

@@ -14,26 +14,30 @@ Built with Angular (UI and state) and PixiJS (map rendering).
 - Paths, floors, fences, crops, trees, craftables and buildings; drag to fill rectangles
 - Dragging with a sprinkler or scarecrow lays out the fewest needed to cover the whole area (a 6×6 field takes 4 quality sprinklers). They can go straight onto crops, replacing them
 - Click a placed item with the Select tool to switch its variant: greenhouse repaired/broken, farmhouse upgrades, coop and barn upgrades, scarecrow type, sprinkler tier, and so on
-- Select and move objects, erase areas, undo/redo
+- Select and move objects (Shift + drag to select several), erase areas, undo/redo
+- Map controls like an online map: drag to pan with a glide, scroll or pinch to zoom where the pointer is, double-click to zoom in
 - Sprinkler, scarecrow, bee house and Junimo hut ranges (on hover, or always on per type)
 - Item counter to work out how many seeds and machines you need
 - Share links that hold the whole plan in the URL, so no server or account is needed
 - Plans autosave in the browser; the Plans menu opens, renames and deletes them. Shared links and imports open as new plans
 - JSON import/export (including v2 planner files) and PNG export
-- Movable farmhouse (with its mailbox), greenhouse and shipping bin
+- Movable farmhouse (with its mailbox), greenhouse and shipping bin, pet bowl and starter buildings
 - Right-click quick search with recently used items
 
-## Keyboard shortcuts
+## Controls
 
-| Key | Action |
+| Input | Action |
 | --- | --- |
 | B / S / E | Place / Select / Erase (pressing S or E again goes back to the previous tool) |
 | Ctrl/⌘ + Z, Ctrl/⌘ + Shift + Z (or Ctrl + Y) | Undo / redo |
 | Delete / Backspace | Delete the selected objects |
 | V | Switch the selected item to its next variant |
 | Esc | Cancel the current drag, or clear the selection |
-| Arrow keys, middle-drag, Space + drag | Pan |
-| Mouse wheel, + / - / 0 | Zoom in / out / fit |
+| Drag empty ground (Select tool), right-drag, middle-drag, Space + drag, arrow keys | Pan (flick to glide) |
+| Scroll wheel or trackpad, pinch | Zoom in or out where the pointer is |
+| Double-click empty ground (Select tool), Shift + double-click | Zoom in / out there |
+| + / - / 0 | Zoom in / out / fit |
+| Two fingers (touchscreens) | Pinch to zoom, drag to pan |
 | G | Toggle grid |
 | Right click | Quick item search |
 

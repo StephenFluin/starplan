@@ -154,20 +154,24 @@ export function placeAt(doc: PlanDocument, item: CatalogItem, positions: readonl
  * Places copies of an object across the rectangle, stepping by its footprint.
  * A single click is just a 1x1 rectangle, which places one object.
  */
-export function placeObjects(doc: PlanDocument, map: RestrictionMap, item: CatalogItem, rect: TileRect, options: PlacementOptions): Patch {
-  const patch = emptyPatch();
+/** Where {@link placeObjects} puts copies of an item to fill a rectangle: stepping by its footprint, so they never overlap. */
+export function objectPositions(item: CatalogItem, rect: TileRect): { x: number; y: number }[] {
+  const positions: { x: number; y: number }[] = [];
   const stepsX = Math.max(1, Math.floor(rect.width / item.width));
   const stepsY = Math.max(1, Math.floor(rect.height / item.height));
-  // Copies step by the footprint, so they never overlap each other.
   for (let sy = 0; sy < stepsY; sy++) {
-    for (let sx = 0; sx < stepsX; sx++) {
-      const x = rect.x + sx * item.width;
-      const y = rect.y + sy * item.height;
-      if (!checkObject(doc, map, item, x, y, options).ok) continue;
-      const placed: PlacedObject = { uid: doc.allocateUid(), itemId: item.id, x, y };
-      patch.objects.push({ uid: placed.uid, before: null, after: placed });
-      clearReplacedCrops(doc, item, x, y, patch);
-    }
+    for (let sx = 0; sx < stepsX; sx++) positions.push({ x: rect.x + sx * item.width, y: rect.y + sy * item.height });
+  }
+  return positions;
+}
+
+export function placeObjects(doc: PlanDocument, map: RestrictionMap, item: CatalogItem, rect: TileRect, options: PlacementOptions): Patch {
+  const patch = emptyPatch();
+  for (const { x, y } of objectPositions(item, rect)) {
+    if (!checkObject(doc, map, item, x, y, options).ok) continue;
+    const placed: PlacedObject = { uid: doc.allocateUid(), itemId: item.id, x, y };
+    patch.objects.push({ uid: placed.uid, before: null, after: placed });
+    clearReplacedCrops(doc, item, x, y, patch);
   }
   return patch;
 }
