@@ -25,6 +25,8 @@ export interface ObjectChange {
 export interface Patch {
   tiles: TileChange[];
   objects: ObjectChange[];
+  /** Set by the edit that first moves the greenhouse off its start location (see PlanDocument.greenhouseMoved). */
+  greenhouseMoved?: { before: boolean; after: boolean };
 }
 
 export function emptyPatch(): Patch {
@@ -39,6 +41,7 @@ export function invertPatch(patch: Patch): Patch {
   return {
     tiles: patch.tiles.map((t) => ({ x: t.x, y: t.y, before: t.after, after: t.before })).reverse(),
     objects: patch.objects.map((o) => ({ uid: o.uid, before: o.after, after: o.before })).reverse(),
+    ...(patch.greenhouseMoved && { greenhouseMoved: { before: patch.greenhouseMoved.after, after: patch.greenhouseMoved.before } }),
   };
 }
 
@@ -54,6 +57,11 @@ export class PlanDocument {
   /** cell key -> uid of the object covering it. */
   private readonly occupancy = new Map<string, number>();
   private nextUid = 1;
+  /**
+   * Whether the greenhouse has ever left its start location. As in the game, its dirt patch is
+   * gone for good from then on, even if the greenhouse goes back.
+   */
+  greenhouseMoved = false;
 
   constructor(
     readonly width: number,
@@ -120,12 +128,14 @@ export class PlanDocument {
     for (const change of patch.objects) {
       if (change.after) this.addObject(change.after);
     }
+    if (patch.greenhouseMoved) this.greenhouseMoved = patch.greenhouseMoved.after;
   }
 
   clear(): void {
     this.tiles.clear();
     this.objects.clear();
     this.occupancy.clear();
+    this.greenhouseMoved = false;
   }
 
   private addObject(obj: PlacedObject): void {

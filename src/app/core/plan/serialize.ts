@@ -17,6 +17,8 @@ export interface SavedPlan {
   tiles: Record<string, number[]>;
   /** [itemId, x, y] per object. */
   objects: [string, number, number][];
+  /** Whether the greenhouse has left its start location (PlanDocument.greenhouseMoved). */
+  greenhouseMoved?: true;
 }
 
 export function toSaved(layout: string, doc: PlanDocument): SavedPlan {
@@ -30,7 +32,7 @@ export function toSaved(layout: string, doc: PlanDocument): SavedPlan {
     objects.push([obj.itemId, obj.x, obj.y]);
   }
   objects.sort((a, b) => a[2] - b[2] || a[1] - b[1]);
-  return { v: 4, layout, tiles, objects };
+  return { v: 4, layout, tiles, objects, ...(doc.greenhouseMoved && { greenhouseMoved: true as const }) };
 }
 
 /**
@@ -53,6 +55,7 @@ export function fromSaved(saved: SavedPlan, doc: PlanDocument, layout?: LayoutIn
     patch.objects.push({ uid: obj.uid, before: null, after: obj });
   }
   if (saved.v < 4 && layout?.petBowl) addPaintedPetBowl(patch, doc, layout.petBowl);
+  if (saved.greenhouseMoved) patch.greenhouseMoved = { before: false, after: true };
   return patch;
 }
 

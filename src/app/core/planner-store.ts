@@ -8,7 +8,7 @@ import { PlacementOptions, TileRect, erase, moveObjects, paintTiles, placeAt, pl
 import { RestrictionMap } from './plan/restriction-map';
 import { SavedPlan, decodePlan, encodePlan, fromSaved, toSaved } from './plan/serialize';
 import { coverageLayout, usesCoverageLayout } from './plan/coverage-layout';
-import { addDefaultBuildings, greenhouseAtStart } from './plan/default-buildings';
+import { addDefaultBuildings, applyEdit, greenhouseDirtShown } from './plan/default-buildings';
 import { LocalPlanInfo, LocalPlans, newPlanId } from './local-plans';
 
 export type Tool = 'brush' | 'eraser' | 'select';
@@ -57,7 +57,7 @@ export class PlannerStore {
 
   /** Where things can go now: the game keeps the greenhouse's dirt patch until the greenhouse moves. */
   get restrictions(): RestrictionMap {
-    return this.dirtRestrictions && greenhouseAtStart(this.doc, this.layoutState()) ? this.dirtRestrictions : this.baseRestrictions;
+    return this.dirtRestrictions && greenhouseDirtShown(this.doc, this.layoutState()) ? this.dirtRestrictions : this.baseRestrictions;
   }
 
   /** Bumped after every change to the document, for derived UI state. */
@@ -207,7 +207,7 @@ export class PlannerStore {
 
   commit(patch: Patch): void {
     if (isEmptyPatch(patch)) return;
-    this.doc.apply(patch);
+    applyEdit(this.doc, this.layoutState(), patch);
     this.undoStack.push(patch);
     if (this.undoStack.length > MAX_HISTORY) this.undoStack.shift();
     this.redoStack = [];

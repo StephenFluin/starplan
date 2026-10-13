@@ -43,16 +43,34 @@ export function defaultBuildings(layout: LayoutInfo): DefaultBuilding[] {
 
 const GREENHOUSE_IDS = new Set(variantsOf('greenhouse').map((item) => item.id));
 
-/**
- * Whether a greenhouse still stands at the layout's start location. Until it moves, the game keeps
- * its dirt patch (LayoutInfo.greenhouseDirt) laid over the map.
- */
+/** Whether a greenhouse stands at the layout's start location. */
 export function greenhouseAtStart(doc: PlanDocument, layout: LayoutInfo): boolean {
   if (!layout.greenhouse) return false;
   const x = layout.greenhouse.x;
   const y = layout.greenhouse.y + legacySpriteOffset('greenhouse');
   const obj = doc.objectAt(x, y);
   return obj !== null && obj.x === x && obj.y === y && GREENHOUSE_IDS.has(obj.itemId);
+}
+
+/**
+ * Whether the greenhouse's dirt patch (LayoutInfo.greenhouseDirt) is laid over the map: the game
+ * keeps it until the greenhouse first moves.
+ */
+export function greenhouseDirtShown(doc: PlanDocument, layout: LayoutInfo): boolean {
+  return Boolean(layout.greenhouseDirt) && !doc.greenhouseMoved && greenhouseAtStart(doc, layout);
+}
+
+/**
+ * Applies an edit. If it is the one that first takes the greenhouse off its start location, the
+ * move is recorded in it too, so undoing the edit brings the dirt patch back.
+ */
+export function applyEdit(doc: PlanDocument, layout: LayoutInfo, patch: Patch): void {
+  const wasHome = !doc.greenhouseMoved && greenhouseAtStart(doc, layout);
+  doc.apply(patch);
+  if (wasHome && !greenhouseAtStart(doc, layout)) {
+    patch.greenhouseMoved = { before: false, after: true };
+    doc.greenhouseMoved = true;
+  }
 }
 
 /** Adds the default buildings, and the fences the farm starts with, to an empty document. */

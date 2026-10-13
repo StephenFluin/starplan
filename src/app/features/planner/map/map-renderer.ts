@@ -4,7 +4,7 @@ import { GAME_SPRITES } from '../../../core/data/game-art.generated';
 import { LayoutInfo } from '../../../core/data/layout-info';
 import { Patch, PlacedObject, PlanDocument, parseKey } from '../../../core/plan/plan-document';
 import { TileRect } from '../../../core/plan/placement';
-import { greenhouseAtStart } from '../../../core/plan/default-buildings';
+import { greenhouseDirtShown } from '../../../core/plan/default-buildings';
 import { rangeTiles } from '../../../core/plan/range';
 import { NOT_BUILDABLE, NOT_TILLABLE, RestrictionMap } from '../../../core/plan/restriction-map';
 import { RestrictionOverlay } from '../../../core/planner-store';
@@ -187,7 +187,7 @@ export class MapRenderer {
   }
 
   private updateGreenhouseDirt(): void {
-    this.greenhouseDirt.visible = Boolean(this.layout?.greenhouseDirt && this.doc && greenhouseAtStart(this.doc, this.layout));
+    this.greenhouseDirt.visible = Boolean(this.layout && this.doc && greenhouseDirtShown(this.doc, this.layout));
   }
 
   private setTile(x: number, y: number, itemId: string | null): void {

@@ -24,6 +24,16 @@ describe('serialize', () => {
     expect(toSaved('regular', doc).objects).toEqual([['keg', 5, 5], ['greenhouse', 25, 10], ['house', 59, 12]]);
   });
 
+  it("remembers that the greenhouse has moved", () => {
+    const doc = new PlanDocument(80, 65);
+    doc.apply({ ...fromSaved(plan, doc), greenhouseMoved: { before: false, after: true } });
+    const saved = toSaved('regular', doc);
+    expect(saved.greenhouseMoved).toBe(true);
+    const reloaded = new PlanDocument(80, 65);
+    reloaded.apply(fromSaved(saved, reloaded));
+    expect(reloaded.greenhouseMoved).toBe(true);
+  });
+
   describe('pet bowl', () => {
     const regular = LAYOUTS.find((l) => l.id === 'regular')!;
     const load = (objects: SavedPlan['objects'], v: SavedPlan['v'] = 3, layout = regular) => {

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { LAYOUTS } from '../data/layouts';
-import { addDefaultBuildings, defaultBuildings, greenhouseAtStart } from './default-buildings';
-import { PlanDocument } from './plan-document';
+import { addDefaultBuildings, applyEdit, defaultBuildings, greenhouseDirtShown } from './default-buildings';
+import { PlanDocument, invertPatch } from './plan-document';
 import { PlacementOptions, moveObjects } from './placement';
 import { RestrictionMap } from './restriction-map';
 
@@ -18,7 +18,7 @@ function standardFarm() {
   return {
     doc,
     get map(): RestrictionMap {
-      return greenhouseAtStart(doc, regular) ? withDirt : base;
+      return greenhouseDirtShown(doc, regular) ? withDirt : base;
     },
   };
 }
@@ -44,9 +44,10 @@ describe('default buildings', () => {
   });
 
   for (const [name, start, moves] of [
-    // The farmhouse's yard path, three tiles to its right, is unbuildable.
+    // Three tiles right of each is unbuildable: the farmhouse's yard path, and the grass edge that
+    // is back under the greenhouse once it has moved.
     ['farmhouse', { x: 59, y: 12 }, [-3, -1, 1]],
-    ['greenhouse', { x: 25, y: 10 }, [-3, -1, 1, 3]],
+    ['greenhouse', { x: 25, y: 10 }, [-3, -1, 1]],
   ] as const) {
     it(`lets the ${name} move a few tiles left or right and back again`, () => {
       const farm = standardFarm();
@@ -55,25 +56,38 @@ describe('default buildings', () => {
       for (const dx of moves) {
         const there = moveObjects(doc, farm.map, [uid], dx, 0, options);
         expect(there, `move by ${dx}`).not.toBeNull();
-        doc.apply(there!);
+        applyEdit(doc, regular, there!);
         const back = moveObjects(doc, farm.map, [uid], -dx, 0, options);
         expect(back, `move back from ${dx}`).not.toBeNull();
-        doc.apply(back!);
+        applyEdit(doc, regular, back!);
       }
     });
   }
 
   // The base map has a grass patch, with an unbuildable edge at x = 33, where the greenhouse
-  // starts. The game covers it with sand until the greenhouse moves; then the grass is back.
-  it("lifts the greenhouse's dirt patch once it moves, as the game does", () => {
+  // starts. The game covers it with sand until the greenhouse first moves; then the grass is back
+  // for good.
+  it("lifts the greenhouse's dirt patch for good once it moves, as the game does", () => {
     const farm = standardFarm();
     const { doc } = farm;
     const uid = doc.objectAt(25, 10)!.uid;
     expect(farm.map.isBlocked(33, 12, 'buildable')).toBe(false);
-    doc.apply(moveObjects(doc, farm.map, [uid], 2, 0, options)!);
-    expect(greenhouseAtStart(doc, regular)).toBe(false);
+
+    const away = moveObjects(doc, farm.map, [uid], 3, 0, options)!;
+    expect(away).not.toBeNull();
+    applyEdit(doc, regular, away);
+    expect(doc.greenhouseMoved).toBe(true);
     expect(farm.map.isBlocked(33, 12, 'buildable')).toBe(true);
-    expect(moveObjects(doc, farm.map, [uid], 1, 0, options)).toBeNull();
+
+    const home = moveObjects(doc, farm.map, [uid], -3, 0, options)!;
+    applyEdit(doc, regular, home);
+    expect(greenhouseDirtShown(doc, regular)).toBe(false);
+    expect(moveObjects(doc, farm.map, [uid], 3, 0, options)).toBeNull();
+
+    // Undoing the first move brings the patch back.
+    doc.apply(invertPatch(home));
+    doc.apply(invertPatch(away));
+    expect(greenhouseDirtShown(doc, regular)).toBe(true);
   });
 
   it('lets the shipping bin move and return', () => {
