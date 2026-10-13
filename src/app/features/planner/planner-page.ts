@@ -3,6 +3,7 @@ import { Analytics } from '../../core/analytics';
 import { NO_SELECTION, PlannerStore, Tool, isEmptySelection } from '../../core/planner-store';
 import { Group } from '../../core/plan/placement';
 import { parsePlanJson } from '../../core/plan/serialize';
+import { blockedMessage } from './block-message';
 import { ItemCounter } from './item-counter';
 import { ItemPalette } from './item-palette';
 import { MapCanvas } from './map/map-canvas';
@@ -44,6 +45,7 @@ const NUDGE_LARGE = 5;
           (quickSearch)="quickSearchAt.set($event)"
           (variantRequest)="variantPicker.set($event)"
           (picked)="announce('Picked ' + $event.name + '.')"
+          (blocked)="announce(blockedMessage($event))"
         />
       </main>
       @if (counterOpen()) {
@@ -100,6 +102,7 @@ export class PlannerPage {
   protected readonly quickSearchAt = signal<{ x: number; y: number } | null>(null);
   protected readonly variantPicker = signal<{ uid: number; x: number; y: number } | null>(null);
   protected readonly status = signal('');
+  protected readonly blockedMessage = blockedMessage;
 
   constructor() {
     afterNextRender(async () => {
@@ -261,7 +264,8 @@ export class PlannerPage {
           map.panBy(-x * PAN_STEP, -y * PAN_STEP);
         } else {
           const step = event.shiftKey ? NUDGE_LARGE : 1;
-          if (!this.store.moveSelection(x * step, y * step)) this.announce("The selection doesn't fit there.");
+          const failure = this.store.moveSelection(x * step, y * step);
+          if (failure) this.announce(blockedMessage(failure));
         }
         return;
       }

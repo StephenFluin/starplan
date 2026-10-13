@@ -4,7 +4,21 @@ import { CatalogItem, RangeGroup, findItem, variantsOf } from './data/catalog';
 import { LayoutInfo } from './data/layout-info';
 import { LAYOUTS } from './data/layouts';
 import { Patch, PlanDocument, cellKey, emptyPatch, invertPatch, isEmptyPatch, parseKey } from './plan/plan-document';
-import { Area, Group, GroupPlacement, PlacementOptions, TileRect, erase, paintTiles, placeAt, placeEach, placeObjects, putGroup, swapObject } from './plan/placement';
+import {
+  Area,
+  Group,
+  GroupPlacement,
+  PlacementFailure,
+  PlacementOptions,
+  TileRect,
+  erase,
+  paintTiles,
+  placeAt,
+  placeEach,
+  placeObjects,
+  putGroup,
+  swapObject,
+} from './plan/placement';
 import { RestrictionMap } from './plan/restriction-map';
 import { SavedPlan, decodePlan, encodePlan, fromSaved, toSaved } from './plan/serialize';
 import { coverageLayout, usesCoverageLayout } from './plan/coverage-layout';
@@ -227,11 +241,11 @@ export class PlannerStore {
     this.commit(erase(this.doc, area));
   }
 
-  /** Moves the selection by an offset. Returns false (and changes nothing) when it doesn't fit there. */
-  moveSelection(dx: number, dy: number): boolean {
-    if (dx === 0 && dy === 0) return true;
-    const { patch, blocked } = this.tryMoveSelection(dx, dy);
-    if (blocked.length) return false;
+  /** Moves the selection by an offset. Returns why it doesn't fit there (changing nothing), or null. */
+  moveSelection(dx: number, dy: number): PlacementFailure | null {
+    if (dx === 0 && dy === 0) return null;
+    const { patch, failure } = this.tryMoveSelection(dx, dy);
+    if (failure) return failure;
     const { objects, tiles } = this.selection();
     this.commit(patch);
     // The selection follows its tiles to where they landed.
@@ -242,7 +256,7 @@ export class PlannerStore {
         return cellKey(x + dx, y + dy);
       }),
     });
-    return true;
+    return null;
   }
 
   /** What moving the selection by an offset would do, without doing it. */
@@ -318,16 +332,17 @@ export class PlannerStore {
     return clipboard && putGroup(this.doc, this.restrictions, clipboard, x, y, this.options(), false);
   }
 
-  /** Pastes the clipboard with its top-left at a tile, and selects the copy. Returns false when it doesn't fit. */
-  pasteAt(x: number, y: number): boolean {
+  /** Pastes the clipboard with its top-left at a tile, and selects the copy. Returns why it doesn't fit there, or null. */
+  pasteAt(x: number, y: number): PlacementFailure | null {
     const result = this.tryPaste(x, y);
-    if (!result || result.blocked.length) return false;
+    if (!result) return null;
+    if (result.failure) return result.failure;
     this.commit(result.patch);
     this.selection.set({
       objects: result.patch.objects.map((change) => change.uid),
       tiles: result.patch.tiles.filter((t) => t.after !== null).map((t) => cellKey(t.x, t.y)),
     });
-    return true;
+    return null;
   }
 
   /** Adds an object to the selection, or takes it out if it's already in. */

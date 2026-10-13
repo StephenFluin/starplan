@@ -21,7 +21,7 @@ describe('PlannerStore', () => {
     store.selectArea({ x: 2, y: 2, width: 3, height: 3 });
     expect(store.selection().objects).toHaveLength(1);
     expect(store.selection().tiles).toHaveLength(8);
-    expect(store.moveSelection(2, 1)).toBe(true);
+    expect(store.moveSelection(2, 1)).toBeNull();
     expect(store.doc.tileAt(2, 2)).toBeNull();
     expect(store.doc.tileAt(4, 3)).toBe('parsnip');
     expect(store.doc.objectAt(5, 4)?.itemId).toBe('sprinkler');
@@ -35,13 +35,13 @@ describe('PlannerStore', () => {
     expect(store.copySelection()?.tiles[0]).toEqual({ x: 0, y: 0, itemId: 'parsnip' });
     expect(store.startPasting()).toBe(true);
     expect(store.tool()).toBe('brush');
-    expect(store.pasteAt(10, 2)).toBe(true);
+    expect(store.pasteAt(10, 2)).toBeNull();
     expect(store.doc.tileAt(10, 2)).toBe('parsnip');
     expect(store.doc.objectAt(11, 3)?.itemId).toBe('sprinkler');
     expect(store.doc.tileCount).toBe(16);
     expect(store.selection().objects).toEqual([store.doc.objectAt(11, 3)!.uid]);
     // Overlapping the copy it just made doesn't fit.
-    expect(store.pasteAt(11, 2)).toBe(false);
+    expect(store.pasteAt(11, 2)).toEqual({ itemId: 'parsnip', reason: { kind: 'object', itemId: 'sprinkler' } });
   });
 
   it('cuts the selection', () => {

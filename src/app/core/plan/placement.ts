@@ -1,4 +1,4 @@
-import { CatalogItem, findItem, spriteOverhang } from '../data/catalog';
+import { CatalogItem, Restriction, findItem, spriteOverhang } from '../data/catalog';
 import { ObjectChange, Patch, PlacedObject, PlanDocument, TileChange, cellKey, emptyPatch, footprint, parseKey } from './plan-document';
 import { RestrictionMap } from './restriction-map';
 
@@ -16,10 +16,30 @@ export interface PlacementOptions {
   overwrite: boolean;
 }
 
+/** Why something can't go somewhere, for telling the user. */
+export type BlockReason =
+  | { kind: 'outside' }
+  /** The map's ground doesn't allow it: water and cliffs ('accessible'), or unbuildable or untillable ground. */
+  | { kind: 'ground'; restriction: Restriction }
+  /** An object or ground tile is in the way. */
+  | { kind: 'object' | 'tile'; itemId: string }
+  /** The tile in front of a building's door must be buildable or a path. */
+  | { kind: 'door' }
+  /** A building's extra placement tiles (the greenhouse's doorstep, the farmhouse's mailbox) aren't free. */
+  | { kind: 'clearance' };
+
+/** Which item of a placement didn't fit, and why. */
+export interface PlacementFailure {
+  itemId: string;
+  reason: BlockReason;
+}
+
 export interface PlacementCheck {
   ok: boolean;
   /** Tiles that block the placement, for highlighting. */
   blocked: [number, number][];
+  /** Why the first blocked tile is blocked. */
+  reason?: BlockReason;
 }
 
 /** The object drawn at a tile: its footprint, or a roof hanging above a footprint. */
@@ -93,27 +113,40 @@ const tileItem = (doc: PlanDocument, x: number, y: number) => {
   return id ? findItem(id) : undefined;
 };
 
-/** Whether an object other than those being moved stands on a tile. */
-function occupied(doc: PlanDocument, x: number, y: number, ignore: ReadonlySet<number>): boolean {
-  const occupant = doc.objectAt(x, y);
-  return occupant !== null && !ignore.has(occupant.uid);
+/** The object other than those being moved that stands on a tile, if any. */
+function occupant(doc: PlanDocument, x: number, y: number, ignore: ReadonlySet<number>): PlacedObject | null {
+  const obj = doc.objectAt(x, y);
+  return obj && !ignore.has(obj.uid) ? obj : null;
 }
 
-/** Whether a tile can hold part of an object: allowed ground, nothing else there, and a ground tile it may cover. */
-function fits(doc: PlanDocument, map: RestrictionMap, item: CatalogItem, x: number, y: number, ignore: ReadonlySet<number>): boolean {
-  return !map.isBlocked(x, y, item.restriction) && !occupied(doc, x, y, ignore) && tileAllowsObject(tileItem(doc, x, y), item);
+/** Why the map's ground keeps an item with the given restriction off a tile, if it does. */
+function groundReason(map: RestrictionMap, x: number, y: number, restriction: Restriction): BlockReason | null {
+  if (!map.inBounds(x, y)) return { kind: 'outside' };
+  // Water and cliffs keep everything off, whatever the item needs.
+  if (map.isBlocked(x, y, 'accessible')) return { kind: 'ground', restriction: 'accessible' };
+  return map.isBlocked(x, y, restriction) ? { kind: 'ground', restriction } : null;
+}
+
+/** Why a tile can't hold part of an object (wrong ground, something else there, a ground tile it can't cover), if it can't. */
+function misfit(doc: PlanDocument, map: RestrictionMap, item: CatalogItem, x: number, y: number, ignore: ReadonlySet<number>): BlockReason | null {
+  const ground = groundReason(map, x, y, item.restriction);
+  if (ground) return ground;
+  const obj = occupant(doc, x, y, ignore);
+  if (obj) return { kind: 'object', itemId: obj.itemId };
+  const tile = tileItem(doc, x, y);
+  return tileAllowsObject(tile, item) ? null : { kind: 'tile', itemId: tile!.id };
 }
 
 /** Whether people could walk over a tile: passable ground with nothing solid on it. */
 function passable(doc: PlanDocument, map: RestrictionMap, x: number, y: number, ignore: ReadonlySet<number>): boolean {
   const tile = tileItem(doc, x, y);
-  return !map.isBlocked(x, y, 'accessible') && !occupied(doc, x, y, ignore) && (!tile || walkable(tile));
+  return !map.isBlocked(x, y, 'accessible') && !occupant(doc, x, y, ignore) && (!tile || walkable(tile));
 }
 
 /** Whether a tile is a path in the game's sense: a floor, grass or soil to walk on, with nothing on it. */
 function onPath(doc: PlanDocument, map: RestrictionMap, x: number, y: number, ignore: ReadonlySet<number>): boolean {
   const tile = tileItem(doc, x, y);
-  return map.inBounds(x, y) && tile !== undefined && walkable(tile) && !occupied(doc, x, y, ignore);
+  return map.inBounds(x, y) && tile !== undefined && walkable(tile) && !occupant(doc, x, y, ignore);
 }
 
 /**
@@ -135,27 +168,32 @@ export function checkObject(
   from?: PlacedObject,
 ): PlacementCheck {
   const blocked = new Map<string, [number, number]>();
-  const block = (tx: number, ty: number) => blocked.set(`${tx},${ty}`, [tx, ty]);
+  let reason: BlockReason | undefined;
+  const block = (tx: number, ty: number, why: BlockReason) => {
+    blocked.set(cellKey(tx, ty), [tx, ty]);
+    reason ??= why;
+  };
   const standing = (tx: number, ty: number) => from !== undefined && inFootprint(from, findItem(from.itemId), tx, ty);
   for (const [tx, ty] of footprint({ x, y }, item)) {
-    if (!map.inBounds(tx, ty) || (!options.anywhere && !standing(tx, ty) && !fits(doc, map, item, tx, ty, ignore))) block(tx, ty);
+    const why = !map.inBounds(tx, ty) ? { kind: 'outside' as const } : options.anywhere || standing(tx, ty) ? null : misfit(doc, map, item, tx, ty, ignore);
+    if (why) block(tx, ty, why);
   }
   const rules = item.building;
   if (rules && !options.anywhere) {
     for (const area of rules.placementTiles ?? []) {
       for (const [tx, ty] of footprint({ x: x + area.x, y: y + area.y }, area)) {
-        const free = area.passableOnly ? passable(doc, map, tx, ty, ignore) : fits(doc, map, item, tx, ty, ignore);
-        if (!free) block(tx, ty);
+        const free = area.passableOnly ? passable(doc, map, tx, ty, ignore) : !misfit(doc, map, item, tx, ty, ignore);
+        if (!free) block(tx, ty, { kind: 'clearance' });
       }
     }
     if (rules.door) {
       const tx = x + rules.door.x;
       const ty = y + rules.door.y + 1;
       const own = inFootprint({ x, y }, item, tx, ty) || standing(tx, ty);
-      if (!own && !fits(doc, map, item, tx, ty, ignore) && !onPath(doc, map, tx, ty, ignore)) block(tx, ty);
+      if (!own && misfit(doc, map, item, tx, ty, ignore) && !onPath(doc, map, tx, ty, ignore)) block(tx, ty, { kind: 'door' });
     }
   }
-  return { ok: blocked.size === 0, blocked: [...blocked.values()] };
+  return { ok: blocked.size === 0, blocked: [...blocked.values()], reason };
 }
 
 function inFootprint(obj: { x: number; y: number }, item: { width: number; height: number } | undefined, x: number, y: number): boolean {
@@ -163,11 +201,17 @@ function inFootprint(obj: { x: number; y: number }, item: { width: number; heigh
 }
 
 function canPaintTile(doc: PlanDocument, map: RestrictionMap, item: CatalogItem, x: number, y: number, options: PlacementOptions): boolean {
-  if (!map.inBounds(x, y)) return false;
-  if (options.anywhere) return true;
-  if (map.isBlocked(x, y, item.restriction)) return false;
-  const occupant = doc.objectAt(x, y);
-  return objectAllowsTile(occupant ? findItem(occupant.itemId) : undefined, item);
+  return paintMisfit(doc, map, item, x, y, options) === null;
+}
+
+/** Why a ground tile can't be painted on a cell, if it can't. */
+export function paintMisfit(doc: PlanDocument, map: RestrictionMap, item: CatalogItem, x: number, y: number, options: PlacementOptions): BlockReason | null {
+  if (!map.inBounds(x, y)) return { kind: 'outside' };
+  if (options.anywhere) return null;
+  const ground = groundReason(map, x, y, item.restriction);
+  if (ground) return ground;
+  const obj = doc.objectAt(x, y);
+  return obj && !objectAllowsTile(findItem(obj.itemId), item) ? { kind: 'object', itemId: obj.itemId } : null;
 }
 
 /** Where to paint or erase: a rectangle, or any cells (a freehand stroke's). */
@@ -329,7 +373,7 @@ export function swapObject(
   const ignore = new Set([uid]);
   for (const [x, y] of footprint(obj, item)) {
     if (inFootprint(obj, current, x, y)) continue;
-    if (!map.inBounds(x, y) || (!options.anywhere && !fits(doc, map, item, x, y, ignore))) return null;
+    if (!map.inBounds(x, y) || (!options.anywhere && misfit(doc, map, item, x, y, ignore))) return null;
   }
   const patch: Patch = { tiles: [], objects: [{ uid, before: obj, after: { ...obj, itemId: item.id } }] };
   clearGround(doc, item, obj.x, obj.y, patch);
@@ -342,10 +386,11 @@ export interface Group {
   objects: readonly PlacedObject[];
 }
 
-/** A group's edit, or (when it doesn't fit) an empty patch and the tiles in the way. */
+/** A group's edit, or (when it doesn't fit) an empty patch, the tiles in the way and why. */
 export interface GroupPlacement {
   patch: Patch;
   blocked: [number, number][];
+  failure?: PlacementFailure;
 }
 
 /**
@@ -373,15 +418,19 @@ export function putGroup(
   }
   const touched = new Set(moving ? group.tiles.map((t) => cellKey(t.x, t.y)) : []);
   const blocked = new Map<string, [number, number]>();
+  let failure: PlacementFailure | undefined;
   const objects: ObjectChange[] = [];
   // Ground first, so objects are checked against the ground they'll stand on.
   for (const tile of group.tiles) {
     const item = findItem(tile.itemId);
+    if (!item) continue;
     const x = tile.x + dx;
     const y = tile.y + dy;
     const there = scratch.tileAt(x, y);
-    if (!item || !canPaintTile(scratch, map, item, x, y, options) || (there !== null && there !== item.id && !options.overwrite)) {
+    const why = paintMisfit(scratch, map, item, x, y, options) ?? (there !== null && there !== item.id && !options.overwrite ? { kind: 'tile' as const, itemId: there } : null);
+    if (why) {
       blocked.set(cellKey(x, y), [x, y]);
+      failure ??= { itemId: item.id, reason: why };
       continue;
     }
     scratch.apply({ tiles: [{ x, y, before: there, after: item.id }], objects: [] });
@@ -395,6 +444,7 @@ export function putGroup(
     const check = checkObject(scratch, map, item, x, y, options, new Set(), moving ? obj : undefined);
     if (!check.ok) {
       for (const [bx, by] of check.blocked) blocked.set(cellKey(bx, by), [bx, by]);
+      if (check.reason) failure ??= { itemId: item.id, reason: check.reason };
       continue;
     }
     const placed: PlacedObject = { uid: moving ? obj.uid : scratch.allocateUid(), itemId: item.id, x, y };
@@ -404,7 +454,7 @@ export function putGroup(
     scratch.apply(landing);
     objects.push({ uid: placed.uid, before: moving ? obj : null, after: placed });
   }
-  if (blocked.size) return { patch: emptyPatch(), blocked: [...blocked.values()] };
+  if (blocked.size) return { patch: emptyPatch(), blocked: [...blocked.values()], failure };
   const tiles: TileChange[] = [];
   for (const cell of touched) {
     const [x, y] = parseKey(cell);

@@ -188,6 +188,19 @@ describe('placement', () => {
       expect(checkObject(doc, door, item('greenhouse'), 1, 0, strict).blocked).toEqual([[5, 7]]);
     });
 
+    it('say why they are blocked', () => {
+      const reason = (id: string, x: number, y: number, on = map) => checkObject(doc, on, item(id), x, y, strict).reason;
+      expect(reason('silo', 8, 8)).toEqual({ kind: 'outside' });
+      expect(reason('silo', 0, 0, map.withTiles([[1, 1, NOT_BUILDABLE]]))).toEqual({ kind: 'ground', restriction: 'buildable' });
+      expect(reason('silo', 0, 0, map.withTiles([[1, 1, IMPASSABLE | NOT_BUILDABLE]]))).toEqual({ kind: 'ground', restriction: 'accessible' });
+      expect(reason('coop', 0, 0, map.withTiles([[1, 3, NOT_BUILDABLE]]))).toEqual({ kind: 'door' });
+      expect(reason('greenhouse', 1, 0, map.withTiles([[3, 7, IMPASSABLE]]))).toEqual({ kind: 'clearance' });
+      place('keg', 1, 1);
+      paint('fence', 2, 2);
+      expect(reason('silo', 0, 0)).toEqual({ kind: 'object', itemId: 'keg' });
+      expect(reason('silo', 1, 2)).toEqual({ kind: 'tile', itemId: 'fence' });
+    });
+
     it('may keep standing on their own tiles when they move, as in the game', () => {
       const unbuildable = map.withTiles([0, 1, 2].flatMap((y) => [0, 1, 2].map((x) => [x, y, NOT_BUILDABLE] as const)));
       place('silo', 0, 0, RestrictionMap.open(10, 10));

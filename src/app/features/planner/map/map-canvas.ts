@@ -1,6 +1,16 @@
 import { Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, output, signal, untracked, viewChild } from '@angular/core';
 import { CatalogItem, findItem, variantsOf } from '../../../core/data/catalog';
-import { blockedTiles, checkObject, lineCells, objectAtVisual, objectPositions, placeEach, rectFromCorners } from '../../../core/plan/placement';
+import {
+  PlacementFailure,
+  blockedTiles,
+  checkObject,
+  lineCells,
+  objectAtVisual,
+  objectPositions,
+  paintMisfit,
+  placeEach,
+  rectFromCorners,
+} from '../../../core/plan/placement';
 import { coverageLayout, usesCoverageLayout } from '../../../core/plan/coverage-layout';
 import { cellKey } from '../../../core/plan/plan-document';
 import { RestrictionMap } from '../../../core/plan/restriction-map';
@@ -149,6 +159,8 @@ export class MapCanvas {
   readonly variantRequest = output<{ uid: number; x: number; y: number }>();
   /** Alt + click (or I) made the item under the pointer the brush. */
   readonly picked = output<CatalogItem>();
+  /** A click or drag couldn't put something where it was aimed, and why. */
+  readonly blocked = output<PlacementFailure>();
 
   constructor() {
     const destroyRef = inject(DestroyRef);
@@ -406,14 +418,17 @@ export class MapCanvas {
           this.variantRequest.emit({ uid: clicked.uid, x: event.clientX, y: event.clientY });
         }
       } else if (dx !== 0 || dy !== 0) {
-        this.store.moveSelection(dx, dy);
+        const failure = this.store.moveSelection(dx, dy);
+        if (failure) this.blocked.emit(failure);
       }
     } else if (gesture.kind === 'place') {
       const item = findItem(gesture.itemId ?? '');
+      if (item && !gesture.moved) this.explainBlockedClick(item, gesture.originX, gesture.originY);
       if (item) this.store.paint(this.placementRect(gesture, item, gesture.moved ? tile : null));
     } else if (gesture.kind === 'paste') {
       const at = this.pasteOrigin(tile);
-      if (at && this.store.pasting()) this.store.pasteAt(at.x, at.y);
+      const failure = at && this.store.pasting() ? this.store.pasteAt(at.x, at.y) : null;
+      if (failure) this.blocked.emit(failure);
     } else if (gesture.kind === 'stroke') {
       extendStroke(gesture, tile);
       if (gesture.tool === 'eraser') this.store.erase(gesture.cells);
@@ -429,9 +444,12 @@ export class MapCanvas {
         case 'select':
           this.store.selectArea(rect);
           break;
-        case 'brush':
+        case 'brush': {
+          const item = this.store.activeItem();
+          if (item && !gesture.moved) this.explainBlockedClick(item, rect.x, rect.y);
           this.store.paint(rect);
           break;
+        }
       }
     }
     this.updatePreview();
@@ -628,6 +646,14 @@ export class MapCanvas {
       preview.rect = { x: tile.x, y: tile.y, width: 1, height: 1, style: 'erase' };
     }
     renderer.setPreview(preview);
+  }
+
+  /** When a click can't put the brush's item down, says why. */
+  private explainBlockedClick(item: CatalogItem, x: number, y: number): void {
+    const { doc, restrictions } = this.store;
+    const options = this.store.options();
+    const reason = item.kind === 'tile' ? paintMisfit(doc, restrictions, item, x, y, options) : checkObject(doc, restrictions, item, x, y, options).reason;
+    if (reason) this.blocked.emit({ itemId: item.id, reason });
   }
 
   /** Where a freehand stroke puts things: its cells for tiles, or an object centred on each. */
