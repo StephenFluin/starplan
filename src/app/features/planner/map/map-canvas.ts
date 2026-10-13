@@ -91,7 +91,7 @@ type Gesture = (
         </span>
       }
       <p id="map-navigation-hint" class="hint">
-        Move: drag empty ground (Select), right-drag or Space + drag. Zoom: scroll or pinch, or double-click.
+        Move: drag empty ground (Select), right-drag or Space + drag. Zoom: scroll or pinch. All shortcuts: ?
       </p>
     </div>
     @if (error(); as message) {

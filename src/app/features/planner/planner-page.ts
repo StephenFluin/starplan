@@ -9,6 +9,7 @@ import { ItemPalette } from './item-palette';
 import { MapCanvas } from './map/map-canvas';
 import { PlannerToolbar, ToolbarAction } from './planner-toolbar';
 import { QuickSearch } from './quick-search';
+import { ShortcutsDialog } from './shortcuts-dialog';
 import { VariantPicker } from './variant-picker';
 import { CatalogItem } from '../../core/data/catalog';
 
@@ -27,7 +28,7 @@ const NUDGE_LARGE = 5;
 
 @Component({
   selector: 'app-planner-page',
-  imports: [PlannerToolbar, ItemPalette, MapCanvas, ItemCounter, QuickSearch, VariantPicker],
+  imports: [PlannerToolbar, ItemPalette, MapCanvas, ItemCounter, QuickSearch, VariantPicker, ShortcutsDialog],
   host: { '(document:keydown)': 'onKeydown($event)' },
   template: `
     <header>
@@ -65,6 +66,9 @@ const NUDGE_LARGE = 5;
         (blocked)="announceBlocked($event)"
       />
     }
+    @if (shortcutsOpen()) {
+      <app-shortcuts-dialog (closed)="shortcutsOpen.set(false)" />
+    }
     <p class="status" role="status" aria-live="polite">{{ status() }}</p>
     <input #fileInput type="file" accept="application/json,.json" hidden (change)="importFile($event)" />
   `,
@@ -101,6 +105,7 @@ export class PlannerPage {
   private previousTool: Tool = 'brush';
 
   protected readonly counterOpen = signal(false);
+  protected readonly shortcutsOpen = signal(false);
   protected readonly quickSearchAt = signal<{ x: number; y: number } | null>(null);
   protected readonly variantPicker = signal<{ uid: number; x: number; y: number } | null>(null);
   protected readonly status = signal('');
@@ -123,6 +128,9 @@ export class PlannerPage {
         return map.fit();
       case 'toggle-counter':
         this.counterOpen.update((open) => !open);
+        return;
+      case 'shortcuts':
+        this.shortcutsOpen.set(true);
         return;
       case 'new':
         await this.store.newPlan(this.store.layout().id);
@@ -171,7 +179,8 @@ export class PlannerPage {
 
   protected onKeydown(event: KeyboardEvent): void {
     const target = event.target;
-    if (target instanceof Element && target.closest('input, select, textarea, [contenteditable="true"]')) return;
+    // Typing in fields, and keys in dialogs, aren't shortcuts.
+    if (target instanceof Element && target.closest('input, select, textarea, [contenteditable="true"], dialog')) return;
     const mod = event.ctrlKey || event.metaKey;
     const key = event.key.toLowerCase();
 
@@ -213,6 +222,9 @@ export class PlannerPage {
 
     const map = this.map();
     switch (key) {
+      case '?':
+        this.shortcutsOpen.set(true);
+        return;
       case 'e':
         return this.toggleTool('eraser');
       case 's':

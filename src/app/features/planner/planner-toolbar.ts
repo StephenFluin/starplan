@@ -13,7 +13,8 @@ export type ToolbarAction =
   | 'export-json'
   | 'import-json'
   | 'toggle-counter'
-  | 'new';
+  | 'new'
+  | 'shortcuts';
 
 /** Top bar with tools, history, layout choice, view options and file actions. */
 @Component({
@@ -136,6 +137,8 @@ export type ToolbarAction =
       }
     </div>
 
+    <button type="button" class="help" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" (click)="action.emit('shortcuts')">?</button>
+
     <span class="spacer"></span>
 
     <div class="menu" (appDismissPopover)="fileOpen.set(false)">
@@ -168,7 +171,8 @@ export type ToolbarAction =
     button:disabled { color: var(--muted); cursor: default; }
     button.active, button.primary { background: var(--accent); color: var(--accent-text); }
     .menu { position: relative; }
-    .menu > button, .share { border: 1px solid var(--border); border-radius: 6px; }
+    .menu > button, .share, .help { border: 1px solid var(--border); border-radius: 6px; }
+    .help { min-width: 30px; font-weight: 600; }
     .share { border-color: var(--accent); }
     button.icon { display: inline-flex; align-items: center; padding: 5px 8px; }
     button.icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
