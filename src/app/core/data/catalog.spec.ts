@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { CATALOG, spriteOverhang, spriteUrl } from './catalog';
 import { GAME_ART } from './game-art.generated';
 
@@ -11,6 +12,10 @@ describe('catalog', () => {
     for (const item of CATALOG.filter((i) => i.art)) {
       expect([item.id, item.width, item.height]).toEqual([item.id, item.art!.footprint.width, item.art!.footprint.height]);
     }
+  });
+
+  it('has a sprite on disk for every item', () => {
+    for (const item of CATALOG) expect(existsSync(`public/${spriteUrl(item)}`), item.id).toBe(true);
   });
 
   it('attaches every imported building to a catalog item', () => {

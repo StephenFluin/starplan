@@ -1,7 +1,8 @@
 /**
  * Placeable item catalog. Ids, names and footprints are derived from the
  * Apache-2.0 licensed v2 planner (https://github.com/hpeinar/stardewplanner);
- * building art and footprints come from the game's own data (see game-art.generated.ts).
+ * building art and footprints, and the art for items the v2 planner lacks (1.6 crops, machines
+ * and trees), come from the game's own data (see game-art.generated.ts).
  */
 import { GameArt } from './game-art';
 import { GAME_ART } from './game-art.generated';
@@ -147,10 +148,16 @@ const ITEMS: readonly CatalogItem[] = [
   object('deluxe-scarecrow', 'Deluxe Scarecrow', 'craftables', {
     range: { shape: 'circle', radius: 16, color: SCARECROW, group: 'scarecrow' },
   }),
+  ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) =>
+    object(`rarecrow-${n}`, `Rarecrow ${n}`, 'craftables', {
+      range: { shape: 'circle', radius: 8, color: SCARECROW, group: 'scarecrow' },
+    }),
+  ),
   object('bee-hive', 'Bee House', 'craftables', {
     range: { shape: 'diamond', radius: 5, color: BEEHIVE, group: 'beehive' },
   }),
   object('furnace', 'Furnace', 'craftables'),
+  object('heavy-furnace', 'Heavy Furnace', 'craftables'),
   object('charcoal-kiln', 'Charcoal Kiln', 'craftables', { sprite: 'charcoal' }),
   object('seed-maker', 'Seed Maker', 'craftables'),
   object('crystalarium', 'Crystalarium', 'craftables', { sprite: 'crystal' }),
@@ -158,6 +165,7 @@ const ITEMS: readonly CatalogItem[] = [
   object('slime-egg-press', 'Slime Egg-Press', 'craftables', { sprite: 'egg-press' }),
   object('slime-incubator', 'Slime Incubator', 'craftables'),
   object('worm-bin', 'Worm Bin', 'craftables'),
+  object('deluxe-worm-bin', 'Deluxe Worm Bin', 'craftables'),
   object('wood-chipper', 'Wood Chipper', 'craftables'),
   object('workbench', 'Workbench', 'craftables'),
   object('auto-petter', 'Auto-Petter', 'craftables'),
@@ -175,12 +183,24 @@ const ITEMS: readonly CatalogItem[] = [
   object('preserves-jar', 'Preserves Jar', 'craftables', { sprite: 'preserves' }),
   object('chest', 'Chest', 'craftables'),
   object('stone-chest', 'Stone Chest', 'craftables'),
+  object('big-chest', 'Big Chest', 'craftables'),
+  object('big-stone-chest', 'Big Stone Chest', 'craftables'),
   object('mini-shipping-bin', 'Mini-Shipping Bin', 'craftables'),
   object('lightning-rod', 'Lightning Rod', 'craftables', { sprite: 'lighting-rod' }),
   object('mini-obelisk', 'Mini-Obelisk', 'craftables'),
   object('mini-jukebox', 'Mini-Jukebox', 'craftables'),
   object('statue-of-endless-fortune', 'Statue of Endless Fortune', 'craftables'),
   object('tapper', 'Tapper', 'craftables'),
+  object('anvil', 'Anvil', 'craftables'),
+  object('bait-maker', 'Bait Maker', 'craftables'),
+  object('cask', 'Cask', 'craftables'),
+  object('dehydrator', 'Dehydrator', 'craftables'),
+  object('fish-smoker', 'Fish Smoker', 'craftables'),
+  object('garden-pot', 'Garden Pot', 'craftables'),
+  object('mini-forge', 'Mini-Forge', 'craftables'),
+  object('mushroom-log', 'Mushroom Log', 'craftables'),
+  object('statue-of-blessings', 'Statue of Blessings', 'craftables'),
+  object('statue-of-the-dwarf-king', 'Statue of the Dwarf King', 'craftables'),
 
   // Crops
   tile('farmland', 'Tilled Soil', 'crops'),
@@ -196,6 +216,7 @@ const ITEMS: readonly CatalogItem[] = [
   crop('rice', 'Rice Shoots', ['spring']),
   crop('strawberry', 'Strawberry', ['spring']),
   crop('tulip', 'Tulip', ['spring']),
+  crop('carrot', 'Carrot', ['spring']),
   crop('blueberry', 'Blueberry', ['summer']),
   crop('corn', 'Corn', ['summer', 'fall']),
   crop('hops', 'Hops', ['summer']),
@@ -208,6 +229,9 @@ const ITEMS: readonly CatalogItem[] = [
   crop('summer-spangle', 'Summer Spangle', ['summer']),
   crop('tomato', 'Tomato', ['summer']),
   crop('wheat', 'Wheat', ['summer', 'fall']),
+  crop('summer-squash', 'Summer Squash', ['summer']),
+  crop('pineapple', 'Pineapple', ['summer']),
+  crop('taro-root', 'Taro Root', ['summer']),
   crop('amaranth', 'Amaranth', ['fall']),
   crop('artichoke', 'Artichoke', ['fall']),
   crop('beet', 'Beet', ['fall']),
@@ -220,12 +244,22 @@ const ITEMS: readonly CatalogItem[] = [
   crop('sunflower', 'Sunflower', ['summer', 'fall']),
   crop('yam', 'Yam', ['fall']),
   crop('sweet-gem-berry', 'Sweet Gem Berry', ['fall']),
+  crop('broccoli', 'Broccoli', ['fall']),
+  crop('powdermelon', 'Powdermelon', ['winter']),
+  crop('qi-fruit', 'Qi Fruit', ['spring', 'summer', 'fall', 'winter']),
+  crop('fiber', 'Fiber', ['spring', 'summer', 'fall', 'winter']),
+  crop('spring-seeds', 'Spring Seeds (wild)', ['spring']),
+  crop('summer-seeds', 'Summer Seeds (wild)', ['summer']),
+  crop('fall-seeds', 'Fall Seeds (wild)', ['fall']),
+  crop('winter-seeds', 'Winter Seeds (wild)', ['winter']),
   crop('ancient-fruit', 'Ancient Fruit', ['spring', 'summer', 'fall']),
   crop('tea', 'Tea Bush', ['spring', 'summer', 'fall']),
   tile('trellis', 'Trellis', 'crops'),
   object('giant-cauliflower', 'Giant Cauliflower', 'crops', { width: 3, height: 3, restriction: 'tillable' }),
   object('giant-melon', 'Giant Melon', 'crops', { width: 3, height: 3, restriction: 'tillable' }),
   object('giant-pumpkin', 'Giant Pumpkin', 'crops', { width: 3, height: 3, restriction: 'tillable' }),
+  object('giant-powdermelon', 'Giant Powdermelon', 'crops', { width: 3, height: 3, restriction: 'tillable' }),
+  object('giant-qi-fruit', 'Giant Qi Fruit', 'crops', { width: 3, height: 3, restriction: 'tillable' }),
 
   // Trees
   tree('apple', 'Apple Tree'),
@@ -241,6 +275,13 @@ const ITEMS: readonly CatalogItem[] = [
   tree('pine-tree', 'Pine Tree'),
   tree('mahogany-tree', 'Mahogany Tree'),
   tree('mushroom-tree', 'Mushroom Tree'),
+  tree('palm-tree', 'Palm Tree'),
+  tree('island-palm-tree', 'Palm Tree (island)'),
+  tree('mystic-tree', 'Mystic Tree'),
+  // Green Rain variants of the oak, maple and pine, grown from Mossy Seeds.
+  tree('mossy-oak-tree', 'Mossy Tree (broadleaf)'),
+  tree('mossy-maple-tree', 'Mossy Tree (vines)'),
+  tree('mossy-pine-tree', 'Mossy Tree (fiddlehead)'),
   tile('tree', 'Tree (marker)', 'trees', { restriction: 'accessible' }),
 
   // Paths & floors
@@ -285,6 +326,12 @@ const ITEMS: readonly CatalogItem[] = [
   object('wood-sign', 'Wood Sign', 'decor'),
   object('stone-sign', 'Stone Sign', 'decor'),
   object('dark-sign', 'Dark Sign', 'decor'),
+  object('text-sign', 'Text Sign', 'decor'),
+  object('jack-o-lantern', 'Jack-O-Lantern', 'decor'),
+  object('tub-o-flowers', "Tub o' Flowers", 'decor'),
+  object('wicked-statue', 'Wicked Statue', 'decor'),
+  object('drum-block', 'Drum Block', 'decor'),
+  object('flute-block', 'Flute Block', 'decor'),
   tile('tulips', 'Flowers', 'decor'),
 
   // Misc
@@ -343,11 +390,13 @@ export const VARIANT_FAMILIES: readonly (readonly string[])[] = [
   ['shed', 'big-shed'],
   ['stone-cabin', 'plank-cabin', 'log-cabin', 'rustic-cabin', 'trailer-cabin', 'neighbor-cabin', 'beach-cabin'],
   ['pet-bowl', 'stone-pet-bowl', 'hay-pet-bowl'],
-  ['scarecrow', 'deluxe-scarecrow'],
+  ['scarecrow', 'deluxe-scarecrow', 'rarecrow-1', 'rarecrow-2', 'rarecrow-3', 'rarecrow-4', 'rarecrow-5', 'rarecrow-6', 'rarecrow-7', 'rarecrow-8'],
   ['sprinkler', 'q-sprinkler', 'irid-sprinkler'],
   ['pressured-sprinkler', 'q-pressured-sprinkler', 'irid-pressured-sprinkler'],
-  ['chest', 'stone-chest'],
-  ['wood-sign', 'stone-sign', 'dark-sign'],
+  ['chest', 'stone-chest', 'big-chest', 'big-stone-chest'],
+  ['wood-sign', 'stone-sign', 'dark-sign', 'text-sign'],
+  ['furnace', 'heavy-furnace'],
+  ['worm-bin', 'deluxe-worm-bin'],
   ['wood-lamp-post', 'iron-lamp-post'],
   ['torch', 'campfire', 'wooden-brazier', 'stone-brazier', 'gold-brazier', 'carved-brazier', 'stump-brazier', 'barrel-brazier', 'skull-brazier', 'marble-brazier'],
 ];
