@@ -251,6 +251,13 @@ describe('placement', () => {
       expect(checkObject(doc, map, item('scarecrow'), 0, 0, strict).ok).toBe(true);
     });
 
+    it("doesn't paint crops under a sprinkler", () => {
+      doc.apply(placeObjects(doc, map, item('sprinkler'), { x: 1, y: 1, width: 1, height: 1 }, strict));
+      doc.apply(paintTiles(doc, map, item('parsnip'), { x: 0, y: 0, width: 3, height: 3 }, strict));
+      expect(doc.tileAt(1, 1)).toBeNull();
+      expect(doc.tileCount).toBe(8);
+    });
+
     it('still blocks other objects on crops, and range items on paths keep the path', () => {
       doc.apply(paintTiles(doc, map, item('parsnip'), { x: 0, y: 0, width: 1, height: 1 }, strict));
       expect(checkObject(doc, map, item('keg'), 0, 0, strict).ok).toBe(false);

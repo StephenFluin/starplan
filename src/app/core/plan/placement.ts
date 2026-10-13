@@ -78,9 +78,14 @@ export function tileAllowsObject(tile: CatalogItem | undefined, obj: CatalogItem
   return obj.category === 'crops' && tile.category === 'crops';
 }
 
-/** Whether a ground tile may go underneath a standing object. Nothing goes under a building. */
+/**
+ * Whether a ground tile may go under a standing object: floors under anything but a building, and
+ * crops under giant crops. (Sprinklers replace crops when placed, but nothing grows under one.)
+ */
 function objectAllowsTile(obj: CatalogItem | undefined, tile: CatalogItem): boolean {
-  return !obj || (obj.category !== 'buildings' && tileAllowsObject(tile, obj));
+  if (!obj) return true;
+  if (obj.category === 'buildings') return false;
+  return tile.category === 'paths' || (obj.category === 'crops' && tile.category === 'crops');
 }
 
 const tileItem = (doc: PlanDocument, x: number, y: number) => {
