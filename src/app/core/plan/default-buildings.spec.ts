@@ -52,4 +52,19 @@ describe('default buildings', () => {
     doc.apply(away);
     expect(moveObjects(doc, map, [uid], -3, 0, options)).not.toBeNull();
   });
+
+  // The v2 data reserves the doorstep in front of each default building (e.g. 64,17 below the
+  // farmhouse door). Those reservations must not block the building once it moves.
+  for (const [name, start, steps] of [
+    ['farmhouse', { x: 59, y: 12 }, [1, 2, 3]],
+    ['greenhouse', { x: 25, y: 10 }, [1, 2]],
+  ] as const) {
+    it(`lets the ${name} move down over its old doorstep`, () => {
+      const { doc, map } = standardFarm();
+      const uid = doc.objectAt(start.x, start.y)!.uid;
+      for (const dy of steps) {
+        expect(moveObjects(doc, map, [uid], 0, dy, options), `move down ${dy}`).not.toBeNull();
+      }
+    });
+  }
 });

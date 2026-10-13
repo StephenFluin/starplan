@@ -42,17 +42,22 @@ export function defaultBuildings(layout: LayoutInfo): DefaultBuilding[] {
   return result;
 }
 
+/** Rows in front of a default building that the v2 data reserves as its doorstep. */
+const DOORSTEP_ROWS = 2;
+
 /**
- * The v2 restriction data blocks the default buildings' spots because the buildings stood there
- * (including the row just behind each one, under its back wall). Opens those spots (and anything
- * painted into the background that is now an object), and makes room to shift the farmhouse and
- * greenhouse a few tiles sideways.
+ * The v2 restriction data blocks the default buildings' spots because the buildings stood there:
+ * the footprint, the row just behind it (under the back wall) and the doorstep in front of it.
+ * Opens those spots (and anything painted into the background that is now an object), and makes
+ * room to shift the farmhouse and greenhouse a few tiles sideways.
  */
 export function openDefaultSpots(map: RestrictionMap, layout: LayoutInfo): void {
   for (const building of defaultBuildings(layout)) {
     const item = findItem(building.itemId);
     if (!item) continue;
     map.openArea(building.x, building.y - 1, item.width, item.height + 1);
+    // Doorsteps are walkable ground; only their "not buildable" mark is a leftover.
+    map.allowBuildingIn(building.x, building.y + item.height, item.width, DOORSTEP_ROWS);
     if (item.category === 'buildings' && item.width > 2) {
       map.allowBuildingIn(building.x - SIDE_ROOM, building.y, item.width + SIDE_ROOM * 2, item.height);
     }
