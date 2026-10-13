@@ -2,6 +2,7 @@ import { Component, DestroyRef, ElementRef, afterNextRender, effect, inject, out
 import { findItem, variantsOf } from '../../../core/data/catalog';
 import { blockedTiles, checkObject, objectAtVisual, rectFromCorners } from '../../../core/plan/placement';
 import { coverageLayout, usesCoverageLayout } from '../../../core/plan/coverage-layout';
+import { RestrictionMap } from '../../../core/plan/restriction-map';
 import { PlannerStore, Tool } from '../../../core/planner-store';
 import { MapRenderer, Preview } from './map-renderer';
 
@@ -64,6 +65,8 @@ export class MapCanvas {
   private renderer: MapRenderer | null = null;
   private drag: Drag | null = null;
   protected spaceHeld = false;
+  /** The restriction map the overlay was last drawn from. */
+  private overlaidRestrictions: RestrictionMap | null = null;
 
   protected readonly hover = signal<{ x: number; y: number } | null>(null);
   protected readonly loading = signal(true);
@@ -88,7 +91,11 @@ export class MapCanvas {
       }
       this.renderer = renderer;
       const unlisten = this.store.listen({
-        patched: (patch) => renderer.applyPatch(patch),
+        patched: (patch) => {
+          renderer.applyPatch(patch);
+          // Moving the greenhouse off its start location lifts its dirt patch, changing restrictions.
+          if (this.overlaidRestrictions !== this.store.restrictions) this.syncOptions();
+        },
         reset: () => void this.syncLayout(),
       });
       destroyRef.onDestroy(unlisten);
@@ -157,7 +164,8 @@ export class MapCanvas {
     if (!renderer) return;
     const options = this.store.options();
     renderer.setGridVisible(options.showGrid);
-    renderer.setRestrictionOverlay(options.restrictionOverlay, this.store.restrictions);
+    this.overlaidRestrictions = this.store.restrictions;
+    renderer.setRestrictionOverlay(options.restrictionOverlay, this.overlaidRestrictions);
     renderer.setAlwaysShowRanges(options.alwaysShowRanges);
   }
 

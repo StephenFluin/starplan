@@ -12,6 +12,22 @@ export interface StarterItem {
   y: number;
 }
 
+/**
+ * Ground the game lays under the greenhouse until it is moved (a map patch of sand over the base
+ * map's grass). When the greenhouse moves, the base map shows through again.
+ */
+export interface GreenhouseDirt {
+  /** Image file name under assets/layouts. */
+  image: string;
+  /** Top-left tile: the greenhouse's start location. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Restrictions inside the patch, run-length encoded like the layout's own. */
+  restrictions: string;
+}
+
 export interface LayoutInfo {
   id: string;
   name: string;
@@ -29,6 +45,7 @@ export interface LayoutInfo {
   greenhouse?: TilePoint;
   shippingBin?: TilePoint;
   petBowl?: TilePoint;
+  greenhouseDirt?: GreenhouseDirt;
   /** Objects and tiles (fences) the farm starts with, besides the default buildings. */
   starter?: { objects: readonly StarterItem[]; tiles: readonly StarterItem[] };
 }

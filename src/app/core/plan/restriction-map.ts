@@ -36,6 +36,18 @@ export class RestrictionMap {
     return new RestrictionMap(width, height, cells);
   }
 
+  /** A copy with an area's restrictions replaced, e.g. by a map patch laid over it. */
+  withArea(x: number, y: number, width: number, height: number, encoded: string): RestrictionMap {
+    const area = RestrictionMap.decode(width, height, encoded);
+    const cells = this.cells.slice();
+    for (let ty = 0; ty < height; ty++) {
+      for (let tx = 0; tx < width; tx++) {
+        if (this.inBounds(x + tx, y + ty)) cells[(y + ty) * this.width + x + tx] = area.bits(tx, ty);
+      }
+    }
+    return new RestrictionMap(this.width, this.height, cells);
+  }
+
   inBounds(x: number, y: number): boolean {
     return x >= 0 && y >= 0 && x < this.width && y < this.height;
   }

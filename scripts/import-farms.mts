@@ -40,6 +40,11 @@ interface FarmSpec {
   map: string;
   /** Where the game puts the greenhouse when the map has no GreenhouseLocation property. */
   greenhouse: Point;
+  /**
+   * The map patch the game lays at the greenhouse's start location until it is moved
+   * (Farm.ApplyGreenhouseDirt): sand over the grass the base map has there.
+   */
+  greenhouseDirt?: string;
   /** Objects and fences the game adds when the farm is created. */
   starter?: { objects: { itemId: string; x: number; y: number }[]; tiles: { itemId: string; x: number; y: number }[] };
 }
@@ -64,12 +69,18 @@ function meadowlandsStarter(): FarmSpec['starter'] {
 }
 
 const FARMS: FarmSpec[] = [
-  { id: 'regular', name: 'Standard Farm', map: 'Farm', greenhouse: STANDARD_GREENHOUSE },
-  { id: 'fishing', name: 'Riverland Farm', map: 'Farm_Fishing', greenhouse: STANDARD_GREENHOUSE },
-  { id: 'foraging', name: 'Forest Farm', map: 'Farm_Foraging', greenhouse: STANDARD_GREENHOUSE },
-  { id: 'mining', name: 'Hill-top Farm', map: 'Farm_Mining', greenhouse: STANDARD_GREENHOUSE },
-  { id: 'combat', name: 'Wilderness Farm', map: 'Farm_Combat', greenhouse: STANDARD_GREENHOUSE },
-  { id: 'fourcorners', name: 'Four Corners Farm', map: 'Farm_FourCorners', greenhouse: { x: 36, y: 29 } },
+  { id: 'regular', name: 'Standard Farm', map: 'Farm', greenhouse: STANDARD_GREENHOUSE, greenhouseDirt: 'Farm_Greenhouse_Dirt' },
+  { id: 'fishing', name: 'Riverland Farm', map: 'Farm_Fishing', greenhouse: STANDARD_GREENHOUSE, greenhouseDirt: 'Farm_Greenhouse_Dirt' },
+  { id: 'foraging', name: 'Forest Farm', map: 'Farm_Foraging', greenhouse: STANDARD_GREENHOUSE, greenhouseDirt: 'Farm_Greenhouse_Dirt' },
+  { id: 'mining', name: 'Hill-top Farm', map: 'Farm_Mining', greenhouse: STANDARD_GREENHOUSE, greenhouseDirt: 'Farm_Greenhouse_Dirt' },
+  { id: 'combat', name: 'Wilderness Farm', map: 'Farm_Combat', greenhouse: STANDARD_GREENHOUSE, greenhouseDirt: 'Farm_Greenhouse_Dirt' },
+  {
+    id: 'fourcorners',
+    name: 'Four Corners Farm',
+    map: 'Farm_FourCorners',
+    greenhouse: { x: 36, y: 29 },
+    greenhouseDirt: 'Farm_Greenhouse_Dirt_FourCorners',
+  },
   { id: 'beach', name: 'Beach Farm', map: 'Farm_Island', greenhouse: { x: 14, y: 14 } },
   { id: 'ranching', name: 'Meadowlands Farm', map: 'Farm_Ranching', greenhouse: STANDARD_GREENHOUSE, starter: meadowlandsStarter() },
 ];
@@ -245,20 +256,33 @@ function restrictions(map: TmxMap): Uint8Array {
   const mask = new Uint8Array(map.width * map.height);
   for (let y = 0; y < map.height; y++) {
     for (let x = 0; x < map.width; x++) {
-      const back = tileAt(map, 'Back', x, y);
-      const building = tileAt(map, 'Buildings', x, y);
-      const blocked =
-        !back.gid || back.props['Water'] !== undefined || isFalse(back.props['Passable']) || (building.gid > 0 && building.props['Passable'] === undefined);
-      const diggable = back.props['Diggable'] !== undefined;
-      const buildable = !blocked && !isFalse(back.props['Buildable']) && (isTrue(back.props['Buildable']) || diggable);
-      let bits = 0;
-      if (blocked) bits |= IMPASSABLE | NOT_BUILDABLE | NOT_TILLABLE;
-      if (!buildable) bits |= NOT_BUILDABLE;
-      if (!diggable) bits |= NOT_TILLABLE;
-      mask[y * map.width + x] = bits;
+      mask[y * map.width + x] = tileRestrictions(tileAt(map, 'Back', x, y), tileAt(map, 'Buildings', x, y));
     }
   }
   return mask;
+}
+
+/** Restrictions in a map patch's area once it is laid over the map at (x0, y0). Only its Back layer has tiles. */
+function patchRestrictions(map: TmxMap, patch: TmxMap, x0: number, y0: number): Uint8Array {
+  const mask = new Uint8Array(patch.width * patch.height);
+  for (let y = 0; y < patch.height; y++) {
+    for (let x = 0; x < patch.width; x++) {
+      mask[y * patch.width + x] = tileRestrictions(tileAt(patch, 'Back', x, y), tileAt(map, 'Buildings', x0 + x, y0 + y));
+    }
+  }
+  return mask;
+}
+
+function tileRestrictions(back: { gid: number; props: Props }, building: { gid: number; props: Props }): number {
+  const blocked =
+    !back.gid || back.props['Water'] !== undefined || isFalse(back.props['Passable']) || (building.gid > 0 && building.props['Passable'] === undefined);
+  const diggable = back.props['Diggable'] !== undefined;
+  const buildable = !blocked && !isFalse(back.props['Buildable']) && (isTrue(back.props['Buildable']) || diggable);
+  let bits = 0;
+  if (blocked) bits |= IMPASSABLE | NOT_BUILDABLE | NOT_TILLABLE;
+  if (!buildable) bits |= NOT_BUILDABLE;
+  if (!diggable) bits |= NOT_TILLABLE;
+  return bits;
 }
 
 function encodeMask(mask: Uint8Array): string {
@@ -314,6 +338,15 @@ function main() {
     const entry = point(map, 'FarmHouseEntry', DEFAULT_HOUSE_ENTRY);
     const house = { x: entry.x - 5, y: entry.y - 3 };
     const greenhouse = point(map, 'GreenhouseLocation', farm.greenhouse);
+    let dirt = '';
+    if (farm.greenhouseDirt) {
+      // Drawn and enforced only while the greenhouse stands at its start location, as in the game.
+      const patch = readMap(farm.greenhouseDirt);
+      const image = `${farm.greenhouseDirt.replace(/^Farm_/, '').replace(/_/g, '-').toLowerCase()}.png`;
+      writeFileSync(join(layoutDir, image), encodePng(render(patch)));
+      const mask = encodeMask(patchRestrictions(map, patch, greenhouse.x, greenhouse.y));
+      dirt = `greenhouseDirt: { image: ${JSON.stringify(image)}, x: ${greenhouse.x}, y: ${greenhouse.y}, width: ${patch.width}, height: ${patch.height}, restrictions: ${JSON.stringify(mask)} }`;
+    }
     // Layouts store the farmhouse and greenhouse by sprite corner, four rows above the footprint.
     const fields = [
       `id: ${JSON.stringify(farm.id)}`,
@@ -328,6 +361,7 @@ function main() {
       `shippingBin: ${tsPoint(point(map, 'ShippingBinLocation', DEFAULT_SHIPPING_BIN))}`,
       `petBowl: ${tsPoint(point(map, 'PetBowlLocation', DEFAULT_PET_BOWL))}`,
     ];
+    if (dirt) fields.push(dirt);
     if (farm.starter) {
       const list = (items: { itemId: string; x: number; y: number }[]) =>
         `[${items.map((i) => `{ itemId: ${JSON.stringify(i.itemId)}, x: ${i.x}, y: ${i.y} }`).join(', ')}]`;

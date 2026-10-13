@@ -16,6 +16,7 @@ export const FARM_LAYOUTS: readonly LayoutInfo[] = [
     greenhouse: { x: 25, y: 6 },
     shippingBin: { x: 71, y: 14 },
     petBowl: { x: 53, y: 7 },
+    greenhouseDirt: { image: "greenhouse-dirt.png", x: 25, y: 10, width: 9, height: 6, restrictions: "54a" },
   },
   {
     id: "fishing",
@@ -29,6 +30,7 @@ export const FARM_LAYOUTS: readonly LayoutInfo[] = [
     greenhouse: { x: 25, y: 6 },
     shippingBin: { x: 71, y: 14 },
     petBowl: { x: 53, y: 7 },
+    greenhouseDirt: { image: "greenhouse-dirt.png", x: 25, y: 10, width: 9, height: 6, restrictions: "54a" },
   },
   {
     id: "foraging",
@@ -42,6 +44,7 @@ export const FARM_LAYOUTS: readonly LayoutInfo[] = [
     greenhouse: { x: 25, y: 6 },
     shippingBin: { x: 71, y: 14 },
     petBowl: { x: 53, y: 7 },
+    greenhouseDirt: { image: "greenhouse-dirt.png", x: 25, y: 10, width: 9, height: 6, restrictions: "54a" },
   },
   {
     id: "mining",
@@ -55,6 +58,7 @@ export const FARM_LAYOUTS: readonly LayoutInfo[] = [
     greenhouse: { x: 25, y: 6 },
     shippingBin: { x: 71, y: 14 },
     petBowl: { x: 53, y: 7 },
+    greenhouseDirt: { image: "greenhouse-dirt.png", x: 25, y: 10, width: 9, height: 6, restrictions: "54a" },
   },
   {
     id: "combat",
@@ -68,6 +72,7 @@ export const FARM_LAYOUTS: readonly LayoutInfo[] = [
     greenhouse: { x: 25, y: 6 },
     shippingBin: { x: 71, y: 14 },
     petBowl: { x: 53, y: 7 },
+    greenhouseDirt: { image: "greenhouse-dirt.png", x: 25, y: 10, width: 9, height: 6, restrictions: "54a" },
   },
   {
     id: "fourcorners",
@@ -81,6 +86,7 @@ export const FARM_LAYOUTS: readonly LayoutInfo[] = [
     greenhouse: { x: 36, y: 25 },
     shippingBin: { x: 71, y: 14 },
     petBowl: { x: 49, y: 40 },
+    greenhouseDirt: { image: "greenhouse-dirt-fourcorners.png", x: 36, y: 29, width: 9, height: 6, restrictions: "6e48a" },
   },
   {
     id: "beach",

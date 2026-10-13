@@ -8,7 +8,7 @@ import { PlacementOptions, TileRect, erase, moveObjects, paintTiles, placeAt, pl
 import { RestrictionMap } from './plan/restriction-map';
 import { SavedPlan, decodePlan, encodePlan, fromSaved, toSaved } from './plan/serialize';
 import { coverageLayout, usesCoverageLayout } from './plan/coverage-layout';
-import { addDefaultBuildings } from './plan/default-buildings';
+import { addDefaultBuildings, greenhouseAtStart } from './plan/default-buildings';
 import { LocalPlanInfo, LocalPlans, newPlanId } from './local-plans';
 
 export type Tool = 'brush' | 'eraser' | 'select';
@@ -51,7 +51,14 @@ export class PlannerStore {
   readonly layout = this.layoutState.asReadonly();
 
   doc = new PlanDocument(DEFAULT_LAYOUT.width, DEFAULT_LAYOUT.height);
-  restrictions = RestrictionMap.open(DEFAULT_LAYOUT.width, DEFAULT_LAYOUT.height);
+  /** The layout's restrictions, and the same with the greenhouse's dirt patch laid over them. */
+  private baseRestrictions = RestrictionMap.open(DEFAULT_LAYOUT.width, DEFAULT_LAYOUT.height);
+  private dirtRestrictions: RestrictionMap | null = null;
+
+  /** Where things can go now: the game keeps the greenhouse's dirt patch until the greenhouse moves. */
+  get restrictions(): RestrictionMap {
+    return this.dirtRestrictions && greenhouseAtStart(this.doc, this.layoutState()) ? this.dirtRestrictions : this.baseRestrictions;
+  }
 
   /** Bumped after every change to the document, for derived UI state. */
   private readonly revisionState = signal(0);
@@ -319,7 +326,9 @@ export class PlannerStore {
 
   private async switchLayout(layoutId: string): Promise<LayoutInfo> {
     const layout = this.layouts.find((l) => l.id === layoutId) ?? DEFAULT_LAYOUT;
-    this.restrictions = await this.loadRestrictions(layout);
+    this.baseRestrictions = await this.loadRestrictions(layout);
+    const dirt = layout.greenhouseDirt;
+    this.dirtRestrictions = dirt ? this.baseRestrictions.withArea(dirt.x, dirt.y, dirt.width, dirt.height, dirt.restrictions) : null;
     this.doc = new PlanDocument(layout.width, layout.height);
     this.selection.set([]);
     this.layoutState.set(layout);

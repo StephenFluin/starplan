@@ -4,6 +4,7 @@ import { GAME_SPRITES } from '../../../core/data/game-art.generated';
 import { LayoutInfo } from '../../../core/data/layout-info';
 import { Patch, PlacedObject, PlanDocument, parseKey } from '../../../core/plan/plan-document';
 import { TileRect } from '../../../core/plan/placement';
+import { greenhouseAtStart } from '../../../core/plan/default-buildings';
 import { rangeTiles } from '../../../core/plan/range';
 import { NOT_BUILDABLE, NOT_TILLABLE, RestrictionMap } from '../../../core/plan/restriction-map';
 import { RestrictionOverlay } from '../../../core/planner-store';
@@ -44,6 +45,8 @@ export class MapRenderer {
   private readonly app = new Application();
   private readonly world = new Container();
   private readonly background = new Sprite();
+  /** The greenhouse's dirt patch, shown while the greenhouse stands at its start location. */
+  private readonly greenhouseDirt = new Sprite();
   private readonly tileLayer = new Container();
   private readonly objectLayer = new Container({ sortableChildren: true });
   private readonly rangeLayer = new Graphics();
@@ -86,7 +89,7 @@ export class MapRenderer {
     host.appendChild(this.app.canvas);
     this.app.canvas.style.display = 'block';
 
-    this.world.addChild(this.background, this.tileLayer, this.objectLayer, this.rangeLayer, this.overlayLayer, this.previewLayer);
+    this.world.addChild(this.background, this.greenhouseDirt, this.tileLayer, this.objectLayer, this.rangeLayer, this.overlayLayer, this.previewLayer);
     this.previewLayer.addChild(this.ghostLayer, this.previewGraphics);
     this.app.stage.addChild(this.world);
     this.grid = new TilingSprite({ texture: this.createGridTexture(), alpha: 0.35 });
@@ -141,6 +144,11 @@ export class MapRenderer {
       this.background.texture = await Assets.load<Texture>(absoluteUrl(`assets/layouts/${layout.image}`));
       this.background.width = layout.width * TILE;
       this.background.height = layout.height * TILE;
+      const dirt = layout.greenhouseDirt;
+      if (dirt) {
+        this.greenhouseDirt.texture = await Assets.load<Texture>(absoluteUrl(`assets/layouts/${dirt.image}`));
+        this.greenhouseDirt.position.set(dirt.x * TILE, dirt.y * TILE);
+      }
       if (this.grid) {
         this.grid.width = layout.width * TILE;
         this.grid.height = layout.height * TILE;
@@ -162,6 +170,7 @@ export class MapRenderer {
       this.setTile(x, y, itemId);
     }
     for (const obj of this.doc.allObjects()) this.addObject(obj);
+    this.updateGreenhouseDirt();
     this.drawRanges();
     this.requestRender();
   }
@@ -172,8 +181,13 @@ export class MapRenderer {
       if (change.before) this.removeObject(change.before.uid);
       if (change.after) this.addObject(change.after);
     }
+    this.updateGreenhouseDirt();
     this.drawRanges();
     this.requestRender();
+  }
+
+  private updateGreenhouseDirt(): void {
+    this.greenhouseDirt.visible = Boolean(this.layout?.greenhouseDirt && this.doc && greenhouseAtStart(this.doc, this.layout));
   }
 
   private setTile(x: number, y: number, itemId: string | null): void {

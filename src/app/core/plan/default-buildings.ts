@@ -41,6 +41,20 @@ export function defaultBuildings(layout: LayoutInfo): DefaultBuilding[] {
   return result;
 }
 
+const GREENHOUSE_IDS = new Set(variantsOf('greenhouse').map((item) => item.id));
+
+/**
+ * Whether a greenhouse still stands at the layout's start location. Until it moves, the game keeps
+ * its dirt patch (LayoutInfo.greenhouseDirt) laid over the map.
+ */
+export function greenhouseAtStart(doc: PlanDocument, layout: LayoutInfo): boolean {
+  if (!layout.greenhouse) return false;
+  const x = layout.greenhouse.x;
+  const y = layout.greenhouse.y + legacySpriteOffset('greenhouse');
+  const obj = doc.objectAt(x, y);
+  return obj !== null && obj.x === x && obj.y === y && GREENHOUSE_IDS.has(obj.itemId);
+}
+
 /** Adds the default buildings, and the fences the farm starts with, to an empty document. */
 export function addDefaultBuildings(doc: PlanDocument, layout: LayoutInfo): Patch {
   const objects = defaultBuildings(layout)

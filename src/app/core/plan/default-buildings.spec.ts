@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { LAYOUTS } from '../data/layouts';
-import { addDefaultBuildings, defaultBuildings } from './default-buildings';
+import { addDefaultBuildings, defaultBuildings, greenhouseAtStart } from './default-buildings';
 import { PlanDocument } from './plan-document';
 import { PlacementOptions, moveObjects } from './placement';
 import { RestrictionMap } from './restriction-map';
@@ -8,11 +8,19 @@ import { RestrictionMap } from './restriction-map';
 const options: PlacementOptions = { anywhere: false, overwrite: true };
 const regular = LAYOUTS.find((l) => l.id === 'regular')!;
 
-function standardFarm(): { doc: PlanDocument; map: RestrictionMap } {
-  const map = RestrictionMap.decode(regular.width, regular.height, readFileSync('public/assets/restrictions/regular.txt', 'utf8'));
+/** A new Standard Farm, with restrictions chosen like PlannerStore.restrictions. */
+function standardFarm() {
+  const base = RestrictionMap.decode(regular.width, regular.height, readFileSync('public/assets/restrictions/regular.txt', 'utf8'));
+  const dirt = regular.greenhouseDirt!;
+  const withDirt = base.withArea(dirt.x, dirt.y, dirt.width, dirt.height, dirt.restrictions);
   const doc = new PlanDocument(regular.width, regular.height);
   doc.apply(addDefaultBuildings(doc, regular));
-  return { doc, map };
+  return {
+    doc,
+    get map(): RestrictionMap {
+      return greenhouseAtStart(doc, regular) ? withDirt : base;
+    },
+  };
 }
 
 describe('default buildings', () => {
@@ -35,24 +43,38 @@ describe('default buildings', () => {
     expect(map.isBlocked(53, 6, 'accessible')).toBe(true);
   });
 
-  for (const [name, start] of [
-    ['farmhouse', { x: 59, y: 12 }],
-    ['greenhouse', { x: 25, y: 10 }],
+  for (const [name, start, moves] of [
+    // The farmhouse's yard path, three tiles to its right, is unbuildable.
+    ['farmhouse', { x: 59, y: 12 }, [-3, -1, 1]],
+    ['greenhouse', { x: 25, y: 10 }, [-3, -1, 1, 3]],
   ] as const) {
     it(`lets the ${name} move a few tiles left or right and back again`, () => {
-      const { doc, map } = standardFarm();
+      const farm = standardFarm();
+      const { doc } = farm;
       const uid = doc.objectAt(start.x, start.y)!.uid;
-      // The game's map data marks the ground three tiles to the right of both as unbuildable.
-      for (const dx of [-3, -1, 1]) {
-        const there = moveObjects(doc, map, [uid], dx, 0, options);
+      for (const dx of moves) {
+        const there = moveObjects(doc, farm.map, [uid], dx, 0, options);
         expect(there, `move by ${dx}`).not.toBeNull();
         doc.apply(there!);
-        const back = moveObjects(doc, map, [uid], -dx, 0, options);
+        const back = moveObjects(doc, farm.map, [uid], -dx, 0, options);
         expect(back, `move back from ${dx}`).not.toBeNull();
         doc.apply(back!);
       }
     });
   }
+
+  // The base map has a grass patch, with an unbuildable edge at x = 33, where the greenhouse
+  // starts. The game covers it with sand until the greenhouse moves; then the grass is back.
+  it("lifts the greenhouse's dirt patch once it moves, as the game does", () => {
+    const farm = standardFarm();
+    const { doc } = farm;
+    const uid = doc.objectAt(25, 10)!.uid;
+    expect(farm.map.isBlocked(33, 12, 'buildable')).toBe(false);
+    doc.apply(moveObjects(doc, farm.map, [uid], 2, 0, options)!);
+    expect(greenhouseAtStart(doc, regular)).toBe(false);
+    expect(farm.map.isBlocked(33, 12, 'buildable')).toBe(true);
+    expect(moveObjects(doc, farm.map, [uid], 1, 0, options)).toBeNull();
+  });
 
   it('lets the shipping bin move and return', () => {
     const { doc, map } = standardFarm();
