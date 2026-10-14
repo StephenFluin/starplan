@@ -37,7 +37,7 @@ const CONTEXT_MENU_GRACE = 500;
 type Gesture = (
   | { kind: 'pan'; lastX: number; lastY: number; samples: { t: number; x: number; y: number }[] }
   /** Painting, erasing, box-selecting, or laying out sprinklers over a tile rectangle (or around its edge). */
-  | { kind: 'rect'; startX: number; startY: number; pattern?: 'outline' | 'rows' }
+  | { kind: 'rect'; startX: number; startY: number; pattern?: 'outline' | 'rows'; keyboard?: boolean }
   /** Placing copies of an object, anchored where its ghost was when the press started. */
   | { kind: 'place'; originX: number; originY: number }
   /** Dragging the selection. */
@@ -259,14 +259,23 @@ export class MapCanvas {
 
   /**
    * Moves the map by whole tiles under a cursor kept in the middle of the view, which Enter acts
-   * on. The cursor starts on the middle tile.
+   * on. The cursor starts on the middle tile. With `stretch`, it stretches a rectangle from where
+   * the cursor was, for Enter to fill, outline, erase or select like a dragged one.
    */
-  moveCursor(dx: number, dy: number): void {
+  moveCursor(dx: number, dy: number, stretch = false): void {
     const renderer = this.renderer;
     if (!renderer) return;
     const from = (this.keyboardCursor() && this.hover()) || renderer.centreTile();
     const { width, height } = this.store.layout();
     const to = { x: Math.min(Math.max(from.x + dx, 0), width - 1), y: Math.min(Math.max(from.y + dy, 0), height - 1) };
+    const keyboardRect = this.gesture?.kind === 'rect' && this.gesture.keyboard;
+    if (stretch && !keyboardRect) {
+      const shape = this.store.options().brushShape;
+      const pattern = this.store.tool() === 'eraser' ? (shape === 'outline' ? 'outline' : undefined) : shape === 'outline' || shape === 'rows' ? shape : undefined;
+      this.gesture = { ...this.context(), kind: 'rect', startX: from.x, startY: from.y, pattern, keyboard: true, button: 0, downX: 0, downY: 0, moved: true };
+    } else if (!stretch && keyboardRect) {
+      this.gesture = null;
+    }
     this.keyboardCursor.set(true);
     renderer.centreOn(to.x, to.y);
     this.showCursorAt(to);
@@ -291,7 +300,11 @@ export class MapCanvas {
     }
     const store = this.store;
     const tool = store.tool();
-    if (tool === 'select') {
+    const gesture = this.gesture;
+    if (gesture?.kind === 'rect' && gesture.keyboard) {
+      this.gesture = null;
+      this.finishRect(gesture, tile);
+    } else if (tool === 'select') {
       const hit = objectAtVisual(store.doc, tile.x, tile.y);
       if (hit && event.shiftKey) store.toggleSelected(hit.uid);
       else store.selection.set(hit ? { objects: [hit.uid], tiles: [] } : NO_SELECTION);
@@ -310,6 +323,32 @@ export class MapCanvas {
       store.paint({ ...at, width: centred ? item.width : 1, height: centred ? item.height : 1 });
     }
     this.showCursorAt(tile);
+  }
+
+  /** Applies a rectangle gesture ending at a tile. A click (not a drag) acts on the tile it started on. */
+  private finishRect(gesture: Extract<Gesture, { kind: 'rect' }>, tile: { x: number; y: number }): void {
+    const end = gesture.moved ? tile : { x: gesture.startX, y: gesture.startY };
+    const rect = rectFromCorners(gesture.startX, gesture.startY, end.x, end.y);
+    const item = this.store.activeItem();
+    if (gesture.pattern && gesture.moved) {
+      if (this.store.tool() === 'eraser') this.store.erase(outlineCells(rect));
+      else if (item) this.store.paintStroke(patternPositions(gesture.pattern, item, rect));
+      return;
+    }
+    switch (this.store.tool()) {
+      case 'eraser':
+        this.store.erase(rect);
+        break;
+      case 'select':
+        this.store.selectArea(rect);
+        break;
+      case 'brush': {
+        if (item && !gesture.moved) this.explainBlockedClick(item, rect.x, rect.y);
+        const single = item?.kind === 'object' && !usesCoverageLayout(item) && !gesture.moved;
+        this.store.paint(single ? { ...objectOrigin(item, rect.x, rect.y), width: item.width, height: item.height } : rect);
+        break;
+      }
+    }
   }
 
   /** Whether the arrow keys are moving the keyboard cursor. */
@@ -446,7 +485,11 @@ export class MapCanvas {
   protected onPointerMove(event: PointerEvent): void {
     const renderer = this.renderer;
     if (!renderer) return;
-    this.keyboardCursor.set(false);
+    if (this.keyboardCursor()) {
+      this.keyboardCursor.set(false);
+      // The pointer takes over from a rectangle stretched with the keyboard.
+      if (this.gesture?.kind === 'rect' && this.gesture.keyboard) this.gesture = null;
+    }
     if (event.pointerType === 'touch' && this.touches.has(event.pointerId)) {
       this.touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
     }
@@ -535,26 +578,7 @@ export class MapCanvas {
       if (gesture.tool === 'eraser') this.store.erase(gesture.cells);
       else this.store.paintStroke(this.strokePoints(gesture));
     } else {
-      // A click (not a drag) acts on the tile it started on.
-      const end = gesture.moved ? tile : { x: gesture.startX, y: gesture.startY };
-      const rect = rectFromCorners(gesture.startX, gesture.startY, end.x, end.y);
-      const item = this.store.activeItem();
-      if (gesture.pattern && gesture.moved) {
-        if (this.store.tool() === 'eraser') this.store.erase(outlineCells(rect));
-        else if (item) this.store.paintStroke(patternPositions(gesture.pattern, item, rect));
-      } else switch (this.store.tool()) {
-        case 'eraser':
-          this.store.erase(rect);
-          break;
-        case 'select':
-          this.store.selectArea(rect);
-          break;
-        case 'brush': {
-          if (item && !gesture.moved) this.explainBlockedClick(item, rect.x, rect.y);
-          this.store.paint(item?.kind === 'object' && !usesCoverageLayout(item) ? { ...objectOrigin(item, rect.x, rect.y), width: item.width, height: item.height } : rect);
-          break;
-        }
-      }
+      this.finishRect(gesture, tile);
     }
     this.updatePreview();
   }
@@ -785,7 +809,10 @@ export class MapCanvas {
     }
     if (this.keyboardCursor()) preview.cursor = tile;
     renderer.setPreview(preview);
-    this.dragLabel.set(label ? { text: label, ...this.pointer } : null);
+    // By the pointer, or by the keyboard cursor in the middle of the map.
+    const host = this.hostRef().nativeElement;
+    const at = this.keyboardCursor() ? { x: host.clientWidth / 2, y: host.clientHeight / 2 } : this.pointer;
+    this.dragLabel.set(label ? { text: label, ...at } : null);
   }
 
   /** When a click can't put the brush's item down, says why. */

@@ -227,7 +227,7 @@ export class PlannerPage {
       if (!this.startPasting()) this.announce(`Nothing copied yet. Select something and press ${MOD}+C.`);
       return;
     }
-    if (mod || event.altKey) return;
+    if ((mod || event.altKey) && !key.startsWith('arrow')) return;
 
     const map = this.map();
     switch (key) {
@@ -288,16 +288,17 @@ export class PlannerPage {
         event.preventDefault();
         const x = key === 'arrowleft' ? -1 : key === 'arrowright' ? 1 : 0;
         const y = key === 'arrowup' ? -1 : key === 'arrowdown' ? 1 : 0;
-        const step = event.shiftKey ? NUDGE_LARGE : 1;
+        const step = event.shiftKey || mod ? NUDGE_LARGE : 1;
         const onMap = target instanceof Element && target.closest('app-map-canvas') !== null;
         // Arrows nudge the selection a tile (Shift: five), or else move around the map: by whole
-        // tiles under the keyboard cursor when the map has focus.
+        // tiles under the keyboard cursor when the map has focus (Ctrl: five; Shift stretches a
+        // rectangle from the cursor instead).
         if (this.hasSelection()) {
           const failure = this.store.moveSelection(x * step, y * step);
           if (failure) this.announce(blockedMessage(failure));
           else if (map.cursorActive) map.moveCursor(x * step, y * step);
         } else if (onMap) {
-          map.moveCursor(x * step, y * step);
+          map.moveCursor(x * (mod ? NUDGE_LARGE : 1), y * (mod ? NUDGE_LARGE : 1), event.shiftKey);
         } else {
           map.panBy(-x * step * PAN_STEP, -y * step * PAN_STEP);
         }

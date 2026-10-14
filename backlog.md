@@ -4,9 +4,7 @@ Things we want to take care of later, roughly in priority order within each sect
 
 ## Features
 
-- **Rectangles of plants and machines.** Dragging with a crop or a 1×1 machine selected already fills the rectangle (machines are tiled across it), with a live count by the pointer. Sprinklers and scarecrows instead get a coverage layout (`src/app/core/plan/coverage-layout.ts`). Dragged scarecrow layouts still use a single greedy pass; the Helpers menu's farm-wide planner (`src/app/core/plan/crop-cover.ts`) does better and could replace it. Still to do:
-  - Larger objects (e.g. 3×3 trees, sheds) fill the rectangle by stepping their footprint. Check this feels right.
-- Keyboard rectangles: Shift + arrows to stretch a rectangle from the keyboard cursor, for filling areas without a pointer.
+- Dragged scarecrow layouts still use a single greedy pass; the Helpers menu's farm-wide planner (`src/app/core/plan/crop-cover.ts`) does better and could replace it.
 - Season switcher (spring/summer/fall/winter backgrounds and tree sprites).
 - Fence and path autotiling, so connected fences and paths join up visually.
 - Save import extras: the farm's animals and furniture, crops in the greenhouse and other locations, and saves from mobile.
