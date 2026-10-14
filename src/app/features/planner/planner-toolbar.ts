@@ -15,7 +15,9 @@ export type ToolbarAction =
   | 'import-save'
   | 'toggle-counter'
   | 'new'
-  | 'shortcuts';
+  | 'shortcuts'
+  | 'scarecrows'
+  | 'deluxe-scarecrows';
 
 /** Top bar with tools, history, layout choice, view options and file actions. */
 @Component({
@@ -96,7 +98,7 @@ export type ToolbarAction =
 
     <div class="menu" (appDismissPopover)="optionsOpen.set(false)">
       <button type="button" aria-haspopup="true" [attr.aria-expanded]="optionsOpen()" (click)="optionsOpen.update((o) => !o)">
-        View &amp; options
+        View
       </button>
       @if (optionsOpen()) {
         <div class="popover" role="group" aria-label="View and options">
@@ -134,6 +136,19 @@ export type ToolbarAction =
             <label><input type="checkbox" [checked]="store.options().overwrite" (change)="store.setOption('overwrite', $any($event.target).checked)" /> Paint over existing tiles</label>
             <label><input type="checkbox" [checked]="store.options().anywhere" (change)="store.setOption('anywhere', $any($event.target).checked)" /> Allow placing anywhere</label>
           </fieldset>
+        </div>
+      }
+    </div>
+
+    <div class="menu" (appDismissPopover)="helpersOpen.set(false)">
+      <button type="button" aria-haspopup="true" [attr.aria-expanded]="helpersOpen()" (click)="helpersOpen.update((o) => !o)">Helpers</button>
+      @if (helpersOpen()) {
+        <div class="popover commands" role="group" aria-label="Helpers">
+          @for (command of helperCommands; track command.action) {
+            <button type="button" (click)="helpersOpen.set(false); action.emit(command.action)">
+              {{ command.label }}<small>{{ command.hint }}</small>
+            </button>
+          }
         </div>
       }
     </div>
@@ -203,6 +218,11 @@ export class PlannerToolbar {
 
   protected readonly optionsOpen = signal(false);
   protected readonly fileOpen = signal(false);
+  protected readonly helpersOpen = signal(false);
+  protected readonly helperCommands: { action: ToolbarAction; label: string; hint: string }[] = [
+    { action: 'scarecrows', label: 'Cover crops with scarecrows', hint: 'Adds as few as it takes for every crop to be in range of one' },
+    { action: 'deluxe-scarecrows', label: 'Cover crops with deluxe scarecrows', hint: 'The same with deluxe scarecrows, which reach twice as far' },
+  ];
   protected readonly fileCommands: { action: ToolbarAction; label: string; hint: string }[] = [
     { action: 'new', label: 'New plan', hint: 'Start over on this farm. This plan stays under your plans.' },
     { action: 'import-json', label: 'Import plan file…', hint: 'A Starplan or v2 planner .json file' },

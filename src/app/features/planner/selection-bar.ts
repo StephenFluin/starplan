@@ -6,9 +6,14 @@ import { MOD } from './shortcuts-dialog';
 
 export type SelectionAction = 'copy' | 'cut' | 'duplicate' | 'delete' | 'deselect' | 'stop-paste';
 
-/** "Coop", or "3 objects and 12 tiles": what a selection or the clipboard holds. */
+/** "Coop", "Scarecrow ×4" or "3 objects and 12 tiles": what a selection or the clipboard holds. */
 export function describeGroup(group: Group | null): string {
-  if (group?.objects.length === 1 && !group.tiles.length) return findItem(group.objects[0].itemId)?.name ?? '1 object';
+  // All one kind of object: "Coop", "Scarecrow ×4".
+  const kinds = new Set(group?.objects.map((obj) => obj.itemId));
+  if (group?.objects.length && kinds.size === 1 && !group.tiles.length) {
+    const name = findItem(group.objects[0].itemId)?.name ?? 'object';
+    return group.objects.length === 1 ? name : `${name} ×${group.objects.length}`;
+  }
   const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`;
   const parts = [];
   if (group?.objects.length) parts.push(count(group.objects.length, 'object'));

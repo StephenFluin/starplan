@@ -10,7 +10,7 @@ export function blockedMessage({ itemId, reason }: PlacementFailure): string {
       return `${item} would go off the map.`;
     case 'ground':
       if (reason.restriction === 'accessible') return `${item} can't go on water, cliffs or walls.`;
-      return `${item} needs ${reason.restriction} ground there. View & options can show where that is.`;
+      return `${item} needs ${reason.restriction} ground there. The View menu can show where that is.`;
     case 'object':
     case 'tile':
       return `${item} doesn't fit there: ${name(reason.itemId)} is in the way.`;

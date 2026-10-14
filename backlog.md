@@ -4,15 +4,7 @@ Things we want to take care of later, roughly in priority order within each sect
 
 ## Features
 
-- **Automatic scarecrows.** One action that adds the minimum number of scarecrows needed so every planted crop tile is covered.
-  - Scarecrow range is every tile within euclidean distance < 9 (248 tiles, not counting the scarecrow's own tile); a deluxe scarecrow is < 17 (888 tiles). `src/app/core/plan/range.ts` already computes both.
-  - Finding the true minimum is a set-cover problem (NP-hard), so we need a good heuristic plus a bound:
-    - Candidate positions: every empty tile where a scarecrow can legally go (accessible, not occupied), including tiles inside the crop field.
-    - Greedy set cover (repeatedly pick the candidate covering the most still-uncovered crops) as the baseline, then improve it with local search (try removing each scarecrow, or swapping one for another).
-    - For small fields, an exact ILP / branch-and-bound solve may be fast enough. Compare it with greedy before deciding.
-    - Options: regular vs deluxe scarecrows; whether a placed scarecrow may replace a crop tile (costs one crop, sometimes saves a scarecrow); keep or ignore scarecrows that are already placed.
-  - Should be a single undoable step, with the chosen tiles previewed before committing.
-- **Rectangles of plants and machines.** Dragging with a crop or a 1×1 machine selected already fills the rectangle (machines are tiled across it), with a live count by the pointer. Sprinklers and scarecrows instead get a coverage layout (`src/app/core/plan/coverage-layout.ts`). Scarecrows currently use only the greedy pass; the backlog item above can replace it. Still to do:
+- **Rectangles of plants and machines.** Dragging with a crop or a 1×1 machine selected already fills the rectangle (machines are tiled across it), with a live count by the pointer. Sprinklers and scarecrows instead get a coverage layout (`src/app/core/plan/coverage-layout.ts`). Dragged scarecrow layouts still use a single greedy pass; Helpers > Cover crops with scarecrows (`src/app/core/plan/auto-scarecrows.ts`) does better and could replace it. Still to do:
   - Hollow/outline rectangles (fence and path borders).
   - Patterned fills, such as crops with sprinklers spaced on a grid, or rows with walkway gaps.
   - Larger objects (e.g. 3×3 trees, sheds) fill the rectangle by stepping their footprint. Check this feels right.

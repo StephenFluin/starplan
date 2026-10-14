@@ -141,6 +141,9 @@ export class PlannerPage {
       case 'shortcuts':
         this.shortcutsOpen.set(true);
         return;
+      case 'scarecrows':
+      case 'deluxe-scarecrows':
+        return this.addScarecrows(action === 'scarecrows' ? 'scarecrow' : 'deluxe-scarecrow');
       case 'new':
         await this.store.newPlan(this.store.layout().id);
         this.analytics.event({ name: 'new_plan', params: { farm: this.farm(), source: 'new_button' } });
@@ -299,6 +302,20 @@ export class PlannerPage {
         return;
       }
     }
+  }
+
+  private addScarecrows(itemId: string): void {
+    const plan = this.store.addScarecrows(itemId);
+    if (!plan) return;
+    const kind = itemId === 'scarecrow' ? 'scarecrow' : 'deluxe scarecrow';
+    const added = plan.positions.length;
+    const unreachable = plan.unreachable ? ` ${plan.unreachable} crop tiles are out of reach of anywhere one can go.` : '';
+    if (!added) {
+      this.announce(plan.unreachable ? `No ${kind} can reach the crops left uncovered.${unreachable}` : 'Every crop is already in range of a scarecrow.');
+      return;
+    }
+    const onCrops = plan.onCrops ? ` (${plan.onCrops} in place of a crop)` : '';
+    this.announce(`Added ${added} ${kind}${added === 1 ? '' : 's'}${onCrops}.${unreachable || ' Every crop is in range.'} Undo to take them back.`, LONG_MESSAGE);
   }
 
   protected hasSelection(): boolean {
