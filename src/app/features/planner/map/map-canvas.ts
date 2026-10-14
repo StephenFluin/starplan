@@ -6,6 +6,8 @@ import {
   checkObject,
   lineCells,
   objectAtVisual,
+  outlineCells,
+  outlinePositions,
   objectPositions,
   erase,
   paintMisfit,
@@ -31,8 +33,8 @@ const CONTEXT_MENU_GRACE = 500;
 
 type Gesture = (
   | { kind: 'pan'; lastX: number; lastY: number; samples: { t: number; x: number; y: number }[] }
-  /** Painting, erasing, box-selecting, or laying out sprinklers over a tile rectangle. */
-  | { kind: 'rect'; startX: number; startY: number }
+  /** Painting, erasing, box-selecting, or laying out sprinklers over a tile rectangle (or around its edge). */
+  | { kind: 'rect'; startX: number; startY: number; outline?: boolean }
   /** Placing copies of an object, anchored where its ghost was when the press started. */
   | { kind: 'place'; originX: number; originY: number }
   /** Dragging the selection. */
@@ -424,6 +426,8 @@ export class MapCanvas {
       }
     } else if (tool === 'brush' && this.store.pasting()) {
       this.gesture = { ...base, kind: 'paste' };
+    } else if (this.store.options().brushShape === 'outline') {
+      this.gesture = { ...base, kind: 'rect', startX: tile.x, startY: tile.y, outline: true };
     } else if (this.store.options().brushShape === 'freehand') {
       this.gesture = { ...base, kind: 'stroke', cells: [[tile.x, tile.y]], seen: new Set([cellKey(tile.x, tile.y)]), lastX: tile.x, lastY: tile.y };
     } else if (tool === 'brush' && item?.kind === 'object' && !usesCoverageLayout(item)) {
@@ -530,7 +534,11 @@ export class MapCanvas {
       // A click (not a drag) acts on the tile it started on.
       const end = gesture.moved ? tile : { x: gesture.startX, y: gesture.startY };
       const rect = rectFromCorners(gesture.startX, gesture.startY, end.x, end.y);
-      switch (this.store.tool()) {
+      const item = this.store.activeItem();
+      if (gesture.outline && gesture.moved) {
+        if (this.store.tool() === 'eraser') this.store.erase(outlineCells(rect));
+        else if (item) this.store.paintStroke(outlinePositions(item, rect));
+      } else switch (this.store.tool()) {
         case 'eraser':
           this.store.erase(rect);
           break;
@@ -538,9 +546,8 @@ export class MapCanvas {
           this.store.selectArea(rect);
           break;
         case 'brush': {
-          const item = this.store.activeItem();
           if (item && !gesture.moved) this.explainBlockedClick(item, rect.x, rect.y);
-          this.store.paint(rect);
+          this.store.paint(item?.kind === 'object' && !usesCoverageLayout(item) ? { ...objectOrigin(item, rect.x, rect.y), width: item.width, height: item.height } : rect);
           break;
         }
       }
@@ -701,7 +708,22 @@ export class MapCanvas {
       const item = store.activeItem();
       preview.rect = { ...rect, style: tool === 'eraser' ? 'erase' : tool === 'select' ? 'select' : 'brush' };
       const size = `${rect.width} × ${rect.height}`;
-      if (tool === 'brush' && item?.kind === 'tile') {
+      if (gesture.outline && gesture.moved) {
+        preview.rect = undefined;
+        if (tool === 'eraser') {
+          preview.erased = outlineCells(rect);
+          label = `Erase ${describeErased(erase(store.doc, preview.erased))} · ${size}`;
+        } else if (item?.kind === 'tile') {
+          const cells = outlineCells(rect);
+          preview.blocked = blockedTiles(store.doc, store.restrictions, item, cells, options);
+          const blocked = new Set(preview.blocked.map(([x, y]) => cellKey(x, y)));
+          preview.tiles = cells.filter(([x, y]) => !blocked.has(cellKey(x, y))).map(([x, y]) => ({ item, x, y }));
+          label = `${item.name} × ${paintTiles(store.doc, store.restrictions, item, cells, options).tiles.length} · ${size}`;
+        } else if (item) {
+          preview.ghosts = placeEach(store.doc, store.restrictions, item, outlinePositions(item, rect), options).objects.map((change) => ({ item, ...change.after! }));
+          label = `${item.name} × ${preview.ghosts.length} · ${size}`;
+        }
+      } else if (tool === 'brush' && item?.kind === 'tile') {
         preview.blocked = blockedTiles(store.doc, store.restrictions, item, rect, options);
         label = `${item.name} × ${paintTiles(store.doc, store.restrictions, item, rect, options).tiles.length} · ${size}`;
       } else if (tool === 'brush' && item && usesCoverageLayout(item) && (rect.width > 1 || rect.height > 1)) {

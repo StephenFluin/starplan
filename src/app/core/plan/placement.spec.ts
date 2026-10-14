@@ -1,6 +1,6 @@
 import { findItem } from '../data/catalog';
 import { PlanDocument, invertPatch } from './plan-document';
-import { Group, PlacementOptions, checkObject, erase, lineCells, moveObjects, paintTiles, placeEach, placeObjects, putGroup, rectFromCorners } from './placement';
+import { Group, PlacementOptions, checkObject, erase, lineCells, moveObjects, outlineCells, outlinePositions, paintTiles, placeEach, placeObjects, putGroup, rectFromCorners } from './placement';
 import { IMPASSABLE, NOT_BUILDABLE, RestrictionMap } from './restriction-map';
 
 const item = (id: string) => {
@@ -66,6 +66,25 @@ describe('placement', () => {
     doc.apply(paintTiles(doc, map, item('parsnip'), { x: 9, y: 9, width: 1, height: 1 }, strict));
     expect(checkObject(doc, map, item('keg'), 5, 5, strict).ok).toBe(true);
     expect(checkObject(doc, map, item('keg'), 9, 9, strict).ok).toBe(false);
+  });
+
+  describe('outlines', () => {
+    it("go around a rectangle's edge once", () => {
+      const cells = outlineCells({ x: 0, y: 0, width: 4, height: 3 });
+      expect(cells).toHaveLength(10);
+      expect(new Set(cells.map(([x, y]) => `${x},${y}`)).size).toBe(10);
+      expect(cells).not.toContainEqual([1, 1]);
+      // Too thin to have an inside: every cell.
+      expect(outlineCells({ x: 0, y: 0, width: 5, height: 2 })).toHaveLength(10);
+    });
+
+    it('step bigger objects along each side', () => {
+      const positions = outlinePositions(item('large-rock'), { x: 0, y: 0, width: 6, height: 6 });
+      doc.apply(placeEach(doc, map, item('large-rock'), positions, strict));
+      // A ring of 2x2 rocks: three along the top and bottom, one more on each side.
+      expect(doc.objectCount).toBe(8);
+      expect(doc.objectAt(2, 2)).toBeNull();
+    });
   });
 
   describe('freehand strokes', () => {

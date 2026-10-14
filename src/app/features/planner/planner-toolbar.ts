@@ -251,6 +251,7 @@ export class PlannerToolbar {
 
   protected readonly shapes: { id: BrushShape; label: string; key: string; hint: string }[] = [
     { id: 'rectangle', label: 'Rectangle', key: 'R', hint: 'drag to fill an area' },
+    { id: 'outline', label: 'Outline', key: 'O', hint: 'drag to go around an area’s edge, like a fence' },
     { id: 'freehand', label: 'Freehand', key: 'F', hint: 'drag to paint along the way' },
   ];
 

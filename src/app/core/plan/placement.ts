@@ -222,6 +222,29 @@ export function cellsOf(area: Area): Iterable<[number, number]> {
   return Symbol.iterator in area ? area : footprint(area, area);
 }
 
+/** The cells around a rectangle's edge, clockwise from its top-left. */
+export function outlineCells(rect: TileRect): [number, number][] {
+  const { x, y, width, height } = rect;
+  if (width <= 2 || height <= 2) return [...footprint(rect, rect)];
+  const cells: [number, number][] = [];
+  for (let i = 0; i < width; i++) cells.push([x + i, y]);
+  for (let i = 1; i < height; i++) cells.push([x + width - 1, y + i]);
+  for (let i = width - 2; i >= 0; i--) cells.push([x + i, y + height - 1]);
+  for (let i = height - 2; i >= 1; i--) cells.push([x, y + i]);
+  return cells;
+}
+
+/** Where copies of an item go around a rectangle's edge: stepping by its footprint along each side. */
+export function outlinePositions(item: CatalogItem, rect: TileRect): { x: number; y: number }[] {
+  if (item.width === 1 && item.height === 1) return outlineCells(rect).map(([x, y]) => ({ x, y }));
+  const right = rect.x + rect.width - item.width;
+  const bottom = rect.y + rect.height - item.height;
+  const positions: { x: number; y: number }[] = [];
+  for (let x = rect.x; x <= right; x += item.width) positions.push({ x, y: rect.y }, { x, y: bottom });
+  for (let y = rect.y + item.height; y < bottom; y += item.height) positions.push({ x: rect.x, y }, { x: right, y });
+  return positions;
+}
+
 /**
  * The cells a straight line between two cells passes through, end to end and without gaps
  * (Bresenham's line), so a fast freehand stroke doesn't skip tiles.
