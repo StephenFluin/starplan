@@ -39,7 +39,8 @@ const NUDGE_LARGE = 5;
         <app-item-palette />
         <footer class="notice">
           Unofficial, non-commercial fan project. Not affiliated with or endorsed by ConcernedApe.
-          Stardew Valley and its art © ConcernedApe LLC.
+          Stardew Valley and its art © ConcernedApe LLC. Starplan ©&nbsp;Stephen Fluin,
+          <a href="https://github.com/StephenFluin/starplan" target="_blank" rel="noopener">source code</a> under the AGPL.
         </footer>
       </aside>
       <main>
@@ -86,6 +87,7 @@ const NUDGE_LARGE = 5;
       flex: none; margin: 0; padding: 8px 10px; border-top: 1px solid var(--border);
       font-size: 11px; line-height: 1.4; color: var(--muted);
     }
+    .notice a { color: var(--text); }
     aside.counter { border-right: 0; border-left: 1px solid var(--border); }
     main { position: relative; flex: 1; min-width: 0; display: flex; }
     app-selection-bar { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 5; max-width: calc(100% - 16px); }

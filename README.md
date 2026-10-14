@@ -166,4 +166,4 @@ Starplan is an unofficial, personal, non-commercial fan project. It is not affil
 
 See [NOTICE](NOTICE) for the full attribution.
 
-**Code license:** not chosen yet. Because the data is derived from Apache-2.0 work, the NOTICE file must ship with the project whichever license is picked.
+**Code license:** Copyright © Stephen Fluin. The code is licensed under the [GNU Affero General Public License, version 3 or later](LICENSE). Because the data is derived from Apache-2.0 work, the [NOTICE](NOTICE) file ships with the project. As the AGPL asks of software used over a network, the app links to its source code.

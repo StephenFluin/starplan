@@ -11,6 +11,7 @@
     "import-game": "node scripts/import-game.mts",
     "test": "ng test"
   },
+  "license": "AGPL-3.0-or-later",
   "private": true,
   "packageManager": "npm@11.19.0",
   "dependencies": {
