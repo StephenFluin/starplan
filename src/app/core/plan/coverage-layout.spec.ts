@@ -142,12 +142,14 @@ describe('coverageLayout', () => {
       const layout = coverageLayout(field, open, item('scarecrow'), rect, options);
       expect(dryTiles('scarecrow', rect, layout)).toBe(0);
       expect(layout.length).toBeGreaterThanOrEqual(4);
-      expect(layout.length).toBeLessThanOrEqual(9);
+      expect(layout.length).toBeLessThanOrEqual(7);
     });
 
-    it('needs one scarecrow for a small field', () => {
+    it('needs one scarecrow for a small field, and puts it just outside when that reaches', () => {
       const rect = { x: 5, y: 5, width: 9, height: 9 };
       expect(coverageLayout(doc, map, item('scarecrow'), rect, options)).toHaveLength(1);
+      const [row] = coverageLayout(doc, map, item('scarecrow'), { x: 5, y: 5, width: 9, height: 1 }, options);
+      expect(row.y).not.toBe(5);
     });
 
     it('ignores sprinklers when counting existing coverage', () => {

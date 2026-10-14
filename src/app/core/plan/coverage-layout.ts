@@ -1,5 +1,6 @@
 import { CatalogItem, RangeGroup, RangeShape, findItem } from '../data/catalog';
 import { PlanDocument } from './plan-document';
+import { planCover } from './crop-cover';
 import { PlacementOptions, TileRect, checkObject } from './placement';
 import { rangeTiles } from './range';
 import { RestrictionMap } from './restriction-map';
@@ -30,7 +31,7 @@ export function usesCoverageLayout(item: CatalogItem): boolean {
  * items of the same kind are skipped. Outside the area, items never replace crops.
  *
  * For each alignment of the ideal tiling of the range's shape (square and plus-shaped sprinklers
- * have one; scarecrow circles rely on the greedy pass), the tiling is laid down inside the area,
+ * have one; scarecrow circles use the farm-wide set-cover planner, crop-cover.ts), the tiling is laid down inside the area,
  * leftover tiles are patched greedily (inside or outside), redundant items dropped, and items moved
  * outside the area wherever that keeps everything covered. The best of these results wins.
  */
@@ -65,9 +66,22 @@ export function coverageLayout(
     return ok;
   };
 
+  // Ranges with no perfect tiling (scarecrows' circles) use the farm-wide set-cover planner, with
+  // the drawn area's tiles as the targets.
+  const tilings = [...lattices(range, rect)];
+  if (tilings.length === 1 && range.shape !== 'square' && !(range.shape === 'diamond' && range.radius === 1)) {
+    const target = new Uint8Array(doc.width * doc.height);
+    for (let y = rect.y; y < rect.y + rect.height; y++) {
+      for (let x = rect.x; x < rect.x + rect.width; x++) {
+        if (map.inBounds(x, y) && x < doc.width && y < doc.height && field.needs[field.targetIndex(x, y)]) target[y * doc.width + x] = 1;
+      }
+    }
+    return planCover(doc, map, item, options, target, (x, y) => field.inArea(x, y) && canPlace(x, y)).positions;
+  }
+
   // Rank finished layouts: moving items outward changes how many end up inside the area.
   let best: TilePosition[] | null = null;
-  for (const onLattice of lattices(range, rect)) {
+  for (const onLattice of tilings) {
     const solution = field.shiftOutward(field.solve(onLattice, canPlace), canPlace);
     if (!best || field.isBetter(solution, best)) best = solution;
   }
@@ -168,6 +182,11 @@ class CoverageField {
 
   inTarget(x: number, y: number): boolean {
     return within(this.target, x, y);
+  }
+
+  /** Whether a spot is close enough to the drawn area for an item there to reach into it. */
+  inArea(x: number, y: number): boolean {
+    return within(this.area, x, y);
   }
 
   targetIndex(x: number, y: number): number {

@@ -56,12 +56,9 @@ export function planCropCover(doc: PlanDocument, map: RestrictionMap, item: Cata
 
   // Crops not yet in range of an item of the same group.
   const target = new Uint8Array(size);
-  const crop = new Uint8Array(size);
   for (const [key, itemId] of doc.allTiles()) {
     const i = index(...parseKey(key));
-    if (i < 0) continue;
-    if (findItem(itemId)?.category === 'crops') crop[i] = 1;
-    if (needsCover(itemId)) target[i] = 1;
+    if (i >= 0 && needsCover(itemId)) target[i] = 1;
   }
   for (const obj of doc.allObjects()) {
     const objRange = findItem(obj.itemId)?.range;
@@ -70,6 +67,33 @@ export function planCropCover(doc: PlanDocument, map: RestrictionMap, item: Cata
       const i = index(x, y);
       if (i >= 0) target[i] = 0;
     }
+  }
+  return planCover(doc, map, item, options, target);
+}
+
+/**
+ * Picks where to add range items of a kind so that every target tile (a mask over the document's
+ * tiles) is in range of one, using as few as it can (see {@link planCropCover} for how). `allowed`
+ * can rule spots out, beyond where the item can't go anyway.
+ */
+export function planCover(
+  doc: PlanDocument,
+  map: RestrictionMap,
+  item: CatalogItem,
+  options: PlacementOptions,
+  target: Uint8Array,
+  allowed: (x: number, y: number) => boolean = () => true,
+): CropCoverPlan {
+  const range = item.range;
+  const none = { positions: [], onCrops: 0, unreachable: 0 };
+  if (!range) return none;
+  const width = doc.width;
+  const size = doc.width * doc.height;
+  const index = (x: number, y: number) => (x >= 0 && y >= 0 && x < doc.width && y < doc.height ? y * width + x : -1);
+  const crop = new Uint8Array(size);
+  for (const [key, itemId] of doc.allTiles()) {
+    const i = index(...parseKey(key));
+    if (i >= 0 && findItem(itemId)?.category === 'crops') crop[i] = 1;
   }
   const targets: number[] = [];
   for (let i = 0; i < size; i++) if (target[i]) targets.push(i);
@@ -88,13 +112,14 @@ export function planCropCover(doc: PlanDocument, map: RestrictionMap, item: Cata
       const i = index(x, y);
       if (i < 0 || seen[i]) continue;
       seen[i] = 1;
-      if (!checkObject(doc, map, item, x, y, options).ok) continue;
+      if (!allowed(x, y) || !checkObject(doc, map, item, x, y, options).ok) continue;
       const covers: number[] = target[i] ? [i] : [];
       for (const [ox, oy] of offsets) {
         const j = index(x + ox, y + oy);
         if (j >= 0 && target[j]) covers.push(j);
       }
-      spots.push({ cell: i, covers: Int32Array.from(covers), onCrop: crop[i] === 1 });
+      // A spot on a crop, or on a tile it's meant to cover, takes a tile from the field.
+      spots.push({ cell: i, covers: Int32Array.from(covers), onCrop: crop[i] === 1 || target[i] === 1 });
     }
   }
 
