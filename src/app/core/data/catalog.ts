@@ -4,7 +4,7 @@
  * building art and footprints, and the art for items the v2 planner lacks (1.6 crops, machines
  * and trees), come from the game's own data (see game-art.generated.ts).
  */
-import { BuildingRules, GameArt } from './game-art';
+import { BuildingRules, GameArt, MapSeason } from './game-art';
 import { BUILDING_RULES, GAME_ART } from './game-art.generated';
 
 /** Which restriction layer an item must respect when placed. */
@@ -429,6 +429,8 @@ export function spriteOverhang(item: CatalogItem): number {
   return (item.spriteHeight ?? item.height) - item.height;
 }
 
-export function spriteUrl(item: CatalogItem): string {
-  return item.art ? `assets/game/${item.art.file}` : `assets/sprites/${item.sprite}.png`;
+/** An item's sprite, in a season's look where its art changes with the seasons (trees). */
+export function spriteUrl(item: CatalogItem, season: MapSeason = 'spring'): string {
+  if (!item.art) return `assets/sprites/${item.sprite}.png`;
+  return `assets/game/${(season !== 'spring' && item.art.seasons?.[season]) || item.art.file}`;
 }

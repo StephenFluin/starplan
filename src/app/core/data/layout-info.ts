@@ -1,3 +1,5 @@
+import { MapSeason } from './game-art';
+
 export interface TilePoint {
   x: number;
   y: number;
@@ -37,6 +39,11 @@ export interface LayoutInfo {
   width: number;
   height: number;
   kind: LayoutKind;
+  /**
+   * Whether summer, fall and winter versions of the image (and of the greenhouse's dirt patch)
+   * exist beside it, named <image>-<season>.png.
+   */
+  seasonal?: boolean;
   /** Whether a restriction mask exists under assets/restrictions. */
   restrictions: boolean;
   author?: string;
@@ -48,4 +55,9 @@ export interface LayoutInfo {
   greenhouseDirt?: GreenhouseDirt;
   /** Objects and tiles (fences) the farm starts with, besides the default buildings. */
   starter?: { objects: readonly StarterItem[]; tiles: readonly StarterItem[] };
+}
+
+/** A layout file (its map image, or the greenhouse's dirt patch) in a season's look, where it has one. */
+export function seasonalImage(layout: LayoutInfo, file: string, season: MapSeason): string {
+  return layout.seasonal && season !== 'spring' ? file.replace(/(\.\w+)$/, `-${season}$1`) : file;
 }

@@ -410,6 +410,7 @@ export class MapCanvas {
     this.overlaidRestrictions = this.store.restrictions;
     renderer.setRestrictionOverlay(options.restrictionOverlay, this.overlaidRestrictions);
     renderer.setAlwaysShowRanges(options.alwaysShowRanges);
+    void renderer.setSeason(options.season);
   }
 
   // --- Pointer input -------------------------------------------------------

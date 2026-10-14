@@ -4,12 +4,13 @@
  *
  * Usage: node scripts/import-farms.mts "<path to Content (unpacked)>"
  *
- * For each farm type it renders the spring map into public/assets/layouts/<id>.png, derives the
+ * For each farm type it renders the map into public/assets/layouts/<id>.png (spring) and
+ * <id>-<season>.png (summer, fall and winter), derives the
  * placement restrictions from the map's tile properties into public/assets/restrictions/<id>.txt,
  * and writes the default building spots to src/app/core/data/farms.generated.ts.
  * Stardew Valley's art is © ConcernedApe.
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { type Image, decodePng, encodePng } from './png.mts';
 
@@ -146,7 +147,17 @@ function sheet(name: string): Image {
   return image;
 }
 
-function readMap(name: string): TmxMap {
+/** The seasons maps are rendered in. The game swaps "spring_" tilesheets for the season's. */
+const SEASONS = ['spring', 'summer', 'fall', 'winter'] as const;
+type Season = (typeof SEASONS)[number];
+
+/** A tilesheet's name in a season: spring_x becomes summer_x and so on, where the game has one. */
+function seasonalSheet(name: string, season: Season): string {
+  const swapped = name.replace(/^spring_/, `${season}_`);
+  return swapped !== name && existsSync(join(content, 'Maps', `${swapped}.png`)) ? swapped : name;
+}
+
+function readMap(name: string, season: Season = 'spring'): TmxMap {
   const xml = readFileSync(join(content, 'Maps', `${name}.tmx`), 'utf8');
   const head = attrs(xml.match(/<map\b([^>]*)>/)![1]);
   const mapProps = properties(xml.slice(0, xml.indexOf('<tileset')));
@@ -155,7 +166,7 @@ function readMap(name: string): TmxMap {
   for (const match of xml.matchAll(/<tileset\b([^>]*)>([\s\S]*?)<\/tileset>/g)) {
     const info = attrs(match[1]);
     const imageInfo = attrs(match[2].match(/<image\b([^>]*)\/?>/)![1]);
-    const image = sheet(imageInfo.source.replace(/\.png$/, ''));
+    const image = sheet(seasonalSheet(imageInfo.source.replace(/\.png$/, ''), season));
     const props = new Map<number, Props>();
     for (const tile of match[2].matchAll(/<tile\b([^>]*)>([\s\S]*?)<\/tile>/g)) {
       const tileProps = properties(tile[2]);
@@ -315,6 +326,9 @@ function main() {
   for (const farm of FARMS) {
     const map = readMap(farm.map);
     writeFileSync(join(layoutDir, `${farm.id}.png`), encodePng(render(map)));
+    for (const season of SEASONS.slice(1)) {
+      writeFileSync(join(layoutDir, `${farm.id}-${season}.png`), encodePng(render(readMap(farm.map, season))));
+    }
     writeFileSync(join(maskDir, `${farm.id}.txt`), encodeMask(restrictions(map)));
 
     // The farmhouse door is 5 tiles in and 2 down from its footprint corner; the entry is below it.
@@ -327,6 +341,9 @@ function main() {
       const patch = readMap(farm.greenhouseDirt);
       const image = `${farm.greenhouseDirt.replace(/^Farm_/, '').replace(/_/g, '-').toLowerCase()}.png`;
       writeFileSync(join(layoutDir, image), encodePng(render(patch)));
+      for (const season of SEASONS.slice(1)) {
+        writeFileSync(join(layoutDir, image.replace(/\.png$/, `-${season}.png`)), encodePng(render(readMap(farm.greenhouseDirt, season))));
+      }
       const mask = encodeMask(patchRestrictions(map, patch, greenhouse.x, greenhouse.y));
       dirt = `greenhouseDirt: { image: ${JSON.stringify(image)}, x: ${greenhouse.x}, y: ${greenhouse.y}, width: ${patch.width}, height: ${patch.height}, restrictions: ${JSON.stringify(mask)} }`;
     }
@@ -338,6 +355,7 @@ function main() {
       `width: ${map.width}`,
       `height: ${map.height}`,
       `kind: "farm"`,
+      `seasonal: true`,
       `restrictions: true`,
       `house: ${tsPoint({ x: house.x, y: house.y - 4 })}`,
       `greenhouse: ${tsPoint({ x: greenhouse.x, y: greenhouse.y - 4 })}`,

@@ -1,7 +1,14 @@
+/** The seasons a farm can be shown in. Spring is the default look. */
+export type MapSeason = 'spring' | 'summer' | 'fall' | 'winter';
+
+/** Files for the seasons other than spring, where the art changes with them. */
+export type SeasonalFiles = Partial<Record<Exclude<MapSeason, 'spring'>, string>>;
+
 /** Art for an item, cropped from the game's own content (see scripts/import-game.mts). */
 export interface GameArt {
-  /** File name under assets/game. */
+  /** File name under assets/game: the spring look. */
   file: string;
+  seasons?: SeasonalFiles;
   /** Sprite size in pixels. */
   width: number;
   height: number;
@@ -51,5 +58,5 @@ export interface BuildingRules {
    * Art the game draws on the ground under the building, below floors (the greenhouse's shadow and
    * doorstep, the pet bowl's platform). In pixels from the footprint's top-left corner.
    */
-  background?: { file: string; x: number; y: number; width: number; height: number };
+  background?: { file: string; seasons?: SeasonalFiles; x: number; y: number; width: number; height: number };
 }

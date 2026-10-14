@@ -10,7 +10,7 @@
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import type { BuildingRules, GroundEffect } from '../src/app/core/data/game-art.ts';
+import type { BuildingRules, GroundEffect, MapSeason, SeasonalFiles } from '../src/app/core/data/game-art.ts';
 import { type Image, blank, crop, decodePng, encodePng, paste } from './png.mts';
 
 const TILE = 16;
@@ -156,22 +156,40 @@ const CROPPED: Record<string, { texture: string; rect: Rect; footprint: { width:
   'giant-qi-fruit': { texture: 'LooseSprites/Cursors_1_6', rect: { x: 368, y: 448, width: 48, height: 64 }, footprint: { width: 3, height: 3 } },
 };
 
+const SEASONS: readonly MapSeason[] = ['spring', 'summer', 'fall', 'winter'];
+
 /**
- * Grown wild trees (Data/WildTrees.json), by the spring texture. They stand on one tile: Tree.draw
- * puts the stump (32, 96, 16x32) on it and centres the 48x96 canopy above, bottoms aligned.
+ * Grown wild trees, by their id in Data/WildTrees.json. They stand on one tile: Tree.draw puts the
+ * stump (32, 96, 16x32) on it and centres the 48x96 canopy above, bottoms aligned.
  */
 const WILD_TREES: Record<string, string> = {
-  'oak-tree': 'tree1_spring',
-  'maple-tree': 'tree2_spring',
-  'pine-tree': 'tree3_spring',
-  'mahogany-tree': 'tree8_spring',
-  'mushroom-tree': 'mushroom_tree',
-  'palm-tree': 'tree_palm',
-  'island-palm-tree': 'tree_palm2',
-  'mossy-oak-tree': 'tree1_greenRain',
-  'mossy-maple-tree': 'tree2_greenRain',
-  'mossy-pine-tree': 'tree3_greenRain',
-  'mystic-tree': 'mystic_tree',
+  'oak-tree': '1',
+  'maple-tree': '2',
+  'pine-tree': '3',
+  'mahogany-tree': '8',
+  'mushroom-tree': '7',
+  'palm-tree': '6',
+  'island-palm-tree': '9',
+  'mossy-oak-tree': '10',
+  'mossy-maple-tree': '11',
+  'mossy-pine-tree': '12',
+  'mystic-tree': '13',
+};
+
+/**
+ * Grown fruit trees, by their sapling's id in Data/FruitTrees.json. Each row of their sheet holds
+ * growth stages then a 48x80 grown tree per season from x = 192; the trunk stands in the middle of
+ * the bottom row of the planner's 3x3 footprint.
+ */
+const FRUIT_TREES: Record<string, string> = {
+  'cherry-tree': '628',
+  apricot: '629',
+  'orange-tree': '630',
+  peach: '631',
+  pomegranate: '632',
+  apple: '633',
+  'banana-tree': '69',
+  'mango-tree': '835',
 };
 
 /** Sprites attached to other items rather than placed on their own. */
@@ -185,7 +203,7 @@ const EXTRAS: Record<string, { texture: string }> = {
  * reaching one tile left of its footprint and two rows below it. doesTileHaveProperty makes the
  * doorstep unbuildable and untillable, and the rest of that area buildable but untillable.
  */
-function greenhouseGround(data: BuildingData): { ground: GroundEffect[]; background: Image } {
+function greenhouseGround(data: BuildingData): { ground: GroundEffect[]; background: (season: MapSeason) => Image } {
   const { X: width, Y: height } = data.Size;
   const door = data.HumanDoor!;
   const ground: GroundEffect[] = [
@@ -193,17 +211,20 @@ function greenhouseGround(data: BuildingData): { ground: GroundEffect[]; backgro
     { x: -1, y: 0, width: width + 1, height: height + 1, buildable: true, tillable: false },
     { x: 1, y: height + 1, width: width - 2, height: 1, buildable: true, tillable: false },
   ];
-  // DrawEntranceTiles: outdoor tiles 812 (top row) and 838 (bottom row) on the doorstep. Then
-  // drawShadow, one tile left of the footprint, with a gap for the path.
-  const background = blank((width + 1) * TILE, 9 * TILE);
-  const outdoors = texture('Maps/spring_outdoorsTileSheet');
-  const columns = outdoors.width / TILE;
-  const tile = (index: number) => crop(outdoors, (index % columns) * TILE, Math.floor(index / columns) * TILE, TILE, TILE);
-  for (let i = 0; i < 3; i++) {
-    paste(background, tile(812), (door.X + i) * TILE, (door.Y + 1) * TILE);
-    paste(background, tile(838), (door.X + i) * TILE, (door.Y + 2) * TILE);
-  }
-  paste(background, crop(texture('Buildings/Greenhouse'), 112, 144, 128, 144), 0, 0);
+  // DrawEntranceTiles: the season's outdoor tiles 812 (top row) and 838 (bottom row) on the
+  // doorstep. Then drawShadow, one tile left of the footprint, with a gap for the path.
+  const background = (season: MapSeason) => {
+    const image = blank((width + 1) * TILE, 9 * TILE);
+    const outdoors = texture(`Maps/${season}_outdoorsTileSheet`);
+    const columns = outdoors.width / TILE;
+    const tile = (index: number) => crop(outdoors, (index % columns) * TILE, Math.floor(index / columns) * TILE, TILE, TILE);
+    for (let i = 0; i < 3; i++) {
+      paste(image, tile(812), (door.X + i) * TILE, (door.Y + 1) * TILE);
+      paste(image, tile(838), (door.X + i) * TILE, (door.Y + 2) * TILE);
+    }
+    paste(image, crop(texture('Buildings/Greenhouse'), 112, 144, 128, 144), 0, 0);
+    return image;
+  };
   return { ground, background };
 }
 
@@ -224,7 +245,7 @@ function buildingRules(id: string, art: BuildingArt, data: BuildingData, spriteH
     });
   });
 
-  let background: { image: Image; x: number; y: number } | null = null;
+  let background: { image: (season: MapSeason) => Image; x: number; y: number } | null = null;
   if (art.building === 'Greenhouse') {
     const greenhouse = greenhouseGround(data);
     ground.push(...greenhouse.ground);
@@ -237,16 +258,33 @@ function buildingRules(id: string, art: BuildingArt, data: BuildingData, spriteH
     const sheet = texture(layer.Texture ?? `Buildings/${art.texture ?? data.Texture.split('\\').pop()!}`);
     const r = layer.SourceRect;
     const [x, y] = layer.DrawPosition.split(',').map((v) => Number(v.trim()));
-    background = { image: crop(sheet, r.X, r.Y, r.Width, r.Height), x, y: data.Size.Y * TILE - spriteHeight + y };
+    background = { image: () => crop(sheet, r.X, r.Y, r.Width, r.Height), x, y: data.Size.Y * TILE - spriteHeight + y };
   }
   if (ground.length) rules.ground = ground;
   if (background) {
     // Named after the texture, so variants that share one (the broken and repaired greenhouse) share the file.
-    const file = `${(art.texture ?? art.building).toLowerCase().replace(/\s+/g, '-')}-background.png`;
-    writeFileSync(join(outDir, file), encodePng(background.image));
-    rules.background = { file, x: background.x, y: background.y, width: background.image.width, height: background.image.height };
+    const name = `${(art.texture ?? art.building).toLowerCase().replace(/\s+/g, '-')}-background`;
+    const spring = background.image('spring');
+    rules.background = { ...seasonal(name, outDir, background.image), x: background.x, y: background.y, width: spring.width, height: spring.height };
   }
   return rules;
+}
+
+/**
+ * Writes art for each season: <name>.png for spring, and <name>-<season>.png for the seasons whose
+ * art differs. Returns the files.
+ */
+function seasonal(name: string, outDir: string, draw: (season: MapSeason) => Image): { file: string; seasons?: SeasonalFiles } {
+  const spring = encodePng(draw('spring'));
+  writeFileSync(join(outDir, `${name}.png`), spring);
+  const seasons: SeasonalFiles = {};
+  for (const season of SEASONS.slice(1) as Exclude<MapSeason, 'spring'>[]) {
+    const png = encodePng(draw(season));
+    if (png.equals(spring)) continue;
+    seasons[season] = `${name}-${season}.png`;
+    writeFileSync(join(outDir, seasons[season]), png);
+  }
+  return { file: `${name}.png`, ...(Object.keys(seasons).length && { seasons }) };
 }
 
 /** A plain data value as a TypeScript literal. */
@@ -317,14 +355,25 @@ function main() {
     save(id, sheet, rect, { width: 1, height: 1 });
   }
   for (const [id, item] of Object.entries(CROPPED)) save(id, texture(item.texture), item.rect, item.footprint);
-  for (const [id, name] of Object.entries(WILD_TREES)) {
-    const sheet = texture(`TerrainFeatures/${name}`);
-    const tree = blank(48, 96);
-    paste(tree, crop(sheet, 32, 96, 16, 32), 16, 64);
-    paste(tree, crop(sheet, 0, 0, 48, 96), 0, 0);
-    const file = `${id}.png`;
-    writeFileSync(join(outDir, file), encodePng(tree));
-    entries.push(`  ${JSON.stringify(id)}: { file: ${JSON.stringify(file)}, width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } },`);
+  const wildTrees = JSON.parse(readFileSync(join(content, 'Data', 'WildTrees.json'), 'utf8')) as Record<string, { Textures: { Texture: string; Season: string | null }[] }>;
+  for (const [id, type] of Object.entries(WILD_TREES)) {
+    const textures = wildTrees[type].Textures;
+    const art = seasonal(id, outDir, (season) => {
+      // A texture for the season, or else the one without a season.
+      const name = (textures.find((t) => t.Season?.toLowerCase() === season) ?? textures.find((t) => !t.Season)!).Texture;
+      const sheet = texture(name);
+      const tree = blank(48, 96);
+      paste(tree, crop(sheet, 32, 96, 16, 32), 16, 64);
+      paste(tree, crop(sheet, 0, 0, 48, 96), 0, 0);
+      return tree;
+    });
+    entries.push(`  ${JSON.stringify(id)}: ${literal({ ...art, width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } })},`);
+  }
+  const fruitTrees = JSON.parse(readFileSync(join(content, 'Data', 'FruitTrees.json'), 'utf8')) as Record<string, { Texture: string; TextureSpriteRow: number }>;
+  for (const [id, sapling] of Object.entries(FRUIT_TREES)) {
+    const data = fruitTrees[sapling];
+    const art = seasonal(id, outDir, (season) => crop(texture(data.Texture), 192 + 48 * SEASONS.indexOf(season), data.TextureSpriteRow * 80, 48, 80));
+    entries.push(`  ${JSON.stringify(id)}: ${literal({ ...art, width: 48, height: 80, offsetX: 0, offsetY: 0, footprint: { width: 3, height: 3 } })},`);
   }
 
   const extras: string[] = [];

@@ -1,6 +1,7 @@
 import { PLATFORM_ID, Service, computed, effect, inject, signal, untracked } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { CatalogItem, RangeGroup, findItem, variantsOf } from './data/catalog';
+import { MapSeason } from './data/game-art';
 import { LayoutInfo } from './data/layout-info';
 import { LAYOUTS } from './data/layouts';
 import { Patch, PlanDocument, cellKey, emptyPatch, invertPatch, isEmptyPatch, parseKey } from './plan/plan-document';
@@ -51,6 +52,8 @@ export type SaveState = 'empty' | 'saving' | 'saved' | 'error';
 
 export interface PlannerOptions extends PlacementOptions {
   brushShape: BrushShape;
+  /** Which season's look the farm and trees are drawn in. */
+  season: MapSeason;
   showGrid: boolean;
   restrictionOverlay: RestrictionOverlay;
   /** Range groups drawn for every placed object, not only on hover. */
@@ -138,6 +141,7 @@ export class PlannerStore {
     anywhere: false,
     overwrite: true,
     brushShape: 'rectangle',
+    season: 'spring',
     showGrid: true,
     restrictionOverlay: 'none',
     alwaysShowRanges: [],

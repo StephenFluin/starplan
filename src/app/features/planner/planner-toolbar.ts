@@ -1,5 +1,6 @@
 import { Component, inject, input, output, signal } from '@angular/core';
 import { CATALOG, RangeGroup } from '../../core/data/catalog';
+import { MapSeason } from '../../core/data/game-art';
 import { BrushShape, PlannerStore, RestrictionOverlay, Tool } from '../../core/planner-store';
 import { DismissPopover } from './dismiss-popover';
 import { PlansMenu } from './plans-menu';
@@ -104,6 +105,15 @@ export type ToolbarAction =
         <div class="popover" role="group" aria-label="View and options">
           <label><input type="checkbox" [checked]="store.options().showGrid" (change)="store.setOption('showGrid', $any($event.target).checked)" /> Grid (G)</label>
           <label><input type="checkbox" [checked]="counterOpen()" (change)="action.emit('toggle-counter')" /> Item count</label>
+          <fieldset>
+            <legend>Season</legend>
+            @for (season of seasons; track season.id) {
+              <label>
+                <input type="radio" name="season" [checked]="store.options().season === season.id" (change)="store.setOption('season', season.id)" />
+                {{ season.label }}
+              </label>
+            }
+          </fieldset>
           <fieldset>
             <legend>Show placeable area</legend>
             @for (overlay of overlays; track overlay.id) {
@@ -282,6 +292,13 @@ export class PlannerToolbar {
       icon: 'M3 3.5h10M3 6h10M3 10h10M3 12.5h10',
     },
     { id: 'freehand', label: 'Freehand', key: 'F', hint: 'drag to paint along the way', icon: 'M2.5 11c2-5 4-6 5-3s3 2 6-4' },
+  ];
+
+  protected readonly seasons: { id: MapSeason; label: string }[] = [
+    { id: 'spring', label: 'Spring' },
+    { id: 'summer', label: 'Summer' },
+    { id: 'fall', label: 'Fall' },
+    { id: 'winter', label: 'Winter' },
   ];
 
   protected readonly overlays: { id: RestrictionOverlay; label: string }[] = [

@@ -5,7 +5,6 @@ Things we want to take care of later, roughly in priority order within each sect
 ## Features
 
 - Dragged scarecrow layouts still use a single greedy pass; the Helpers menu's farm-wide planner (`src/app/core/plan/crop-cover.ts`) does better and could replace it.
-- Season switcher (spring/summer/fall/winter backgrounds and tree sprites).
 - Fence and path autotiling, so connected fences and paths join up visually.
 - Save import extras: the farm's animals and furniture, crops in the greenhouse and other locations, and saves from mobile.
 - Accounts and server-side saved plans (the main reason for the Angular app): sign-in, a "My plans" list, and short share links as an alternative to the long `#p=` hash links.
@@ -17,7 +16,7 @@ Things we want to take care of later, roughly in priority order within each sect
 From v3's public controls, FAQ and changelog (not its code):
 
 - Furniture, and interior planning for the farmhouse (including upgrades and the cellar).
-- Seasonal versions of trees and grass, plus a season switcher.
+- Seasonal grass and crops (the season switcher, maps and trees are done).
 - More placeables: truffle and blue grass.
 - Gates placed over fences.
 - Uploading a custom layout image (PNG).
@@ -29,7 +28,6 @@ From v3's public controls, FAQ and changelog (not its code):
 
 - Furniture.
 - NoFurniture tiles aren't modelled: the game keeps objects off the farmhouse's doorstep and the spouse patio, but the planner allows them there.
-- The greenhouse's doorstep always uses the spring tiles; the game swaps them by season.
 - Optionally import community farm layouts (`npm run import-v2 -- <path> --mods`) and credit their authors in the UI.
 - The greenhouse interior has no restriction data yet, so placement there is unrestricted.
 

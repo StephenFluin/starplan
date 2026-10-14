@@ -1,7 +1,8 @@
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource, TilingSprite } from 'pixi.js';
 import { CATALOG, CatalogItem, RangeGroup, findItem, spriteUrl, variantsOf } from '../../../core/data/catalog';
 import { GAME_SPRITES } from '../../../core/data/game-art.generated';
-import { LayoutInfo } from '../../../core/data/layout-info';
+import { MapSeason } from '../../../core/data/game-art';
+import { LayoutInfo, seasonalImage } from '../../../core/data/layout-info';
 import { Patch, PlacedObject, PlanDocument, parseKey } from '../../../core/plan/plan-document';
 import { TileRect } from '../../../core/plan/placement';
 import { greenhouseDirtShown } from '../../../core/plan/default-buildings';
@@ -68,6 +69,7 @@ export class MapRenderer {
   private hoveredUid: number | null = null;
   private alwaysShowRanges: readonly RangeGroup[] = [];
   private layout: LayoutInfo | null = null;
+  private season: MapSeason = 'spring';
   private doc: PlanDocument | null = null;
   private frame = 0;
   private resizeObserver: ResizeObserver | null = null;
@@ -171,14 +173,9 @@ export class MapRenderer {
     this.layout = layout;
     this.doc = doc;
     if (changed) {
-      this.background.texture = await Assets.load<Texture>(absoluteUrl(`assets/layouts/${layout.image}`));
+      await this.loadMapImages();
       this.background.width = layout.width * TILE;
       this.background.height = layout.height * TILE;
-      const dirt = layout.greenhouseDirt;
-      if (dirt) {
-        this.greenhouseDirt.texture = await Assets.load<Texture>(absoluteUrl(`assets/layouts/${dirt.image}`));
-        this.greenhouseDirt.position.set(dirt.x * TILE, dirt.y * TILE);
-      }
       if (this.grid) {
         this.grid.width = layout.width * TILE;
         this.grid.height = layout.height * TILE;
@@ -186,6 +183,40 @@ export class MapRenderer {
       this.fitToView();
     }
     this.rebuild();
+  }
+
+  /** Draws the farm and its trees in a season's look. */
+  async setSeason(season: MapSeason): Promise<void> {
+    if (season === this.season) return;
+    this.season = season;
+    // Texture.from() only finds preloaded images: load the season's tree and ground art first.
+    await Assets.load([
+      ...new Set([
+        ...CATALOG.map((item) => absoluteUrl(spriteUrl(item, season))),
+        ...CATALOG.flatMap((item) => (item.building?.background ? [absoluteUrl(this.groundArtFile(item))] : [])),
+      ]),
+    ]);
+    if (this.destroyed) return;
+    if (this.layout) await this.loadMapImages();
+    this.rebuild();
+  }
+
+  /** The farm's map image and the greenhouse's dirt patch, in the current season. */
+  private async loadMapImages(): Promise<void> {
+    const layout = this.layout;
+    if (!layout) return;
+    this.background.texture = await Assets.load<Texture>(absoluteUrl(`assets/layouts/${seasonalImage(layout, layout.image, this.season)}`));
+    const dirt = layout.greenhouseDirt;
+    if (dirt) {
+      this.greenhouseDirt.texture = await Assets.load<Texture>(absoluteUrl(`assets/layouts/${seasonalImage(layout, dirt.image, this.season)}`));
+      this.greenhouseDirt.position.set(dirt.x * TILE, dirt.y * TILE);
+    }
+  }
+
+  /** The file of the art a building draws on the ground, in the current season. */
+  private groundArtFile(item: CatalogItem): string {
+    const art = item.building!.background!;
+    return `assets/game/${(this.season !== 'spring' && art.seasons?.[this.season]) || art.file}`;
   }
 
   /** Redraws every tile and object from the document. */
@@ -232,7 +263,7 @@ export class MapRenderer {
       return;
     }
     const sprite = existing ?? new Sprite();
-    sprite.texture = Texture.from(absoluteUrl(spriteUrl(item)));
+    sprite.texture = Texture.from(absoluteUrl(spriteUrl(item, this.season)));
     sprite.position.set(x * TILE, y * TILE);
     sprite.setSize(TILE, TILE);
     if (!existing) {
@@ -263,7 +294,7 @@ export class MapRenderer {
   private createGroundSprite(item: CatalogItem): Sprite | null {
     const art = item.building?.background;
     if (!art) return null;
-    const sprite = new Sprite(Texture.from(absoluteUrl(`assets/game/${art.file}`)));
+    const sprite = new Sprite(Texture.from(absoluteUrl(this.groundArtFile(item))));
     sprite.position.set(art.x, art.y);
     sprite.setSize(art.width, art.height);
     return sprite;
@@ -279,7 +310,7 @@ export class MapRenderer {
     const view = new Container();
     const ground = withGround && this.createGroundSprite(item);
     if (ground) view.addChild(ground);
-    const sprite = new Sprite(Texture.from(absoluteUrl(spriteUrl(item))));
+    const sprite = new Sprite(Texture.from(absoluteUrl(spriteUrl(item, this.season))));
     const bottom = item.height * TILE;
     if (item.art) {
       // Game art at its own size, offset exactly as the game draws it.
@@ -394,7 +425,7 @@ export class MapRenderer {
     const g = this.previewGraphics;
     g.clear();
     for (const ghost of preview?.tiles ?? []) {
-      const sprite = new Sprite(Texture.from(absoluteUrl(spriteUrl(ghost.item))));
+      const sprite = new Sprite(Texture.from(absoluteUrl(spriteUrl(ghost.item, this.season))));
       sprite.position.set(ghost.x * TILE, ghost.y * TILE);
       sprite.setSize(TILE, TILE);
       sprite.alpha = 0.7;
