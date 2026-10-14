@@ -114,6 +114,22 @@ describe('importSave', () => {
     expect(result.plan.objects.some(([id]) => id === 'pine-tree')).toBe(false);
   });
 
+  it('reads the greenhouse and the insides of sheds, barns and coops as plans of their own', () => {
+    const shed = `<Building><buildingType>Big Shed</buildingType><tileX>40</tileX><tileY>40</tileY><indoors xsi:type="Shed"><objects>${tile(3, 4, object('Keg', '12', true))}</objects><terrainFeatures /></indoors></Building>`;
+    const coop = `<Building><buildingType>Coop</buildingType><tileX>50</tileX><tileY>40</tileY><indoors xsi:type="AnimalHouse"><objects>${tile(6, 3, object('Hay', '178', false))}</objects><terrainFeatures /></indoors></Building>`;
+    const xml = save({ buildings: shed + coop }).replace(
+      '<GameLocation><name>Town</name></GameLocation>',
+      `<GameLocation><name>Greenhouse</name><objects /><terrainFeatures>${tile(5, 8, feature('HoeDirt', '<crop><indexOfHarvest>454</indexOfHarvest></crop>'))}</terrainFeatures></GameLocation>`,
+    );
+    const result = load(xml);
+    expect(result.interiors.map((i) => [i.name, i.plan.layout])).toEqual([
+      ['Test Farm: Greenhouse', 'greenhouse'],
+      ['Test Farm: Big Shed', 'shed-big'],
+    ]);
+    expect(result.interiors[0].plan.tiles['ancient-fruit']).toEqual([5, 8]);
+    expect(result.interiors[1].plan.objects).toEqual([['keg', 3, 4]]);
+  });
+
   it('knows the farm type, and says when it can’t read a file', () => {
     expect(load(save({}, '<whichFarm>6</whichFarm>')).plan.layout).toBe('beach');
     expect(load(save({}, '<whichFarm>7</whichFarm><whichModFarm><Id>MeadowlandsFarm</Id></whichModFarm>')).plan.layout).toBe('ranching');

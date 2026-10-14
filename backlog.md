@@ -5,7 +5,7 @@ Things we want to take care of later, roughly in priority order within each sect
 ## Features
 
 - Dragged scarecrow layouts still use a single greedy pass; the Helpers menu's farm-wide planner (`src/app/core/plan/crop-cover.ts`) does better and could replace it.
-- Save import extras: the farm's animals and furniture, crops in the greenhouse and other locations, and saves from mobile.
+- Save import extras: animals and furniture (the planner has no items for them yet), and checking saves from mobile.
 - Accounts and server-side saved plans (the main reason for the Angular app): sign-in, a "My plans" list, and short share links as an alternative to the long `#p=` hash links.
 - Mobile and touch: long-press for the quick search (pinch and two-finger pan already work).
 - Translations / i18n.

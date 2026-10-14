@@ -370,13 +370,18 @@ export class PlannerPage {
       this.announce(SAVE_ERRORS[result], LONG_MESSAGE);
       return;
     }
+    // The insides of the greenhouse and buildings go to the library first, so the farm, opened
+    // last, stays at the top of it.
+    for (const interior of result.interiors) this.store.addToLibrary(interior.plan, interior.name);
     await this.store.load(result.plan, result.name);
     this.analytics.event({ name: 'import_plan', params: { format: 'save', farm: this.farm() } });
     const left = [...result.skipped].sort((a, b) => b[1] - a[1]);
     const listed = left.slice(0, 3).map(([what, count]) => (count > 1 ? `${what} ×${count}` : what));
     const more = left.slice(3).reduce((sum, [, count]) => sum + count, 0);
     const leftOut = listed.length ? ` Left out: ${listed.join(', ')}${more ? ` and ${more} more` : ''}.` : '';
-    this.announce(`Imported ${result.name} from your save.${leftOut}`, LONG_MESSAGE);
+    const count = result.interiors.length;
+    const insides = count ? ` The insides of ${count === 1 ? 'one building' : `${count} buildings`} are in your plans too.` : '';
+    this.announce(`Imported ${result.name} from your save.${insides}${leftOut}`, LONG_MESSAGE);
   }
 
   protected announceBlocked(item: CatalogItem): void {

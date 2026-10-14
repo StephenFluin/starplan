@@ -468,6 +468,12 @@ export class PlannerStore {
     this.startPlan(newPlanId(), name, true);
   }
 
+  /** Adds a plan to the local library without opening it (an imported save's greenhouse and sheds). */
+  addToLibrary(plan: SavedPlan, name: string): void {
+    this.localPlans.write(newPlanId(), plan, name, Date.now());
+    this.savedPlans.set(this.localPlans.list());
+  }
+
   /** Opens a plan from the local library. */
   async openPlan(id: string): Promise<boolean> {
     const saved = this.localPlans.read(id);
