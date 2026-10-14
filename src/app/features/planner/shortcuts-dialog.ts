@@ -37,7 +37,7 @@ const SECTIONS: readonly { title: string; shortcuts: readonly Shortcut[] }[] = [
     title: 'Placing',
     shortcuts: [
       { keys: ['Click', 'Drag'], action: 'Place one, or fill or paint along a drag' },
-      { keys: ['Right-click'], action: 'Search for an item' },
+      { keys: ['Right-click', 'Long press'], action: 'Search for an item' },
       { keys: ['Alt + click', 'I'], action: 'Pick up the item under the pointer' },
     ],
   },

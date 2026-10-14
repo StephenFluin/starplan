@@ -33,6 +33,8 @@ const DRAG_THRESHOLD = 4;
 const FLICK_WINDOW = 80;
 /** How long after a right-button release its context menu event is ignored (Windows sends it then). */
 const CONTEXT_MENU_GRACE = 500;
+/** How long a finger must rest on the map to open the quick search, in milliseconds. */
+const LONG_PRESS = 500;
 
 type Gesture = (
   | { kind: 'pan'; lastX: number; lastY: number; samples: { t: number; x: number; y: number }[] }
@@ -143,6 +145,8 @@ export class MapCanvas {
   /** Touch points currently down, for pinching. */
   private readonly touches = new Map<number, { x: number; y: number }>();
   private lastRightRelease = -Infinity;
+  /** The pending long press of a single finger, which opens the quick search. */
+  private longPress: ReturnType<typeof setTimeout> | undefined;
   /** The restriction map the overlay was last drawn from. */
   private overlaidRestrictions: RestrictionMap | null = null;
 
@@ -422,6 +426,7 @@ export class MapCanvas {
     renderer.stopMotion();
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
 
+    this.cancelLongPress();
     if (event.pointerType === 'touch') {
       this.touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
       // A second finger turns whatever the first one started into a pinch.
@@ -430,6 +435,15 @@ export class MapCanvas {
         return;
       }
       if (this.touches.size > 2) return;
+      // A finger held still opens the quick search there, as a right click does.
+      const at = { x: event.clientX, y: event.clientY };
+      this.longPress = setTimeout(() => {
+        this.longPress = undefined;
+        if (!this.gesture || this.gesture.moved) return;
+        this.gesture = null;
+        this.updatePreview();
+        this.quickSearch.emit(at);
+      }, LONG_PRESS);
     }
 
     const base = { ...this.context(), button: event.button, downX: event.clientX, downY: event.clientY, moved: false };
@@ -497,6 +511,7 @@ export class MapCanvas {
     const gesture = this.gesture;
     if (gesture && !gesture.moved && Math.hypot(event.clientX - gesture.downX, event.clientY - gesture.downY) > DRAG_THRESHOLD) {
       gesture.moved = true;
+      this.cancelLongPress();
     }
     if (gesture?.kind === 'pinch') {
       this.continuePinch(gesture);
@@ -525,7 +540,13 @@ export class MapCanvas {
     this.updatePreview();
   }
 
+  private cancelLongPress(): void {
+    clearTimeout(this.longPress);
+    this.longPress = undefined;
+  }
+
   protected onPointerUp(event: PointerEvent): void {
+    this.cancelLongPress();
     this.touches.delete(event.pointerId);
     const gesture = this.gesture;
     const renderer = this.renderer;
@@ -585,6 +606,7 @@ export class MapCanvas {
   }
 
   protected onPointerCancel(event: PointerEvent): void {
+    this.cancelLongPress();
     this.touches.delete(event.pointerId);
     this.gesture = null;
     this.panning.set(false);
