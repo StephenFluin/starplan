@@ -213,8 +213,10 @@ export function importSave(xml: string, layouts: readonly LayoutInfo[]): SaveImp
     else skip(xsiType(clump) === 'GiantCrop' ? 'Giant crop' : 'Resource clump');
   }
 
-  // Trees take 3x3 tiles in the planner, with the trunk on the bottom row's middle tile.
-  const trees: [CatalogItem, number, number][] = [];
+  // Fruit trees take 3x3 tiles in the planner, with the trunk on the bottom row's middle tile;
+  // wild trees take their trunk's tile.
+  const fruitTrees: [CatalogItem, number, number][] = [];
+  const wildTrees: [CatalogItem, number, number][] = [];
   for (const [x, y, feature] of terrain) {
     switch (xsiType(feature)) {
       case 'Flooring': {
@@ -243,12 +245,12 @@ export function importSave(xml: string, layouts: readonly LayoutInfo[]): SaveImp
       case 'Tree': {
         const item = findItem(WILD_TREES[text(feature, 'treeType') ?? ''] ?? '');
         // Seedlings and saplings sprout all over a farm; only grown trees are part of its layout.
-        if (item && Number(text(feature, 'growthStage')) >= 5 && text(feature, 'stump') !== 'true') trees.push([item, x, y]);
+        if (item && Number(text(feature, 'growthStage')) >= 5 && text(feature, 'stump') !== 'true') wildTrees.push([item, x, y]);
         break;
       }
       case 'FruitTree': {
         const item = findItem(FRUIT_TREES[text(feature, 'treeId') ?? text(feature, 'indexOfFruit') ?? ''] ?? '');
-        if (item && text(feature, 'stump') !== 'true') trees.unshift([item, x, y]);
+        if (item && text(feature, 'stump') !== 'true') fruitTrees.push([item, x, y]);
         else if (!item) skip('Fruit tree');
         break;
       }
@@ -263,7 +265,8 @@ export function importSave(xml: string, layouts: readonly LayoutInfo[]): SaveImp
     if (xsiType(feature) === 'Bush' && text(feature, 'size') === '3') paint('tea', Number(text(tile, 'X')), Number(text(tile, 'Y')));
   }
   // Fruit trees (planted on purpose) get their space before wild ones.
-  for (const [item, x, y] of trees) place(item, x - 1, y - 2);
+  for (const [item, x, y] of fruitTrees) place(item, x - 1, y - 2);
+  for (const [item, x, y] of wildTrees) place(item, x, y);
 
   const planTiles: Record<string, number[]> = {};
   for (const [cell, itemId] of tiles) {
@@ -272,7 +275,7 @@ export function importSave(xml: string, layouts: readonly LayoutInfo[]): SaveImp
   }
   const farmName = text(player, 'farmName');
   return {
-    plan: { v: 4, layout: layout.id, tiles: planTiles, objects, ...(text(farm, 'greenhouseMoved') === 'true' && { greenhouseMoved: true as const }) },
+    plan: { v: 5, layout: layout.id, tiles: planTiles, objects, ...(text(farm, 'greenhouseMoved') === 'true' && { greenhouseMoved: true as const }) },
     name: farmName ? `${farmName} Farm` : 'Imported farm',
     skipped,
   };

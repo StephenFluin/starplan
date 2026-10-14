@@ -105,11 +105,11 @@ describe('importSave', () => {
     expect(tilesOf(result, 'road')).toEqual([13, 10]);
     expect(tilesOf(result, 'tea')).toEqual([14, 10]);
     expect(at(result, 20, 20)).toBe('large-stump');
-    // Trees are 3x3 with the trunk on the bottom row's middle tile.
+    // Fruit trees are 3x3 with the trunk on the bottom row's middle tile; wild trees stand on their trunk's tile.
     expect(at(result, 29, 28)).toBe('apple');
-    expect(at(result, 39, 28)).toBe('oak-tree');
+    expect(at(result, 40, 30)).toBe('oak-tree');
+    expect(at(result, 41, 30)).toBe('maple-tree');
     expect(result.skipped.get('Tapper (on a tree)')).toBe(1);
-    expect(result.skipped.get('Maple Tree (overlapping)')).toBe(1);
     // Saplings are left out.
     expect(result.plan.objects.some(([id]) => id === 'pine-tree')).toBe(false);
   });

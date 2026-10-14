@@ -82,12 +82,17 @@ export const GAME_ART: Readonly<Record<string, GameArt>> = {
   "winter-seeds": { file: "winter-seeds.png", width: 16, height: 16, offsetX: 0, offsetY: 0, footprint: { width: 1, height: 1 } },
   "giant-powdermelon": { file: "giant-powdermelon.png", width: 48, height: 64, offsetX: 0, offsetY: 0, footprint: { width: 3, height: 3 } },
   "giant-qi-fruit": { file: "giant-qi-fruit.png", width: 48, height: 64, offsetX: 0, offsetY: 0, footprint: { width: 3, height: 3 } },
-  "palm-tree": { file: "palm-tree.png", width: 48, height: 96, offsetX: 0, offsetY: 0, footprint: { width: 3, height: 3 } },
-  "island-palm-tree": { file: "island-palm-tree.png", width: 48, height: 96, offsetX: 0, offsetY: 0, footprint: { width: 3, height: 3 } },
-  "mossy-oak-tree": { file: "mossy-oak-tree.png", width: 48, height: 96, offsetX: 0, offsetY: 0, footprint: { width: 3, height: 3 } },
-  "mossy-maple-tree": { file: "mossy-maple-tree.png", width: 48, height: 96, offsetX: 0, offsetY: 0, footprint: { width: 3, height: 3 } },
-  "mossy-pine-tree": { file: "mossy-pine-tree.png", width: 48, height: 96, offsetX: 0, offsetY: 0, footprint: { width: 3, height: 3 } },
-  "mystic-tree": { file: "mystic-tree.png", width: 48, height: 96, offsetX: 0, offsetY: 0, footprint: { width: 3, height: 3 } },
+  "oak-tree": { file: "oak-tree.png", width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } },
+  "maple-tree": { file: "maple-tree.png", width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } },
+  "pine-tree": { file: "pine-tree.png", width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } },
+  "mahogany-tree": { file: "mahogany-tree.png", width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } },
+  "mushroom-tree": { file: "mushroom-tree.png", width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } },
+  "palm-tree": { file: "palm-tree.png", width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } },
+  "island-palm-tree": { file: "island-palm-tree.png", width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } },
+  "mossy-oak-tree": { file: "mossy-oak-tree.png", width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } },
+  "mossy-maple-tree": { file: "mossy-maple-tree.png", width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } },
+  "mossy-pine-tree": { file: "mossy-pine-tree.png", width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } },
+  "mystic-tree": { file: "mystic-tree.png", width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } },
 };
 
 /** Sprites drawn as parts of other items. */

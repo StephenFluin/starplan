@@ -4,7 +4,7 @@ import { SavedPlan, decodePlan, encodePlan, fromSaved, fromV2, parsePlanJson, to
 
 describe('serialize', () => {
   const plan: SavedPlan = {
-    v: 4,
+    v: 5,
     layout: 'regular',
     tiles: { road: [1, 2, 3, 4], parsnip: [10, 10] },
     objects: [['keg', 5, 5], ['house', 59, 12]],
@@ -22,6 +22,12 @@ describe('serialize', () => {
     const doc = new PlanDocument(80, 65);
     doc.apply(fromSaved({ v: 1, layout: 'regular', tiles: {}, objects: [['house', 59, 8], ['greenhouse', 25, 6], ['keg', 5, 5]] }, doc));
     expect(toSaved('regular', doc).objects).toEqual([['keg', 5, 5], ['greenhouse', 25, 10], ['house', 59, 12]]);
+  });
+
+  it('moves wild trees from their old 3x3 footprint onto their trunk, and leaves fruit trees', () => {
+    const doc = new PlanDocument(80, 65);
+    doc.apply(fromSaved({ v: 4, layout: 'regular', tiles: {}, objects: [['oak-tree', 10, 10], ['apple', 20, 10]] }, doc));
+    expect(toSaved('regular', doc).objects).toEqual([['apple', 20, 10], ['oak-tree', 11, 12]]);
   });
 
   it("remembers that the greenhouse has moved", () => {

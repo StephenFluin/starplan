@@ -1,4 +1,4 @@
-import { findItem, variantsOf } from '../data/catalog';
+import { CATALOG, findItem, variantsOf } from '../data/catalog';
 import { LayoutInfo, TilePoint } from '../data/layout-info';
 import { greenhouseStart, isGreenhouse, legacySpriteOffset } from './default-buildings';
 import { Patch, PlacedObject, PlanDocument, emptyPatch, parseKey } from './plan-document';
@@ -9,9 +9,10 @@ import { Patch, PlacedObject, PlanDocument, emptyPatch, parseKey } from './plan-
  * v2: object positions are the footprint's top-left corner, with a 9x6 farmhouse footprint.
  * v3: as v2, with the game's 9x5 farmhouse footprint (one row lower).
  * v4: as v3, with the pet bowl as an object (older farm images had it painted in).
+ * v5: as v4, with wild trees on their trunk's tile (1x1) rather than a 3x3 footprint above it.
  */
 export interface SavedPlan {
-  v: 1 | 2 | 3 | 4;
+  v: 1 | 2 | 3 | 4 | 5;
   layout: string;
   /** itemId -> flat [x0, y0, x1, y1, ...] tile coordinates. */
   tiles: Record<string, number[]>;
@@ -32,7 +33,7 @@ export function toSaved(layout: string, doc: PlanDocument): SavedPlan {
     objects.push([obj.itemId, obj.x, obj.y]);
   }
   objects.sort((a, b) => a[2] - b[2] || a[1] - b[1]);
-  return { v: 4, layout, tiles, objects, ...(doc.greenhouseMoved && { greenhouseMoved: true as const }) };
+  return { v: 5, layout, tiles, objects, ...(doc.greenhouseMoved && { greenhouseMoved: true as const }) };
 }
 
 /**
@@ -52,7 +53,8 @@ export function fromSaved(saved: SavedPlan, doc: PlanDocument, layout?: LayoutIn
   for (const [itemId, x, y] of saved.objects) {
     const item = findItem(itemId);
     if (!item) continue;
-    const obj: PlacedObject = { uid: doc.allocateUid(), itemId: item.id, x, y: y + migrationOffset(saved.v, item.id) };
+    const offset = migrationOffset(saved.v, item.id);
+    const obj: PlacedObject = { uid: doc.allocateUid(), itemId: item.id, x: x + offset.x, y: y + offset.y };
     patch.objects.push({ uid: obj.uid, before: null, after: obj });
   }
   if (saved.v < 4 && layout?.petBowl) addPaintedPetBowl(patch, doc, layout.petBowl);
@@ -85,18 +87,23 @@ function addPaintedPetBowl(patch: Patch, doc: PlanDocument, at: TilePoint): void
 }
 
 /** Rows to move an object down when loading an older plan version. */
-function migrationOffset(version: SavedPlan['v'], itemId: string): number {
+/** Wild trees, which stood on a 3x3 footprint, trunk in the middle of its bottom row, until v5. */
+const WILD_TREES = new Set(CATALOG.filter((item) => item.category === 'trees' && item.kind === 'object' && item.width === 1).map((item) => item.id));
+
+/** How far to move an object when loading an older plan version. */
+function migrationOffset(version: SavedPlan['v'], itemId: string): { x: number; y: number } {
+  if (version < 5 && WILD_TREES.has(itemId)) return { x: 1, y: 2 };
   // v1 stored the farmhouse and greenhouse by sprite corner.
-  if (version === 1) return legacySpriteOffset(itemId);
+  if (version === 1) return { x: 0, y: legacySpriteOffset(itemId) };
   // v2's farmhouse footprint was 9x6, one row taller than the game's.
-  if (version === 2) return variantsOf('house').some((v) => v.id === itemId) ? 1 : 0;
-  return 0;
+  if (version === 2) return { x: 0, y: variantsOf('house').some((v) => v.id === itemId) ? 1 : 0 };
+  return { x: 0, y: 0 };
 }
 
 export function isSavedPlan(value: unknown): value is SavedPlan {
   if (typeof value !== 'object' || value === null) return false;
   const plan = value as Partial<SavedPlan>;
-  return (plan.v === 1 || plan.v === 2 || plan.v === 3 || plan.v === 4) && typeof plan.layout === 'string' && typeof plan.tiles === 'object' && Array.isArray(plan.objects);
+  return (plan.v === 1 || plan.v === 2 || plan.v === 3 || plan.v === 4 || plan.v === 5) && typeof plan.layout === 'string' && typeof plan.tiles === 'object' && Array.isArray(plan.objects);
 }
 
 interface V2Plan {

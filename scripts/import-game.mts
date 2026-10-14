@@ -149,18 +149,29 @@ const ITEMS: Record<string, { bigCraftable: string } | { object: string }> = {
   'winter-seeds': { object: '498' },
 };
 
-/** Items cropped from a texture by hand: giant crops (Data/GiantCrops.json) and wild trees (Data/WildTrees.json). */
+/** Items cropped from a texture by hand: giant crops (Data/GiantCrops.json). */
 const CROPPED: Record<string, { texture: string; rect: Rect; footprint: { width: number; height: number } }> = {
   // Giant crops draw one row above their 3x3 footprint.
   'giant-powdermelon': { texture: 'LooseSprites/Cursors_1_6', rect: { x: 320, y: 448, width: 48, height: 64 }, footprint: { width: 3, height: 3 } },
   'giant-qi-fruit': { texture: 'LooseSprites/Cursors_1_6', rect: { x: 368, y: 448, width: 48, height: 64 }, footprint: { width: 3, height: 3 } },
-  // A grown wild tree is the top-left 48x96 of its sheet, trunk included.
-  'palm-tree': { texture: 'TerrainFeatures/tree_palm', rect: { x: 0, y: 0, width: 48, height: 96 }, footprint: { width: 3, height: 3 } },
-  'island-palm-tree': { texture: 'TerrainFeatures/tree_palm2', rect: { x: 0, y: 0, width: 48, height: 96 }, footprint: { width: 3, height: 3 } },
-  'mossy-oak-tree': { texture: 'TerrainFeatures/tree1_greenRain', rect: { x: 0, y: 0, width: 48, height: 96 }, footprint: { width: 3, height: 3 } },
-  'mossy-maple-tree': { texture: 'TerrainFeatures/tree2_greenRain', rect: { x: 0, y: 0, width: 48, height: 96 }, footprint: { width: 3, height: 3 } },
-  'mossy-pine-tree': { texture: 'TerrainFeatures/tree3_greenRain', rect: { x: 0, y: 0, width: 48, height: 96 }, footprint: { width: 3, height: 3 } },
-  'mystic-tree': { texture: 'TerrainFeatures/mystic_tree', rect: { x: 0, y: 0, width: 48, height: 96 }, footprint: { width: 3, height: 3 } },
+};
+
+/**
+ * Grown wild trees (Data/WildTrees.json), by the spring texture. They stand on one tile: Tree.draw
+ * puts the stump (32, 96, 16x32) on it and centres the 48x96 canopy above, bottoms aligned.
+ */
+const WILD_TREES: Record<string, string> = {
+  'oak-tree': 'tree1_spring',
+  'maple-tree': 'tree2_spring',
+  'pine-tree': 'tree3_spring',
+  'mahogany-tree': 'tree8_spring',
+  'mushroom-tree': 'mushroom_tree',
+  'palm-tree': 'tree_palm',
+  'island-palm-tree': 'tree_palm2',
+  'mossy-oak-tree': 'tree1_greenRain',
+  'mossy-maple-tree': 'tree2_greenRain',
+  'mossy-pine-tree': 'tree3_greenRain',
+  'mystic-tree': 'mystic_tree',
 };
 
 /** Sprites attached to other items rather than placed on their own. */
@@ -306,6 +317,15 @@ function main() {
     save(id, sheet, rect, { width: 1, height: 1 });
   }
   for (const [id, item] of Object.entries(CROPPED)) save(id, texture(item.texture), item.rect, item.footprint);
+  for (const [id, name] of Object.entries(WILD_TREES)) {
+    const sheet = texture(`TerrainFeatures/${name}`);
+    const tree = blank(48, 96);
+    paste(tree, crop(sheet, 32, 96, 16, 32), 16, 64);
+    paste(tree, crop(sheet, 0, 0, 48, 96), 0, 0);
+    const file = `${id}.png`;
+    writeFileSync(join(outDir, file), encodePng(tree));
+    entries.push(`  ${JSON.stringify(id)}: { file: ${JSON.stringify(file)}, width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } },`);
+  }
 
   const extras: string[] = [];
   for (const [id, extra] of Object.entries(EXTRAS)) {

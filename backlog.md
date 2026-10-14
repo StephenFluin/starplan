@@ -31,7 +31,6 @@ From v3's public controls, FAQ and changelog (not its code):
 - Furniture, and interior planning for the farmhouse (including upgrades and the cellar).
 - Seasonal versions of trees and grass, plus a season switcher.
 - More placeables: truffle and blue grass.
-- Wild trees (oak, maple, pine) next to each other. Our trees use a 3×3 footprint, which blocks this; wild trees need a 1×1 footprint with a larger sprite, and fruit trees keep the 3×3 clearance.
 - Gates placed over fences.
 - Uploading a custom layout image (PNG).
 - Stardew Valley Expanded layouts (Immersive Farm 2 Remastered, Grandpa's Farm, Frontier Farm, Ferngill Republic Frontier).

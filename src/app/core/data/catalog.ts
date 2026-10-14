@@ -76,8 +76,14 @@ function building(id: string, name: string, width: number, height: number, extra
   return object(id, name, 'buildings', { width, height, restriction: 'buildable', ...extra });
 }
 
+/** Fruit trees: 3x3, the space they need clear around them to grow. */
 function tree(id: string, name: string, sprite = id): CatalogItem {
   return object(id, name, 'trees', { sprite, width: 3, height: 3 });
+}
+
+/** Wild trees stand on one tile, as in the game, with their canopy drawn over the tiles around it. */
+function wildTree(id: string, name: string): CatalogItem {
+  return object(id, name, 'trees');
 }
 
 const ITEMS: readonly CatalogItem[] = [
@@ -272,18 +278,18 @@ const ITEMS: readonly CatalogItem[] = [
   tree('pomegranate', 'Pomegranate Tree'),
   tree('banana-tree', 'Banana Tree'),
   tree('mango-tree', 'Mango Tree'),
-  tree('oak-tree', 'Oak Tree'),
-  tree('maple-tree', 'Maple Tree'),
-  tree('pine-tree', 'Pine Tree'),
-  tree('mahogany-tree', 'Mahogany Tree'),
-  tree('mushroom-tree', 'Mushroom Tree'),
-  tree('palm-tree', 'Palm Tree'),
-  tree('island-palm-tree', 'Palm Tree (island)'),
-  tree('mystic-tree', 'Mystic Tree'),
+  wildTree('oak-tree', 'Oak Tree'),
+  wildTree('maple-tree', 'Maple Tree'),
+  wildTree('pine-tree', 'Pine Tree'),
+  wildTree('mahogany-tree', 'Mahogany Tree'),
+  wildTree('mushroom-tree', 'Mushroom Tree'),
+  wildTree('palm-tree', 'Palm Tree'),
+  wildTree('island-palm-tree', 'Palm Tree (island)'),
+  wildTree('mystic-tree', 'Mystic Tree'),
   // Green Rain variants of the oak, maple and pine, grown from Mossy Seeds.
-  tree('mossy-oak-tree', 'Mossy Tree (broadleaf)'),
-  tree('mossy-maple-tree', 'Mossy Tree (vines)'),
-  tree('mossy-pine-tree', 'Mossy Tree (fiddlehead)'),
+  wildTree('mossy-oak-tree', 'Mossy Tree (broadleaf)'),
+  wildTree('mossy-maple-tree', 'Mossy Tree (vines)'),
+  wildTree('mossy-pine-tree', 'Mossy Tree (fiddlehead)'),
   tile('tree', 'Tree (marker)', 'trees', { restriction: 'accessible' }),
 
   // Paths & floors
