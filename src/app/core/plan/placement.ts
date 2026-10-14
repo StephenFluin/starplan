@@ -234,6 +234,47 @@ export function outlineCells(rect: TileRect): [number, number][] {
   return cells;
 }
 
+/**
+ * Which lines of a rectangle a Rows fill takes: along its longer side, two lines then a one-tile
+ * walkway, so every tile is next to a walkway (trellis crops can't be walked through).
+ */
+function rowLines(rect: TileRect, lineSize: number): { across: boolean; starts: number[] } {
+  const across = rect.width >= rect.height;
+  const length = across ? rect.height : rect.width;
+  const starts: number[] = [];
+  for (let at = 0, inPair = 0; at + lineSize <= length; ) {
+    starts.push(at);
+    at += lineSize;
+    if (++inPair === 2) {
+      at += 1;
+      inPair = 0;
+    }
+  }
+  return { across, starts };
+}
+
+/** The cells a Rows fill paints: pairs of rows along the rectangle's longer side, with walkways between. */
+export function rowCells(rect: TileRect): [number, number][] {
+  const { across, starts } = rowLines(rect, 1);
+  const cells: [number, number][] = [];
+  for (const start of starts) {
+    if (across) for (let x = rect.x; x < rect.x + rect.width; x++) cells.push([x, rect.y + start]);
+    else for (let y = rect.y; y < rect.y + rect.height; y++) cells.push([rect.x + start, y]);
+  }
+  return cells;
+}
+
+/** Where a Rows fill puts copies of an object: lines of them in pairs, with walkways between. */
+export function rowPositions(item: CatalogItem, rect: TileRect): { x: number; y: number }[] {
+  const { across, starts } = rowLines(rect, rect.width >= rect.height ? item.height : item.width);
+  const positions: { x: number; y: number }[] = [];
+  for (const start of starts) {
+    if (across) for (let x = rect.x; x + item.width <= rect.x + rect.width; x += item.width) positions.push({ x, y: rect.y + start });
+    else for (let y = rect.y; y + item.height <= rect.y + rect.height; y += item.height) positions.push({ x: rect.x + start, y });
+  }
+  return positions;
+}
+
 /** Where copies of an item go around a rectangle's edge: stepping by its footprint along each side. */
 export function outlinePositions(item: CatalogItem, rect: TileRect): { x: number; y: number }[] {
   if (item.width === 1 && item.height === 1) return outlineCells(rect).map(([x, y]) => ({ x, y }));

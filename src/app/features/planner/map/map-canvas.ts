@@ -8,6 +8,9 @@ import {
   objectAtVisual,
   outlineCells,
   outlinePositions,
+  rowCells,
+  rowPositions,
+  TileRect,
   objectPositions,
   erase,
   paintMisfit,
@@ -34,7 +37,7 @@ const CONTEXT_MENU_GRACE = 500;
 type Gesture = (
   | { kind: 'pan'; lastX: number; lastY: number; samples: { t: number; x: number; y: number }[] }
   /** Painting, erasing, box-selecting, or laying out sprinklers over a tile rectangle (or around its edge). */
-  | { kind: 'rect'; startX: number; startY: number; outline?: boolean }
+  | { kind: 'rect'; startX: number; startY: number; pattern?: 'outline' | 'rows' }
   /** Placing copies of an object, anchored where its ghost was when the press started. */
   | { kind: 'place'; originX: number; originY: number }
   /** Dragging the selection. */
@@ -426,8 +429,9 @@ export class MapCanvas {
       }
     } else if (tool === 'brush' && this.store.pasting()) {
       this.gesture = { ...base, kind: 'paste' };
-    } else if (this.store.options().brushShape === 'outline') {
-      this.gesture = { ...base, kind: 'rect', startX: tile.x, startY: tile.y, outline: true };
+    } else if (this.store.options().brushShape === 'outline' || (this.store.options().brushShape === 'rows' && tool === 'brush')) {
+      const pattern = this.store.options().brushShape === 'outline' ? 'outline' : 'rows';
+      this.gesture = { ...base, kind: 'rect', startX: tile.x, startY: tile.y, pattern };
     } else if (this.store.options().brushShape === 'freehand') {
       this.gesture = { ...base, kind: 'stroke', cells: [[tile.x, tile.y]], seen: new Set([cellKey(tile.x, tile.y)]), lastX: tile.x, lastY: tile.y };
     } else if (tool === 'brush' && item?.kind === 'object' && !usesCoverageLayout(item)) {
@@ -535,9 +539,9 @@ export class MapCanvas {
       const end = gesture.moved ? tile : { x: gesture.startX, y: gesture.startY };
       const rect = rectFromCorners(gesture.startX, gesture.startY, end.x, end.y);
       const item = this.store.activeItem();
-      if (gesture.outline && gesture.moved) {
+      if (gesture.pattern && gesture.moved) {
         if (this.store.tool() === 'eraser') this.store.erase(outlineCells(rect));
-        else if (item) this.store.paintStroke(outlinePositions(item, rect));
+        else if (item) this.store.paintStroke(patternPositions(gesture.pattern, item, rect));
       } else switch (this.store.tool()) {
         case 'eraser':
           this.store.erase(rect);
@@ -708,19 +712,19 @@ export class MapCanvas {
       const item = store.activeItem();
       preview.rect = { ...rect, style: tool === 'eraser' ? 'erase' : tool === 'select' ? 'select' : 'brush' };
       const size = `${rect.width} × ${rect.height}`;
-      if (gesture.outline && gesture.moved) {
+      if (gesture.pattern && gesture.moved) {
         preview.rect = undefined;
         if (tool === 'eraser') {
           preview.erased = outlineCells(rect);
           label = `Erase ${describeErased(erase(store.doc, preview.erased))} · ${size}`;
         } else if (item?.kind === 'tile') {
-          const cells = outlineCells(rect);
+          const cells = patternPositions(gesture.pattern, item, rect).map(({ x, y }): [number, number] => [x, y]);
           preview.blocked = blockedTiles(store.doc, store.restrictions, item, cells, options);
           const blocked = new Set(preview.blocked.map(([x, y]) => cellKey(x, y)));
           preview.tiles = cells.filter(([x, y]) => !blocked.has(cellKey(x, y))).map(([x, y]) => ({ item, x, y }));
           label = `${item.name} × ${paintTiles(store.doc, store.restrictions, item, cells, options).tiles.length} · ${size}`;
         } else if (item) {
-          preview.ghosts = placeEach(store.doc, store.restrictions, item, outlinePositions(item, rect), options).objects.map((change) => ({ item, ...change.after! }));
+          preview.ghosts = placeEach(store.doc, store.restrictions, item, patternPositions(gesture.pattern, item, rect), options).objects.map((change) => ({ item, ...change.after! }));
           label = `${item.name} × ${preview.ghosts.length} · ${size}`;
         }
       } else if (tool === 'brush' && item?.kind === 'tile') {
@@ -817,6 +821,12 @@ export class MapCanvas {
       preview.blocked.push(...checkObject(doc, restrictions, item, at.x, at.y, options).blocked);
     }
   }
+}
+
+/** Where an Outline or Rows drag puts an item's copies (cells, for ground tiles). */
+function patternPositions(pattern: 'outline' | 'rows', item: CatalogItem, rect: TileRect): { x: number; y: number }[] {
+  if (item.kind === 'tile') return (pattern === 'outline' ? outlineCells(rect) : rowCells(rect)).map(([x, y]) => ({ x, y }));
+  return pattern === 'outline' ? outlinePositions(item, rect) : rowPositions(item, rect);
 }
 
 /** "3 objects and 12 tiles": what an erase would remove. */

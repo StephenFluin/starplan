@@ -68,12 +68,14 @@ export type ToolbarAction =
         @for (shape of shapes; track shape.id) {
           <button
             type="button"
+            class="icon"
+            [attr.aria-label]="shape.label"
             [attr.aria-pressed]="store.options().brushShape === shape.id"
             [class.active]="store.options().brushShape === shape.id"
             [title]="shape.label + ' (' + shape.key + '): ' + shape.hint"
             (click)="store.setOption('brushShape', shape.id)"
           >
-            {{ shape.label }}
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path [attr.d]="shape.icon" [class.filled]="shape.id === 'rectangle'" /></svg>
           </button>
         }
       </div>
@@ -203,6 +205,7 @@ export type ToolbarAction =
     .share { border-color: var(--accent); }
     button.icon { display: inline-flex; align-items: center; padding: 5px 8px; }
     button.icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    button.icon svg .filled { fill: currentColor; }
     .popover {
       position: absolute; top: calc(100% + 4px); left: 0; z-index: 10; min-width: 240px; padding: 10px;
       display: grid; gap: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
@@ -268,10 +271,17 @@ export class PlannerToolbar {
     { id: 'eraser', label: 'Erase', key: 'E' },
   ];
 
-  protected readonly shapes: { id: BrushShape; label: string; key: string; hint: string }[] = [
-    { id: 'rectangle', label: 'Rectangle', key: 'R', hint: 'drag to fill an area' },
-    { id: 'outline', label: 'Outline', key: 'O', hint: 'drag to go around an area’s edge, like a fence' },
-    { id: 'freehand', label: 'Freehand', key: 'F', hint: 'drag to paint along the way' },
+  protected readonly shapes: { id: BrushShape; label: string; key: string; hint: string; icon: string }[] = [
+    { id: 'rectangle', label: 'Rectangle', key: 'R', hint: 'drag to fill an area', icon: 'M3 3h10v10H3z' },
+    { id: 'outline', label: 'Outline', key: 'O', hint: 'drag to go around an area’s edge, like a fence', icon: 'M3.5 3.5h9v9h-9z' },
+    {
+      id: 'rows',
+      label: 'Rows',
+      key: 'W',
+      hint: 'drag to fill an area in pairs of rows with walkways between, for trellis crops or machines',
+      icon: 'M3 3.5h10M3 6h10M3 10h10M3 12.5h10',
+    },
+    { id: 'freehand', label: 'Freehand', key: 'F', hint: 'drag to paint along the way', icon: 'M2.5 11c2-5 4-6 5-3s3 2 6-4' },
   ];
 
   protected readonly overlays: { id: RestrictionOverlay; label: string }[] = [

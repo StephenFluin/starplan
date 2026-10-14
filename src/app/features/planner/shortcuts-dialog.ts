@@ -27,7 +27,7 @@ const SECTIONS: readonly { title: string; shortcuts: readonly Shortcut[] }[] = [
       { keys: ['B'], action: 'Place' },
       { keys: ['S'], action: 'Select (press again to go back)' },
       { keys: ['E'], action: 'Erase (press again to go back)' },
-      { keys: ['R', 'O', 'F'], action: 'Drag to fill a rectangle, go around its edge, or freehand' },
+      { keys: ['R', 'O', 'W', 'F'], action: 'Drag to fill a rectangle, go around its edge, fill it in rows with walkways, or freehand' },
       { keys: ['G'], action: 'Show or hide the grid' },
     ],
   },

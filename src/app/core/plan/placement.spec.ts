@@ -1,6 +1,6 @@
 import { findItem } from '../data/catalog';
 import { PlanDocument, invertPatch } from './plan-document';
-import { Group, PlacementOptions, checkObject, erase, lineCells, moveObjects, outlineCells, outlinePositions, paintTiles, placeEach, placeObjects, putGroup, rectFromCorners } from './placement';
+import { Group, PlacementOptions, checkObject, erase, lineCells, moveObjects, outlineCells, outlinePositions, paintTiles, rowCells, rowPositions, placeEach, placeObjects, putGroup, rectFromCorners } from './placement';
 import { IMPASSABLE, NOT_BUILDABLE, RestrictionMap } from './restriction-map';
 
 const item = (id: string) => {
@@ -84,6 +84,22 @@ describe('placement', () => {
       // A ring of 2x2 rocks: three along the top and bottom, one more on each side.
       expect(doc.objectCount).toBe(8);
       expect(doc.objectAt(2, 2)).toBeNull();
+    });
+  });
+
+  describe('rows', () => {
+    it('fill pairs of rows along the longer side, with a walkway after each pair', () => {
+      const rows = new Set(rowCells({ x: 0, y: 0, width: 6, height: 8 }).map(([x]) => x));
+      // Taller than wide: columns 0, 1, then 3, 4.
+      expect([...rows]).toEqual([0, 1, 3, 4]);
+      expect(rowCells({ x: 2, y: 3, width: 4, height: 2 })).toHaveLength(8);
+    });
+
+    it('step objects by their footprint', () => {
+      // Wider than tall: lines of 2x2 rocks at rows 0 and 2, a walkway, then 5 and 7.
+      const positions = rowPositions(item('large-rock'), { x: 0, y: 0, width: 10, height: 9 });
+      expect([...new Set(positions.map((p) => p.y))]).toEqual([0, 2, 5, 7]);
+      expect(positions).toHaveLength(20);
     });
   });
 

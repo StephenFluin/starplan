@@ -251,6 +251,8 @@ export class PlannerPage {
         return this.store.setOption('brushShape', 'freehand');
       case 'o':
         return this.store.setOption('brushShape', 'outline');
+      case 'w':
+        return this.store.setOption('brushShape', 'rows');
       case 'v': {
         const { objects } = this.store.selection();
         if (objects.length !== 1) return;

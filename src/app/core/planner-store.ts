@@ -29,8 +29,11 @@ import { LocalPlanInfo, LocalPlans, newPlanId } from './local-plans';
 
 export type Tool = 'brush' | 'eraser' | 'select';
 export type RestrictionOverlay = 'none' | 'buildable' | 'tillable';
-/** How Place and Erase drags work: fill the dragged rectangle, only its edge, or follow the pointer. */
-export type BrushShape = 'rectangle' | 'outline' | 'freehand';
+/**
+ * How Place and Erase drags work: fill the dragged rectangle, only its edge, rows of it with walkways
+ * between, or follow the pointer.
+ */
+export type BrushShape = 'rectangle' | 'outline' | 'rows' | 'freehand';
 /** Selected objects, and ground tiles (by cell key) that move, copy and delete with them. */
 export interface Selection {
   objects: readonly number[];
