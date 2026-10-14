@@ -657,13 +657,14 @@ export class MapCanvas {
    */
   private placementRect(gesture: Extract<Gesture, { kind: 'place' }>, item: CatalogItem, end: { x: number; y: number } | null) {
     const to = end ? objectOrigin(item, end.x, end.y) : { x: gesture.originX, y: gesture.originY };
-    // Whole copies only, repeating from the first one toward the pointer.
-    const span = (from: number, toward: number, size: number) => {
-      const count = Math.floor(Math.abs(toward - from) / size) + 1;
-      return { start: toward < from ? from - (count - 1) * size : from, length: count * size };
+    // Whole copies only, repeating from the first one toward the pointer. Buildings with a door
+    // repeat downward with a row free in front of it (see objectPositions).
+    const span = (from: number, toward: number, size: number, step: number) => {
+      const count = Math.floor(Math.abs(toward - from) / step) + 1;
+      return { start: toward < from ? from - (count - 1) * step : from, length: (count - 1) * step + size };
     };
-    const across = span(gesture.originX, to.x, item.width);
-    const down = span(gesture.originY, to.y, item.height);
+    const across = span(gesture.originX, to.x, item.width, item.width);
+    const down = span(gesture.originY, to.y, item.height, item.height + (item.building?.door ? 1 : 0));
     return { x: across.start, y: down.start, width: across.length, height: down.length };
   }
 

@@ -364,13 +364,18 @@ export function placeAt(doc: PlanDocument, item: CatalogItem, positions: readonl
   return patch;
 }
 
-/** Where {@link placeObjects} puts copies of an item to fill a rectangle: stepping by its footprint, so they never overlap. */
+/**
+ * Where {@link placeObjects} puts copies of an item to fill a rectangle: stepping by its footprint,
+ * so they never overlap. Buildings with a door leave a row in front of it, so one row's doors
+ * aren't walled in by the next.
+ */
 export function objectPositions(item: CatalogItem, rect: TileRect): { x: number; y: number }[] {
   const positions: { x: number; y: number }[] = [];
+  const stepY = item.height + (item.building?.door ? 1 : 0);
   const stepsX = Math.max(1, Math.floor(rect.width / item.width));
-  const stepsY = Math.max(1, Math.floor(rect.height / item.height));
+  const stepsY = Math.max(1, Math.floor((rect.height + stepY - item.height) / stepY));
   for (let sy = 0; sy < stepsY; sy++) {
-    for (let sx = 0; sx < stepsX; sx++) positions.push({ x: rect.x + sx * item.width, y: rect.y + sy * item.height });
+    for (let sx = 0; sx < stepsX; sx++) positions.push({ x: rect.x + sx * item.width, y: rect.y + sy * stepY });
   }
   return positions;
 }

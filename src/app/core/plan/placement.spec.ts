@@ -125,6 +125,13 @@ describe('placement', () => {
     });
   });
 
+  it('leaves a row in front of the doors when filling a rectangle with buildings', () => {
+    // Coops are 6x3 with their door on the bottom row: rows of them start every four tiles.
+    const coops = new PlanDocument(20, 20);
+    const patch = placeObjects(coops, RestrictionMap.open(20, 20), item('coop'), { x: 0, y: 0, width: 12, height: 10 }, strict);
+    expect(patch.objects.map((o) => [o.after?.x, o.after?.y])).toEqual([[0, 0], [6, 0], [0, 4], [6, 4]]);
+  });
+
   it('fills a dragged rectangle with copies stepped by the footprint', () => {
     const patch = placeObjects(doc, map, item('keg'), { x: 0, y: 0, width: 3, height: 2 }, strict);
     expect(patch.objects).toHaveLength(6);
