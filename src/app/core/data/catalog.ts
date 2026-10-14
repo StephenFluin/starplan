@@ -4,8 +4,8 @@
  * building art and footprints, and the art for items the v2 planner lacks (1.6 crops, machines
  * and trees), come from the game's own data (see game-art.generated.ts).
  */
-import { BuildingRules, GameArt, MapSeason } from './game-art';
-import { BUILDING_RULES, GAME_ART } from './game-art.generated';
+import { BuildingRules, GameArt, MapSeason, Tiling } from './game-art';
+import { BUILDING_RULES, GAME_ART, TILINGS } from './game-art.generated';
 
 /** Which restriction layer an item must respect when placed. */
 export type Restriction = 'tillable' | 'buildable' | 'accessible';
@@ -48,6 +48,8 @@ export interface CatalogItem {
   art?: GameArt;
   /** For buildings: how they sit on the farm, from the game's data. */
   building?: BuildingRules;
+  /** For fences and floors: how they join their neighbours on the map (the sprite stays the icon). */
+  tiling?: Tiling;
   restriction: Restriction;
   seasons?: readonly Season[];
   range?: RangeShape;
@@ -359,7 +361,8 @@ const ITEMS: readonly CatalogItem[] = [
 export const CATALOG: readonly CatalogItem[] = ITEMS.map((item) => {
   const art = GAME_ART[item.id];
   const building = BUILDING_RULES[item.id];
-  return { ...item, ...(art && { art }), ...(building && { building }) };
+  const tiling = TILINGS[item.id];
+  return { ...item, ...(art && { art }), ...(building && { building }), ...(tiling && { tiling }) };
 });
 
 export const CATEGORIES: readonly { id: Category; name: string }[] = [

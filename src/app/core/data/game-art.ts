@@ -60,3 +60,32 @@ export interface BuildingRules {
    */
   background?: { file: string; seasons?: SeasonalFiles; x: number; y: number; width: number; height: number };
 }
+
+/**
+ * How fences and floors join their neighbours of the same kind, as the game draws them (Fence.draw,
+ * Flooring.draw). Sheets are files under assets/game; positions are in their pixels.
+ */
+export type Tiling =
+  | {
+      kind: 'fence';
+      /** The sheet of 16x32 pieces, drawn one tile up from the fence's tile. */
+      file: string;
+      /** Fences join others of the same group (the same fence item). */
+      group: string;
+      /** For fences holding a torch: where it's drawn, in pixels from the tile's top-left, and nudges at a run's ends. */
+      torch?: { x: number; y: number; leftEnd: number; rightEnd: number };
+    }
+  | {
+      kind: 'floor';
+      file: string;
+      winterFile: string;
+      /** The top-left of the floor's 4x4 block of 16px pieces, in summer and in winter. */
+      corner: { x: number; y: number };
+      winterCorner: { x: number; y: number };
+      /** Floors join others of the same group (the same floor). */
+      group: string;
+      /** Default floors fill inner corners; paths don't; random ones (stepping stones) pick any piece. */
+      connect: 'default' | 'path' | 'decorated' | 'random';
+      /** Size of the inner-corner pieces, in pixels. */
+      cornerSize: number;
+    };

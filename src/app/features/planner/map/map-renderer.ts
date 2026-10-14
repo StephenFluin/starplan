@@ -1,7 +1,7 @@
 import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource, TilingSprite } from 'pixi.js';
 import { CATALOG, CatalogItem, RangeGroup, findItem, spriteUrl, variantsOf } from '../../../core/data/catalog';
 import { GAME_SPRITES } from '../../../core/data/game-art.generated';
-import { MapSeason } from '../../../core/data/game-art';
+import { MapSeason, Tiling } from '../../../core/data/game-art';
 import { LayoutInfo, seasonalImage } from '../../../core/data/layout-info';
 import { Patch, PlacedObject, PlanDocument, parseKey } from '../../../core/plan/plan-document';
 import { TileRect } from '../../../core/plan/placement';
@@ -10,6 +10,7 @@ import { rangeTiles } from '../../../core/plan/range';
 import { NOT_BUILDABLE, NOT_TILLABLE, RestrictionMap } from '../../../core/plan/restriction-map';
 import { RestrictionOverlay, Selection } from '../../../core/planner-store';
 import { Camera } from './camera';
+import { TilePiece, fenceSum, tilePieces } from './tiling';
 
 export const TILE = 16;
 
@@ -35,6 +36,11 @@ const key = (x: number, y: number) => `${x},${y}`;
 const HOUSE_IDS = new Set(variantsOf('house').map((item) => item.id));
 const MAILBOX = GAME_SPRITES['mailbox'];
 
+/** The sheets a fence or floor is drawn from. */
+function tilingFiles(tiling: Tiling): string[] {
+  return tiling.kind === 'fence' ? [tiling.file] : [tiling.file, tiling.winterFile];
+}
+
 /** Resolves an app-relative asset path against the document base, so loaders and caches agree on one key. */
 function absoluteUrl(path: string): string {
   return new URL(path, document.baseURI).href;
@@ -52,7 +58,8 @@ export class MapRenderer {
   private readonly greenhouseDirt = new Sprite();
   /** Art buildings draw on the ground (the greenhouse's shadow and doorstep), under floors. */
   private readonly groundLayer = new Container();
-  private readonly tileLayer = new Container();
+  /** Ground tiles; fences sort by row, since each stands a tile tall over the one above. */
+  private readonly tileLayer = new Container({ sortableChildren: true });
   private readonly objectLayer = new Container({ sortableChildren: true });
   /** Highlights selected ground tiles, above tiles and below objects. */
   private readonly tileSelectionLayer = new Graphics();
@@ -62,7 +69,9 @@ export class MapRenderer {
   private readonly ghostLayer = new Container();
   private readonly previewGraphics = new Graphics();
   private grid: TilingSprite | null = null;
-  private readonly tileSprites = new Map<string, Sprite>();
+  private readonly tileSprites = new Map<string, Container>();
+  /** Textures for pieces of fence and floor sheets, by file and rectangle. */
+  private readonly pieceTextures = new Map<string, Texture>();
   private readonly objectSprites = new Map<number, Container>();
   private readonly groundSprites = new Map<number, Sprite>();
   private readonly selectedUids = new Set<number>();
@@ -124,6 +133,7 @@ export class MapRenderer {
         ...CATALOG.map((item) => absoluteUrl(spriteUrl(item))),
         ...CATALOG.flatMap((item) => (item.building?.background ? [absoluteUrl(`assets/game/${item.building.background.file}`)] : [])),
         ...Object.values(GAME_SPRITES).map((sprite) => absoluteUrl(`assets/game/${sprite.file}`)),
+        ...CATALOG.flatMap((item) => (item.tiling ? tilingFiles(item.tiling).map((file) => absoluteUrl(`assets/game/${file}`)) : [])),
       ]),
     ]);
 
@@ -253,23 +263,72 @@ export class MapRenderer {
     this.greenhouseDirt.visible = Boolean(this.layout && this.doc && greenhouseDirtShown(this.doc, this.layout));
   }
 
+  /** Draws (or clears) a ground tile, and redraws the fences and floors around it that join it. */
   private setTile(x: number, y: number, itemId: string | null): void {
+    this.drawTile(x, y, itemId ? findItem(itemId) : undefined);
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const id = (dx || dy) && this.doc?.tileAt(x + dx, y + dy);
+        const item = id ? findItem(id) : undefined;
+        if (item?.tiling) this.drawTile(x + dx, y + dy, item);
+      }
+    }
+  }
+
+  private drawTile(x: number, y: number, item: CatalogItem | undefined): void {
     const cell = key(x, y);
-    const existing = this.tileSprites.get(cell);
-    const item = itemId ? findItem(itemId) : undefined;
-    if (!item) {
-      existing?.destroy();
-      this.tileSprites.delete(cell);
-      return;
+    this.tileSprites.get(cell)?.destroy();
+    this.tileSprites.delete(cell);
+    if (!item) return;
+    const view = new Container();
+    view.position.set(x * TILE, y * TILE);
+    if (item.tiling) {
+      const tiling = item.tiling;
+      const doc = this.doc;
+      const layout = this.layout;
+      // Neighbours of the same fence or floor join it; so does the edge of the map, for floors.
+      const joins = (dx: number, dy: number) => {
+        if (layout && tiling.kind === 'floor' && (x + dx < 0 || y + dy < 0 || x + dx >= layout.width || y + dy >= layout.height)) return true;
+        const id = doc?.tileAt(x + dx, y + dy);
+        const other = id ? findItem(id)?.tiling : undefined;
+        return other?.kind === tiling.kind && other.group === tiling.group;
+      };
+      const winter = this.season === 'winter' && layout?.kind === 'farm';
+      for (const piece of tilePieces(tiling, x, y, joins, winter)) {
+        const sprite = new Sprite(this.pieceTexture(piece));
+        sprite.position.set(piece.dx, piece.dy);
+        view.addChild(sprite);
+      }
+      if (tiling.kind === 'fence') {
+        if (tiling.torch) {
+          // The torch a fence holds, nudged at the ends of a run as the game does.
+          const sum = fenceSum(joins);
+          const torch = new Sprite(Texture.from(absoluteUrl(spriteUrl(findItem('torch')!))));
+          const nudge = sum === 10 ? tiling.torch.rightEnd : sum === 100 ? tiling.torch.leftEnd : tiling.torch.x;
+          torch.position.set(nudge, tiling.torch.y);
+          torch.setSize(TILE, TILE);
+          view.addChild(torch);
+        }
+        view.zIndex = 1 + y / 10000;
+      }
+    } else {
+      const sprite = new Sprite(Texture.from(absoluteUrl(spriteUrl(item, this.season))));
+      sprite.setSize(TILE, TILE);
+      view.addChild(sprite);
     }
-    const sprite = existing ?? new Sprite();
-    sprite.texture = Texture.from(absoluteUrl(spriteUrl(item, this.season)));
-    sprite.position.set(x * TILE, y * TILE);
-    sprite.setSize(TILE, TILE);
-    if (!existing) {
-      this.tileLayer.addChild(sprite);
-      this.tileSprites.set(cell, sprite);
+    this.tileLayer.addChild(view);
+    this.tileSprites.set(cell, view);
+  }
+
+  private pieceTexture(piece: TilePiece): Texture {
+    const id = `${piece.file}:${piece.sx},${piece.sy},${piece.width},${piece.height}`;
+    let texture = this.pieceTextures.get(id);
+    if (!texture) {
+      const sheet = Texture.from(absoluteUrl(`assets/game/${piece.file}`));
+      texture = new Texture({ source: sheet.source, frame: new Rectangle(piece.sx, piece.sy, piece.width, piece.height) });
+      this.pieceTextures.set(id, texture);
     }
+    return texture;
   }
 
   private addObject(obj: PlacedObject): void {
