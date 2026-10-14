@@ -12,6 +12,7 @@ export type ToolbarAction =
   | 'export-png'
   | 'export-json'
   | 'import-json'
+  | 'import-save'
   | 'toggle-counter'
   | 'new'
   | 'shortcuts';
@@ -205,6 +206,11 @@ export class PlannerToolbar {
   protected readonly fileCommands: { action: ToolbarAction; label: string; hint: string }[] = [
     { action: 'new', label: 'New plan', hint: 'Start over on this farm. This plan stays under your plans.' },
     { action: 'import-json', label: 'Import plan file…', hint: 'A Starplan or v2 planner .json file' },
+    {
+      action: 'import-save',
+      label: 'Import game save…',
+      hint: 'Your farm from Stardew Valley: in the game’s Saves folder, the file named like its folder',
+    },
     { action: 'export-json', label: 'Export plan file', hint: 'Save a .json file you can import later' },
     { action: 'export-png', label: 'Save as image', hint: 'The whole map as a .png' },
   ];

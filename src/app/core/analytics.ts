@@ -16,7 +16,7 @@ export type AnalyticsEvent =
   | { name: 'new_plan'; params: { farm: string; source: 'new_button' | 'farm_picker' } }
   | { name: 'share'; params: { method: 'link'; content_type: 'plan'; farm: string } }
   | { name: 'export_plan'; params: { format: 'json' | 'png'; farm: string } }
-  | { name: 'import_plan'; params: { format: 'starplan' | 'v2'; farm: string } }
+  | { name: 'import_plan'; params: { format: 'starplan' | 'v2' | 'save'; farm: string } }
   | { name: 'open_shared_plan'; params: { farm: string } };
 
 /**

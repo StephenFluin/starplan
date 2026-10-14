@@ -19,7 +19,7 @@ Things we want to take care of later, roughly in priority order within each sect
 - Keyboard rectangles: Shift + arrows to stretch a rectangle from the keyboard cursor, for filling areas without a pointer.
 - Season switcher (spring/summer/fall/winter backgrounds and tree sprites).
 - Fence and path autotiling, so connected fences and paths join up visually.
-- Import a Stardew Valley save file.
+- Save import extras: the farm's animals and furniture, crops in the greenhouse and other locations, and saves from mobile.
 - Accounts and server-side saved plans (the main reason for the Angular app): sign-in, a "My plans" list, and short share links as an alternative to the long `#p=` hash links.
 - Mobile and touch: long-press for the quick search (pinch and two-finger pan already work).
 - Translations / i18n.
@@ -35,7 +35,7 @@ From v3's public controls, FAQ and changelog (not its code):
 - Gates placed over fences.
 - Uploading a custom layout image (PNG).
 - Stardew Valley Expanded layouts (Immersive Farm 2 Remastered, Grandpa's Farm, Frontier Farm, Ferngill Republic Frontier).
-- Save game import, and 11 languages (both also listed above).
+- 11 languages (also listed above).
 - Crops drawn in their ready-to-harvest state.
 
 ## Data & assets

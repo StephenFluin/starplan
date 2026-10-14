@@ -1,6 +1,7 @@
 import { Component, ElementRef, afterNextRender, inject, signal, viewChild } from '@angular/core';
 import { Analytics } from '../../core/analytics';
 import { NO_SELECTION, PlannerStore, Tool, isEmptySelection } from '../../core/planner-store';
+import { SaveImportError, importSave } from '../../core/plan/save-import';
 import { parsePlanJson } from '../../core/plan/serialize';
 import { blockedMessage } from './block-message';
 import { ItemCounter } from './item-counter';
@@ -14,6 +15,14 @@ import { VariantPicker } from './variant-picker';
 import { CatalogItem } from '../../core/data/catalog';
 
 const PAN_STEP = 64;
+/** How long longer messages (what an import left out) stay up, in milliseconds. */
+const LONG_MESSAGE = 10_000;
+
+const SAVE_ERRORS: Record<SaveImportError, string> = {
+  'not-a-save': 'That file is not a plan or a Stardew Valley save this planner can read.',
+  'save-info': "That's the save's SaveGameInfo file. Pick the other file in the same folder: the one named like the folder.",
+  'unknown-farm': 'That save is on a farm type from a mod, which the planner has no map for.',
+};
 /** Tiles Shift + an arrow key moves the selection or the keyboard cursor. */
 const NUDGE_LARGE = 5;
 
@@ -65,6 +74,8 @@ const NUDGE_LARGE = 5;
     }
     <p class="status" role="status" aria-live="polite">{{ status() }}</p>
     <input #fileInput type="file" accept="application/json,.json" hidden (change)="importFile($event)" />
+    <!-- Save files have no extension, so this one takes any file. -->
+    <input #saveInput type="file" hidden (change)="importFile($event)" />
   `,
   styles: `
     :host { display: flex; flex-direction: column; height: 100dvh; }
@@ -95,6 +106,7 @@ export class PlannerPage {
   private readonly analytics = inject(Analytics);
   private readonly map = viewChild.required(MapCanvas);
   private readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
+  private readonly saveInput = viewChild.required<ElementRef<HTMLInputElement>>('saveInput');
   private statusTimer: ReturnType<typeof setTimeout> | undefined;
   /** Tool to return to when E or S is pressed again. */
   private previousTool: Tool = 'brush';
@@ -135,6 +147,9 @@ export class PlannerPage {
       case 'import-json':
         this.fileInput().nativeElement.click();
         return;
+      case 'import-save':
+        this.saveInput().nativeElement.click();
+        return;
       case 'export-json':
         this.download(new Blob([JSON.stringify(this.store.snapshot())], { type: 'application/json' }), 'json');
         this.analytics.event({ name: 'export_plan', params: { format: 'json', farm: this.farm() } });
@@ -162,9 +177,12 @@ export class PlannerPage {
     const file = input.files?.[0];
     input.value = '';
     if (!file) return;
-    const parsed = parsePlanJson(await file.text());
+    const text = await file.text();
+    // Save files are XML; plans are JSON.
+    if (text.trimStart().startsWith('<')) return this.importSaveFile(text);
+    const parsed = parsePlanJson(text);
     if (!parsed) {
-      this.announce('That file is not a plan this planner can read.');
+      this.announce('That file is not a plan or a Stardew Valley save this planner can read.');
       return;
     }
     await this.store.load(parsed.plan, file.name.replace(/\.json$/i, ''), parsed.legacy);
@@ -321,6 +339,21 @@ export class PlannerPage {
     return true;
   }
 
+  private async importSaveFile(xml: string): Promise<void> {
+    const result = importSave(xml, this.store.layouts);
+    if (typeof result === 'string') {
+      this.announce(SAVE_ERRORS[result], LONG_MESSAGE);
+      return;
+    }
+    await this.store.load(result.plan, result.name);
+    this.analytics.event({ name: 'import_plan', params: { format: 'save', farm: this.farm() } });
+    const left = [...result.skipped].sort((a, b) => b[1] - a[1]);
+    const listed = left.slice(0, 3).map(([what, count]) => (count > 1 ? `${what} ×${count}` : what));
+    const more = left.slice(3).reduce((sum, [, count]) => sum + count, 0);
+    const leftOut = listed.length ? ` Left out: ${listed.join(', ')}${more ? ` and ${more} more` : ''}.` : '';
+    this.announce(`Imported ${result.name} from your save.${leftOut}`, LONG_MESSAGE);
+  }
+
   protected announceBlocked(item: CatalogItem): void {
     this.announce(`${item.name} doesn't fit here.`);
   }
@@ -360,9 +393,9 @@ export class PlannerPage {
     URL.revokeObjectURL(url);
   }
 
-  protected announce(message: string): void {
+  protected announce(message: string, duration = 4000): void {
     this.status.set(message);
     clearTimeout(this.statusTimer);
-    this.statusTimer = setTimeout(() => this.status.set(''), 4000);
+    this.statusTimer = setTimeout(() => this.status.set(''), duration);
   }
 }
