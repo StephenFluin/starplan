@@ -22,7 +22,7 @@ import {
 import { RestrictionMap } from './plan/restriction-map';
 import { SavedPlan, decodePlan, encodePlan, fromSaved, toSaved } from './plan/serialize';
 import { coverageLayout, usesCoverageLayout } from './plan/coverage-layout';
-import { ScarecrowPlan, planScarecrows } from './plan/auto-scarecrows';
+import { CropCoverPlan, planCropCover } from './plan/crop-cover';
 import { addDefaultBuildings, applyEdit, greenhouseDirtShown } from './plan/default-buildings';
 import { restrictionsWithBuildings } from './plan/building-ground';
 import { LocalPlanInfo, LocalPlans, newPlanId } from './local-plans';
@@ -241,13 +241,13 @@ export class PlannerStore {
   }
 
   /**
-   * Adds as few scarecrows of a kind as it takes for every crop to be in range of one, as one edit,
-   * and selects them so their ranges show.
+   * Adds as few range items of a kind (scarecrows, sprinklers) as it takes for every crop to be in
+   * range of one, as one edit, and selects them so their ranges show.
    */
-  addScarecrows(itemId: string): ScarecrowPlan | null {
+  coverCrops(itemId: string): CropCoverPlan | null {
     const item = findItem(itemId);
-    if (!item) return null;
-    const plan = planScarecrows(this.doc, this.restrictions, item, this.options());
+    if (!item?.range) return null;
+    const plan = planCropCover(this.doc, this.restrictions, item, this.options());
     if (!plan.positions.length) return plan;
     const patch = placeAt(this.doc, item, plan.positions);
     this.commit(patch);

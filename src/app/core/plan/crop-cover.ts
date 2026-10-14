@@ -1,29 +1,32 @@
-import { CatalogItem, findItem } from '../data/catalog';
+import { CatalogItem, RangeShape, findItem } from '../data/catalog';
 import { PlanDocument, parseKey } from './plan-document';
 import { PlacementOptions, checkObject } from './placement';
 import { rangeTiles } from './range';
 import { RestrictionMap } from './restriction-map';
 
-export interface ScarecrowPlan {
-  /** Where to put the new scarecrows. */
+export interface CropCoverPlan {
+  /** Where to put the new items. */
   positions: { x: number; y: number }[];
   /** How many of them take the place of a crop. */
   onCrops: number;
-  /** Crop tiles no scarecrow can reach. */
+  /** Crop tiles none can reach. */
   unreachable: number;
 }
 
-/** Greedy restarts to try, and how many of the best to try merging pairs in (see planScarecrows). */
+/** Greedy restarts to try, and how many of the best to try merging pairs in (see planCropCover). */
 const RESTARTS = 24;
 const MERGED = 6;
 
-/** Ground that crows go for: crops and the tilled soil and trellises they grow on (not tea bushes). */
-function needsScarecrow(itemId: string): boolean {
+/**
+ * Ground that needs watering and guarding from crows: crops and the tilled soil and trellises they
+ * grow on (not tea bushes).
+ */
+function needsCover(itemId: string): boolean {
   const item = findItem(itemId);
   return item?.category === 'crops' && item.kind === 'tile' && item.id !== 'tea';
 }
 
-/** A spot a scarecrow could go: its tile index, the crops it would cover (by index) and whether it's on one. */
+/** A spot an item could go: its tile index, the crops it would cover (by index) and whether it's on one. */
 interface Spot {
   cell: number;
   covers: Int32Array;
@@ -31,18 +34,19 @@ interface Spot {
 }
 
 /**
- * Picks where to add scarecrows of a kind so that every crop on the farm is in range of one, using
- * as few as it can. Scarecrows already placed (rarecrows included) count.
+ * Picks where to add range items of a kind (scarecrows, or sprinklers) so that every crop on the
+ * farm is in range of one, using as few as it can. Items of the same group already placed count
+ * (rarecrows as scarecrows, any sprinkler as a sprinkler).
  *
  * Finding the true minimum is a set-cover problem, so it's a greedy pass (the spot covering the
- * most uncovered crops, again and again), then dropping scarecrows the others make redundant and
+ * most uncovered crops, again and again), then dropping items the others make redundant and
  * merging pairs that one spot can replace. Early choices decide the rest, so the greedy pass starts
  * from several spots (the biggest, and a spread of those reaching the hardest crop to reach: the
- * best layout often splits a field rather than taking its middle) and the best result wins. Like players do, it puts
- * scarecrows inside fields when that means fewer of them (each takes one crop's place), and on free
- * ground when that's as good.
+ * best layout often splits a field rather than taking its middle) and the best result wins. Like
+ * players do, it puts them inside fields when that means fewer of them (each takes one crop's
+ * place), and on free ground when that's as good.
  */
-export function planScarecrows(doc: PlanDocument, map: RestrictionMap, item: CatalogItem, options: PlacementOptions): ScarecrowPlan {
+export function planCropCover(doc: PlanDocument, map: RestrictionMap, item: CatalogItem, options: PlacementOptions): CropCoverPlan {
   const range = item.range;
   const none = { positions: [], onCrops: 0, unreachable: 0 };
   if (!range) return none;
@@ -50,18 +54,18 @@ export function planScarecrows(doc: PlanDocument, map: RestrictionMap, item: Cat
   const size = doc.width * doc.height;
   const index = (x: number, y: number) => (x >= 0 && y >= 0 && x < doc.width && y < doc.height ? y * width + x : -1);
 
-  // Crops not yet in range of a scarecrow.
+  // Crops not yet in range of an item of the same group.
   const target = new Uint8Array(size);
   const crop = new Uint8Array(size);
   for (const [key, itemId] of doc.allTiles()) {
     const i = index(...parseKey(key));
     if (i < 0) continue;
     if (findItem(itemId)?.category === 'crops') crop[i] = 1;
-    if (needsScarecrow(itemId)) target[i] = 1;
+    if (needsCover(itemId)) target[i] = 1;
   }
   for (const obj of doc.allObjects()) {
     const objRange = findItem(obj.itemId)?.range;
-    if (objRange?.group !== 'scarecrow') continue;
+    if (objRange?.group !== range.group) continue;
     for (const [x, y] of rangeTiles(objRange, obj.x, obj.y)) {
       const i = index(x, y);
       if (i >= 0) target[i] = 0;
@@ -106,9 +110,11 @@ export function planScarecrows(doc: PlanDocument, map: RestrictionMap, item: Cat
   const starts = [...new Set([...bySize(spots.map((_, s) => s)).slice(0, 4), ...reaching.filter((_, i) => i % stride === 0).slice(0, RESTARTS)])];
   const cost = (plan: number[]) => plan.length * 1000 + plan.filter((s) => spots[s].onCrop).length;
 
-  // Greedy and prune from every start; then merge pairs in the most promising few.
-  const plans = starts.map((start) => {
-    const plan = coverGreedily(spots, target, start);
+  // Greedy and prune from every start, and from each alignment of a perfect tiling (square and
+  // plus-shaped sprinkler ranges tile a field exactly); then merge pairs in the most promising few.
+  const tilings = lattices(range).map((onLattice) => spots.flatMap((spot, s) => (onLattice(spot.cell % width, Math.floor(spot.cell / width)) ? [s] : [])));
+  const plans = [...starts.map((start) => [start]), ...tilings].map((initial) => {
+    const plan = coverGreedily(spots, target, initial);
     prune(spots, plan, coverCounts(spots, plan, size));
     return plan;
   });
@@ -124,18 +130,18 @@ export function planScarecrows(doc: PlanDocument, map: RestrictionMap, item: Cat
 }
 
 /**
- * Starting from a spot, repeatedly picks the spot covering the most still-uncovered targets, free
- * ground winning ties. Lazy: a spot's count only ever drops, so a spot whose recounted value still
- * beats every other's last one is the best.
+ * Starting from some spots, repeatedly picks the spot covering the most still-uncovered targets,
+ * free ground winning ties. Lazy: a spot's count only ever drops, so a spot whose recounted value
+ * still beats every other's last one is the best.
  */
-function coverGreedily(spots: readonly Spot[], target: Uint8Array, start: number): number[] {
+function coverGreedily(spots: readonly Spot[], target: Uint8Array, initial: readonly number[]): number[] {
   const left = target.slice();
   const picked: number[] = [];
   const pick = (s: number) => {
     picked.push(s);
     for (const c of spots[s].covers) left[c] = 0;
   };
-  pick(start);
+  for (const s of initial) pick(s);
   // Higher counts first; on equal counts, free ground first.
   const score = (s: number, count: number) => count * 2 + (spots[s].onCrop ? 0 : 1);
   const queue = new MaxHeap();
@@ -202,6 +208,21 @@ class MaxHeap {
     [this.items[a], this.items[b]] = [this.items[b], this.items[a]];
     [this.scores[a], this.scores[b]] = [this.scores[b], this.scores[a]];
   }
+}
+
+/**
+ * The alignments of a range's perfect tiling, as tests of whether a tile is on it: square ranges
+ * tile on a (2r+1) grid, the plus-shaped basic sprinkler on the (x + 2y) mod 5 lattice, and other
+ * shapes (scarecrows' circles) have none.
+ */
+function lattices(range: RangeShape): ((x: number, y: number) => boolean)[] {
+  const mod = (n: number, m: number) => ((n % m) + m) % m;
+  if (range.shape === 'square') {
+    const step = range.radius * 2 + 1;
+    return Array.from({ length: step * step }, (_, i) => (x: number, y: number) => mod(x - (i % step), step) === 0 && mod(y - Math.floor(i / step), step) === 0);
+  }
+  if (range.shape === 'diamond' && range.radius === 1) return Array.from({ length: 5 }, (_, k) => (x: number, y: number) => mod(x + 2 * y - k, 5) === 0);
+  return [];
 }
 
 /** How many of the chosen spots cover each tile. */

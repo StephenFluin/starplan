@@ -12,7 +12,7 @@ import { QuickSearch } from './quick-search';
 import { SelectionAction, SelectionBar, describeGroup } from './selection-bar';
 import { MOD, ShortcutsDialog } from './shortcuts-dialog';
 import { VariantPicker } from './variant-picker';
-import { CatalogItem } from '../../core/data/catalog';
+import { CatalogItem, findItem } from '../../core/data/catalog';
 
 const PAN_STEP = 64;
 /** How long longer messages (what an import left out) stay up, in milliseconds. */
@@ -32,7 +32,7 @@ const NUDGE_LARGE = 5;
   host: { '(document:keydown)': 'onKeydown($event)' },
   template: `
     <header>
-      <app-planner-toolbar [counterOpen]="counterOpen()" (action)="onAction($event)" (layoutChange)="changeLayout($event)" />
+      <app-planner-toolbar [counterOpen]="counterOpen()" (action)="onAction($event)" (layoutChange)="changeLayout($event)" (coverCrops)="coverCrops($event)" />
     </header>
     <div class="body">
       <aside aria-label="Items">
@@ -141,9 +141,7 @@ export class PlannerPage {
       case 'shortcuts':
         this.shortcutsOpen.set(true);
         return;
-      case 'scarecrows':
-      case 'deluxe-scarecrows':
-        return this.addScarecrows(action === 'scarecrows' ? 'scarecrow' : 'deluxe-scarecrow');
+
       case 'new':
         await this.store.newPlan(this.store.layout().id);
         this.analytics.event({ name: 'new_plan', params: { farm: this.farm(), source: 'new_button' } });
@@ -306,18 +304,21 @@ export class PlannerPage {
     }
   }
 
-  private addScarecrows(itemId: string): void {
-    const plan = this.store.addScarecrows(itemId);
-    if (!plan) return;
-    const kind = itemId === 'scarecrow' ? 'scarecrow' : 'deluxe scarecrow';
+  protected coverCrops(itemId: string): void {
+    const plan = this.store.coverCrops(itemId);
+    const item = findItem(itemId);
+    if (!plan || !item) return;
+    const watering = item.range?.group === 'sprinkler';
     const added = plan.positions.length;
     const unreachable = plan.unreachable ? ` ${plan.unreachable} crop tiles are out of reach of anywhere one can go.` : '';
     if (!added) {
-      this.announce(plan.unreachable ? `No ${kind} can reach the crops left uncovered.${unreachable}` : 'Every crop is already in range of a scarecrow.');
+      const done = watering ? 'Every crop is already watered by a sprinkler.' : 'Every crop is already in range of a scarecrow.';
+      this.announce(plan.unreachable ? `No ${item.name} can reach the crops left uncovered.${unreachable}` : done);
       return;
     }
     const onCrops = plan.onCrops ? ` (${plan.onCrops} in place of a crop)` : '';
-    this.announce(`Added ${added} ${kind}${added === 1 ? '' : 's'}${onCrops}.${unreachable || ' Every crop is in range.'} Undo to take them back.`, LONG_MESSAGE);
+    const covered = watering ? ' Every crop is watered.' : ' Every crop is in range.';
+    this.announce(`Added ${item.name} ×${added}${onCrops}.${unreachable || covered} Undo to take them back.`, LONG_MESSAGE);
   }
 
   protected hasSelection(): boolean {

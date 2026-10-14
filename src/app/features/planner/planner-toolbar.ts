@@ -1,5 +1,5 @@
 import { Component, inject, input, output, signal } from '@angular/core';
-import { RangeGroup } from '../../core/data/catalog';
+import { CATALOG, RangeGroup } from '../../core/data/catalog';
 import { BrushShape, PlannerStore, RestrictionOverlay, Tool } from '../../core/planner-store';
 import { DismissPopover } from './dismiss-popover';
 import { PlansMenu } from './plans-menu';
@@ -15,9 +15,7 @@ export type ToolbarAction =
   | 'import-save'
   | 'toggle-counter'
   | 'new'
-  | 'shortcuts'
-  | 'scarecrows'
-  | 'deluxe-scarecrows';
+  | 'shortcuts';
 
 /** Top bar with tools, history, layout choice, view options and file actions. */
 @Component({
@@ -144,11 +142,24 @@ export type ToolbarAction =
       <button type="button" aria-haspopup="true" [attr.aria-expanded]="helpersOpen()" (click)="helpersOpen.update((o) => !o)">Helpers</button>
       @if (helpersOpen()) {
         <div class="popover commands" role="group" aria-label="Helpers">
-          @for (command of helperCommands; track command.action) {
-            <button type="button" (click)="helpersOpen.set(false); action.emit(command.action)">
+          @for (command of helperCommands; track command.itemId) {
+            <button type="button" (click)="helpersOpen.set(false); coverCrops.emit(command.itemId)">
               {{ command.label }}<small>{{ command.hint }}</small>
             </button>
           }
+          <div class="with-choice">
+            <button type="button" (click)="helpersOpen.set(false); coverCrops.emit(sprinkler())">
+              Water crops with sprinklers<small>Adds as few as it takes for every crop to be watered</small>
+            </button>
+            <label>
+              <span class="visually-hidden">Sprinkler type</span>
+              <select [value]="sprinkler()" (change)="sprinkler.set($any($event.target).value)">
+                @for (option of sprinklers; track option.id) {
+                  <option [value]="option.id">{{ option.name }}</option>
+                }
+              </select>
+            </label>
+          </div>
         </div>
       }
     </div>
@@ -204,6 +215,9 @@ export type ToolbarAction =
     .commands { gap: 2px; padding: 6px; }
     .commands button { display: grid; text-align: left; border-radius: 6px; padding: 6px 8px; }
     .commands small { color: var(--muted); font-size: 12px; }
+    .with-choice { display: grid; gap: 4px; padding-bottom: 4px; }
+    .with-choice label { padding: 0 8px; }
+    .with-choice select { width: 100%; }
     .spacer { flex: 1; }
   `,
 })
@@ -219,10 +233,15 @@ export class PlannerToolbar {
   protected readonly optionsOpen = signal(false);
   protected readonly fileOpen = signal(false);
   protected readonly helpersOpen = signal(false);
-  protected readonly helperCommands: { action: ToolbarAction; label: string; hint: string }[] = [
-    { action: 'scarecrows', label: 'Cover crops with scarecrows', hint: 'Adds as few as it takes for every crop to be in range of one' },
-    { action: 'deluxe-scarecrows', label: 'Cover crops with deluxe scarecrows', hint: 'The same with deluxe scarecrows, which reach twice as far' },
+  protected readonly helperCommands: { itemId: string; label: string; hint: string }[] = [
+    { itemId: 'scarecrow', label: 'Cover crops with scarecrows', hint: 'Adds as few as it takes for every crop to be in range of one' },
+    { itemId: 'deluxe-scarecrow', label: 'Cover crops with deluxe scarecrows', hint: 'The same with deluxe scarecrows, which reach twice as far' },
   ];
+  protected readonly sprinklers = CATALOG.filter((item) => item.range?.group === 'sprinkler');
+  /** The sprinkler "Water crops" uses. */
+  protected readonly sprinkler = signal('q-sprinkler');
+  /** A helper should cover every crop with items of this id. */
+  readonly coverCrops = output<string>();
   protected readonly fileCommands: { action: ToolbarAction; label: string; hint: string }[] = [
     { action: 'new', label: 'New plan', hint: 'Start over on this farm. This plan stays under your plans.' },
     { action: 'import-json', label: 'Import plan file…', hint: 'A Starplan or v2 planner .json file' },
