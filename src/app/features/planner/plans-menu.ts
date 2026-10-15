@@ -79,6 +79,17 @@ import { DismissPopover } from './dismiss-popover';
       justify-self: start; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px;
       background: transparent; color: #fca5a5; font: inherit; cursor: pointer;
     }
+    @media (max-width: 640px), (max-height: 480px) and (pointer: coarse) {
+      :host { display: block; }
+      .trigger { width: 100%; max-width: none; }
+      .name { max-width: 100%; }
+      .popover { max-width: calc(100vw - 16px); box-sizing: border-box; }
+    }
+    @media (pointer: coarse) {
+      .trigger, button.open, .delete-current { min-height: 44px; }
+      button.delete { min-width: 44px; }
+      input { font-size: 16px; }
+    }
   `,
 })
 export class PlansMenu {

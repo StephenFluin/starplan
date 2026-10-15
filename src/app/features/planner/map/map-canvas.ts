@@ -35,6 +35,8 @@ const FLICK_WINDOW = 80;
 const CONTEXT_MENU_GRACE = 500;
 /** How long a finger must rest on the map to open the quick search, in milliseconds. */
 const LONG_PRESS = 500;
+/** How far above a finger, in pixels, what a drag will do is shown, so the finger doesn't cover it. */
+const TOUCH_LABEL_LIFT = 60;
 
 type Gesture = (
   | { kind: 'pan'; lastX: number; lastY: number; samples: { t: number; x: number; y: number }[] }
@@ -107,6 +109,9 @@ type Gesture = (
       <p id="map-navigation-hint" class="hint">
         Move: drag empty ground (Select), right-drag or Space + drag. Zoom: scroll or pinch. All shortcuts: ?
       </p>
+      @if (!pinched()) {
+        <p class="hint touch-hint">Move and zoom: two fingers. Find an item: press and hold.</p>
+      }
     </div>
     @if (dragLabel(); as label) {
       <div class="drag-label" aria-hidden="true" [style.left.px]="label.x + 16" [style.top.px]="label.y + 16">{{ label.text }}</div>
@@ -119,7 +124,7 @@ type Gesture = (
   `,
   styles: `
     :host { position: relative; display: block; overflow: hidden; background: #1b1410; }
-    .host { position: absolute; inset: 0; outline: none; touch-action: none; }
+    .host { position: absolute; inset: 0; outline: none; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
     .host:focus-visible { box-shadow: inset 0 0 0 3px #fbbf24; }
     .bar {
       position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; align-items: flex-end; gap: 8px;
@@ -135,6 +140,12 @@ type Gesture = (
     }
     @media (max-width: 640px) { .hint { display: none; } }
     .loading { left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 14px; }
+    .touch-hint { display: none; }
+    /* Touchscreens move with two fingers rather than the mouse and keys. */
+    @media (hover: none) and (pointer: coarse) {
+      .hint { display: none; }
+      .touch-hint { display: block; }
+    }
   `,
 })
 export class MapCanvas {
@@ -162,6 +173,10 @@ export class MapCanvas {
   protected readonly cursorStatus = signal('');
   /** The pointer's last position over the map, in pixels from its top-left. */
   private pointer = { x: 0, y: 0 };
+  /** Whether that pointer is a finger, which hides what's under it. */
+  private touchPointer = false;
+  /** Whether two fingers have moved the map yet, after which the hint saying how is gone. */
+  protected readonly pinched = signal(false);
   private readonly panning = signal(false);
   /** Whether the pointer is over something the Select tool can drag: an object or a selected tile. */
   private readonly overMovable = signal(false);
@@ -530,6 +545,7 @@ export class MapCanvas {
     const tile = renderer.toTile(event.clientX, event.clientY);
     const bounds = this.hostRef().nativeElement.getBoundingClientRect();
     this.pointer = { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
+    this.touchPointer = event.pointerType === 'touch';
     if (gesture?.kind === 'stroke') extendStroke(gesture, tile);
     const previous = this.hover();
     if (previous?.x === tile.x && previous.y === tile.y && gesture?.moved !== true) return;
@@ -671,6 +687,7 @@ export class MapCanvas {
       midY,
     };
     this.panning.set(false);
+    this.pinched.set(true);
     this.updatePreview();
   }
 
@@ -832,9 +849,10 @@ export class MapCanvas {
     }
     if (this.keyboardCursor()) preview.cursor = tile;
     renderer.setPreview(preview);
-    // By the pointer, or by the keyboard cursor in the middle of the map.
+    // By the pointer (above a finger), or by the keyboard cursor in the middle of the map.
     const host = this.hostRef().nativeElement;
-    const at = this.keyboardCursor() ? { x: host.clientWidth / 2, y: host.clientHeight / 2 } : this.pointer;
+    const pointer = this.touchPointer ? { x: this.pointer.x, y: this.pointer.y - TOUCH_LABEL_LIFT } : this.pointer;
+    const at = this.keyboardCursor() ? { x: host.clientWidth / 2, y: host.clientHeight / 2 } : pointer;
     this.dragLabel.set(label ? { text: label, ...at } : null);
   }
 

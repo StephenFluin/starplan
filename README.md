@@ -22,7 +22,8 @@ Built with Angular (UI and state) and PixiJS (map rendering).
 - Plans autosave in the browser; the Plans menu opens, renames and deletes them. Shared links and imports open as new plans
 - JSON import/export (including v2 planner files) and PNG export
 - Movable farmhouse (with its mailbox), greenhouse and shipping bin, pet bowl and starter buildings
-- Right-click quick search with recently used items
+- Right-click (or press-and-hold) quick search with recently used items
+- Works on phones: the item list folds into a bar under the map with recently used items, and the rest of the toolbar goes in a More menu
 
 ## Controls
 
@@ -39,7 +40,7 @@ Built with Angular (UI and state) and PixiJS (map rendering).
 | + / - / 0 | Zoom in / out / fit |
 | Two fingers (touchscreens) | Pinch to zoom, drag to pan |
 | G | Toggle grid |
-| Right click | Quick item search |
+| Right click, press and hold (touchscreens) | Quick item search |
 
 ## Analytics
 

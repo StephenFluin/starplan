@@ -45,6 +45,9 @@ import { PlannerStore } from '../../core/planner-store';
     td { text-align: right; font-variant-numeric: tabular-nums; }
     td.empty { text-align: left; color: var(--muted); }
     img { image-rendering: pixelated; object-fit: contain; }
+    @media (pointer: coarse) {
+      header button { min-width: 44px; min-height: 44px; }
+    }
   `,
 })
 export class ItemCounter {

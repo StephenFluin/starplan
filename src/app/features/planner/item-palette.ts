@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Component, computed, effect, inject, output, signal, untracked } from '@angular/core';
 import { NgOptimizedImage } from '@angular/common';
 import { CATALOG, CATEGORIES, Category, CatalogItem, spriteUrl } from '../../core/data/catalog';
 import { PlannerStore } from '../../core/planner-store';
@@ -32,7 +32,7 @@ import { PlannerStore } from '../../core/planner-store';
             [attr.aria-pressed]="isActive(item)"
             [class.active]="isActive(item)"
             [title]="item.name"
-            (click)="store.selectItem(item)"
+            (click)="store.selectItem(item); picked.emit(item)"
           >
             <img [ngSrc]="sprite(item)" alt="" width="32" height="32" />
             <span>{{ item.name }}</span>
@@ -64,6 +64,15 @@ import { PlannerStore } from '../../core/planner-store';
     .items button.active { border-color: var(--accent); background: var(--selected); }
     .items img { image-rendering: pixelated; object-fit: contain; flex: none; }
     .empty { padding: 8px; color: var(--muted); }
+    @media (max-width: 640px), (max-height: 480px) and (pointer: coarse) {
+      .items { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); align-content: start; }
+    }
+    @media (pointer: coarse) {
+      .search input { min-height: 44px; font-size: 16px; }
+      .tabs { gap: 6px; }
+      .tabs button { min-height: 36px; padding: 4px 12px; font-size: 14px; }
+      .items button { min-height: 48px; }
+    }
   `,
 })
 export class ItemPalette {
@@ -71,6 +80,8 @@ export class ItemPalette {
   protected readonly categories = CATEGORIES;
   protected readonly activeCategory = signal<Category>('paths');
   protected readonly query = signal('');
+  /** An item was chosen from the list. */
+  readonly picked = output<CatalogItem>();
 
   constructor() {
     // Show the brush's category when it changes from elsewhere (picking an item off the map, quick search).

@@ -12,8 +12,8 @@ const MAX_RESULTS = 10;
   host: {
     role: 'dialog',
     'aria-label': 'Quick item search',
-    '[style.left.px]': 'position().x',
-    '[style.top.px]': 'position().y',
+    '[style.--x]': "position().x + 'px'",
+    '[style.--y]': "position().y + 'px'",
     '(keydown.escape)': 'closed.emit()',
     '(document:pointerdown)': 'onOutsidePointer($event)',
   },
@@ -55,14 +55,26 @@ const MAX_RESULTS = 10;
       position: fixed; z-index: 20; width: 260px; padding: 8px; border-radius: 8px;
       background: var(--panel); color: var(--text); border: 1px solid var(--border);
       box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+      /* Opens at the pointer, moved in from the screen's edges so it all shows. */
+      --top: clamp(8px, var(--y), 100dvh - 410px);
+      left: clamp(8px, var(--x), 100vw - 286px); top: var(--top);
+      display: flex; flex-direction: column; max-height: calc(100dvh - 26px - var(--top));
+    }
+    /* On phones, at the top, clear of the keyboard. */
+    @media (max-width: 640px), (max-height: 480px) and (pointer: coarse) {
+      :host { --top: 8px; left: 8px; right: 8px; width: auto; }
     }
     input {
       width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px;
       border: 1px solid var(--border); background: var(--input-bg); color: var(--text);
     }
     .heading { margin: 8px 4px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
-    ul { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
+    ul { list-style: none; margin: 0; padding: 0; max-height: 320px; min-height: 0; overflow-y: auto; }
     li { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 4px; cursor: pointer; }
+    @media (pointer: coarse) {
+      input { min-height: 44px; font-size: 16px; }
+      li { min-height: 44px; box-sizing: border-box; }
+    }
     li.highlighted { background: var(--selected); }
     li.empty { color: var(--muted); cursor: default; }
     img { image-rendering: pixelated; object-fit: contain; }

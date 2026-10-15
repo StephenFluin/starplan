@@ -10,8 +10,8 @@ import { PlannerStore } from '../../core/planner-store';
   host: {
     role: 'dialog',
     'aria-label': 'Change type',
-    '[style.left.px]': 'position().x',
-    '[style.top.px]': 'position().y',
+    '[style.--x]': "position().x + 'px'",
+    '[style.--y]': "position().y + 'px'",
     '(keydown.escape)': 'closed.emit()',
     '(document:pointerdown)': 'onOutsidePointer($event)',
   },
@@ -37,6 +37,10 @@ import { PlannerStore } from '../../core/planner-store';
       position: fixed; z-index: 20; min-width: 200px; max-width: 280px; padding: 8px; border-radius: 8px;
       background: var(--panel); color: var(--text); border: 1px solid var(--border);
       box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+      /* Opens at the pointer, moved in from the screen's edges, and scrolls if it's still too tall. */
+      --top: clamp(8px, var(--y), 100dvh - 240px);
+      left: clamp(8px, var(--x), 100vw - 306px); top: var(--top);
+      max-height: calc(100dvh - 26px - var(--top)); overflow-y: auto;
     }
     .heading { margin: 0 4px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
     .options { display: grid; gap: 2px; }
@@ -47,6 +51,9 @@ import { PlannerStore } from '../../core/planner-store';
     button:hover { background: var(--hover); }
     button.current { border-color: var(--accent); background: var(--selected); }
     img { image-rendering: pixelated; object-fit: contain; flex: none; }
+    @media (pointer: coarse) {
+      button { min-height: 44px; }
+    }
   `,
 })
 export class VariantPicker {

@@ -13,7 +13,7 @@ const SECTIONS: readonly { title: string; shortcuts: readonly Shortcut[] }[] = [
     title: 'Moving around',
     shortcuts: [
       { keys: ['Drag empty ground'], action: 'Move the map (Select tool)' },
-      { keys: ['Right-drag', 'Space + drag'], action: 'Move the map with any tool' },
+      { keys: ['Right-drag', 'Space + drag', 'Two-finger drag'], action: 'Move the map with any tool' },
       { keys: ['Scroll', 'Pinch'], action: 'Zoom in or out where the pointer is' },
       { keys: ['Double-click'], action: 'Zoom in there (Shift: out)' },
       { keys: ['+', '−', '0'], action: 'Zoom in, zoom out, fit the map' },
@@ -112,7 +112,7 @@ const SECTIONS: readonly { title: string; shortcuts: readonly Shortcut[] }[] = [
     h2 { margin: 0; font-size: 16px; }
     header button { border: 0; border-radius: 6px; padding: 4px 8px; background: transparent; color: var(--text); font: inherit; cursor: pointer; }
     header button:hover { background: var(--hover); }
-    .sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 8px 24px; padding: 12px 16px 16px; }
+    .sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 8px 24px; padding: 12px 16px 16px; }
     h3 { margin: 4px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
     dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; font-size: 13px; }
     dt { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
@@ -122,6 +122,14 @@ const SECTIONS: readonly { title: string; shortcuts: readonly Shortcut[] }[] = [
       background: var(--input-bg); font: 12px/1.5 ui-monospace, monospace; white-space: nowrap;
     }
     .or { color: var(--muted); font-size: 12px; }
+    /* On phones each description goes under its keys. */
+    @media (max-width: 640px) {
+      dl { grid-template-columns: 1fr; gap: 4px; }
+      dd { margin-bottom: 6px; }
+    }
+    @media (pointer: coarse) {
+      header button { min-width: 44px; min-height: 44px; }
+    }
   `,
 })
 export class ShortcutsDialog {

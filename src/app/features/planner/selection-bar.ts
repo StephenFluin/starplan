@@ -58,6 +58,14 @@ export function describeGroup(group: Group | null): string {
     }
     button:hover { background: var(--hover); }
     button.primary { background: var(--accent); color: var(--accent-text); }
+    @media (max-width: 640px) {
+      :host { flex-wrap: wrap; justify-content: center; padding: 4px; }
+      .summary { flex-basis: 100%; margin: 4px 8px; text-align: center; }
+      button { padding: 4px 8px; }
+    }
+    @media (pointer: coarse) {
+      button { min-height: 40px; }
+    }
   `,
 })
 export class SelectionBar {

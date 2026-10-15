@@ -1,11 +1,13 @@
-import { Component, ElementRef, afterNextRender, inject, signal, viewChild } from '@angular/core';
+import { Component, DOCUMENT, ElementRef, afterNextRender, inject, signal, viewChild } from '@angular/core';
 import { Analytics } from '../../core/analytics';
 import { NO_SELECTION, PlannerStore, Tool, isEmptySelection } from '../../core/planner-store';
 import { SaveImportError, importSave } from '../../core/plan/save-import';
 import { parsePlanJson } from '../../core/plan/serialize';
 import { blockedMessage } from './block-message';
+import { DismissPopover } from './dismiss-popover';
 import { ItemCounter } from './item-counter';
 import { ItemPalette } from './item-palette';
+import { ItemPeek } from './item-peek';
 import { MapCanvas } from './map/map-canvas';
 import { PlannerToolbar, ToolbarAction } from './planner-toolbar';
 import { QuickSearch } from './quick-search';
@@ -28,20 +30,23 @@ const NUDGE_LARGE = 5;
 
 @Component({
   selector: 'app-planner-page',
-  imports: [PlannerToolbar, ItemPalette, MapCanvas, ItemCounter, QuickSearch, VariantPicker, ShortcutsDialog, SelectionBar],
+  imports: [PlannerToolbar, ItemPalette, ItemPeek, DismissPopover, MapCanvas, ItemCounter, QuickSearch, VariantPicker, ShortcutsDialog, SelectionBar],
   host: { '(document:keydown)': 'onKeydown($event)' },
   template: `
     <header>
       <app-planner-toolbar [counterOpen]="counterOpen()" (action)="onAction($event)" (layoutChange)="changeLayout($event)" (coverCrops)="coverCrops($event)" />
     </header>
     <div class="body">
-      <aside aria-label="Items">
-        <app-item-palette />
-        <footer class="notice">
-          Unofficial, non-commercial fan project. Not affiliated with or endorsed by ConcernedApe.
-          Stardew Valley and its art © ConcernedApe LLC. Starplan ©&nbsp;Stephen Fluin,
-          <a href="https://github.com/StephenFluin/starplan" target="_blank" rel="noopener">source code</a> under the AGPL.
-        </footer>
+      <aside class="items" aria-label="Items" [class.open]="itemsOpen()" (appDismissPopover)="closeItems()">
+        <app-item-peek [(open)]="itemsOpen" />
+        <div #itemSheet id="item-sheet" class="sheet">
+          <app-item-palette (picked)="closeItems()" />
+          <footer class="notice">
+            Unofficial, non-commercial fan project. Not affiliated with or endorsed by ConcernedApe.
+            Stardew Valley and its art © ConcernedApe LLC. Starplan ©&nbsp;Stephen Fluin,
+            <a href="https://github.com/StephenFluin/starplan" target="_blank" rel="noopener">source code</a> under the AGPL.
+          </footer>
+        </div>
       </aside>
       <main>
         <h1 class="visually-hidden">Stardew Valley farm planner</h1>
@@ -53,6 +58,9 @@ const NUDGE_LARGE = 5;
         />
         @if (store.pasting() || hasSelection()) {
           <app-selection-bar (action)="onSelectionAction($event)" (changeType)="openVariantPicker($event.uid, $event.anchor)" />
+        }
+        @if (itemsOpen()) {
+          <div class="scrim" aria-hidden="true"></div>
         }
       </main>
       @if (counterOpen()) {
@@ -82,8 +90,9 @@ const NUDGE_LARGE = 5;
     :host { display: flex; flex-direction: column; height: 100dvh; }
     .body { flex: 1; display: flex; min-height: 0; }
     aside { width: 240px; flex: none; display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-right: 1px solid var(--border); }
-    aside > * { flex: 1; min-height: 0; }
-    aside > .notice {
+    aside > *, .sheet > * { flex: 1; min-height: 0; }
+    .sheet { display: flex; flex-direction: column; }
+    .sheet > .notice {
       flex: none; margin: 0; padding: 8px 10px; border-top: 1px solid var(--border);
       font-size: 11px; line-height: 1.4; color: var(--muted);
     }
@@ -97,22 +106,46 @@ const NUDGE_LARGE = 5;
       position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%); margin: 0; padding: 8px 14px;
       border-radius: 6px; background: var(--panel); border: 1px solid var(--border); box-shadow: 0 4px 16px rgb(0 0 0 / 0.4);
     }
+    .scrim { display: none; }
     @media (max-width: 720px) {
       aside { width: 180px; }
       aside.counter { position: fixed; right: 0; top: 0; bottom: 0; z-index: 15; }
+    }
+    /* Phones: the map takes the screen, and the item list folds into a bar below it. */
+    @media (max-width: 640px), (max-height: 480px) and (pointer: coarse) {
+      .body { flex-direction: column; }
+      main { min-height: 0; }
+      aside.items { order: 1; position: relative; z-index: 7; width: auto; border: 0; border-top: 1px solid var(--border); }
+      aside.items > * { flex: none; }
+      .sheet { display: none; }
+      aside.open .sheet {
+        display: flex; position: absolute; left: 0; right: 0; bottom: 100%; height: min(65dvh, 520px);
+        background: var(--panel); border-top: 1px solid var(--border); border-radius: 12px 12px 0 0;
+        box-shadow: 0 -8px 24px rgb(0 0 0 / 0.45);
+      }
+      .scrim { display: block; position: absolute; inset: 0; z-index: 6; background: rgb(0 0 0 / 0.45); }
+      .status { bottom: 100px; width: max-content; max-width: calc(100vw - 32px); box-sizing: border-box; z-index: 30; }
+    }
+    @media (max-width: 640px) {
+      app-selection-bar { left: 8px; right: 8px; transform: none; max-width: none; }
     }
   `,
 })
 export class PlannerPage {
   protected readonly store = inject(PlannerStore);
   private readonly analytics = inject(Analytics);
+  private readonly document = inject(DOCUMENT);
   private readonly map = viewChild.required(MapCanvas);
+  private readonly itemPeek = viewChild.required(ItemPeek);
+  private readonly itemSheet = viewChild.required<ElementRef<HTMLElement>>('itemSheet');
   private readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
   private readonly saveInput = viewChild.required<ElementRef<HTMLInputElement>>('saveInput');
   private statusTimer: ReturnType<typeof setTimeout> | undefined;
   /** Tool to return to when E or S is pressed again. */
   private previousTool: Tool = 'brush';
 
+  /** Whether the item list is unfolded, on phones; wider screens always show it. */
+  protected readonly itemsOpen = signal(false);
   protected readonly counterOpen = signal(false);
   protected readonly shortcutsOpen = signal(false);
   protected readonly quickSearchAt = signal<{ x: number; y: number } | null>(null);
@@ -324,18 +357,32 @@ export class PlannerPage {
     this.announce(`Added ${item.name} ×${added}${onCrops}.${unreachable || covered} Undo to take them back.`, LONG_MESSAGE);
   }
 
+  protected closeItems(): void {
+    if (!this.itemsOpen()) return;
+    this.itemsOpen.set(false);
+    // Folding the list away hides whatever had focus in it, so it goes back to the bar.
+    if (this.itemSheet().nativeElement.contains(this.document.activeElement)) this.itemPeek().focus();
+  }
+
   protected hasSelection(): boolean {
     return !isEmptySelection(this.store.selection());
   }
 
   protected onSelectionAction(action: SelectionAction): void {
     switch (action) {
-      case 'copy':
-        this.announce(`Copied ${describeGroup(this.store.copySelection())}. Press ${MOD}+V to paste.`);
+      // A touchscreen has no keyboard to paste with later, so copies go down straight away.
+      case 'copy': {
+        const copied = describeGroup(this.store.copySelection());
+        if (this.touchOnly()) this.startPasting(`Copied ${copied}. Tap the map to put down copies, then Done.`);
+        else this.announce(`Copied ${copied}. Press ${MOD}+V to paste.`);
         return;
-      case 'cut':
-        this.announce(`Cut ${describeGroup(this.store.cutSelection())}. Press ${MOD}+V to paste.`);
+      }
+      case 'cut': {
+        const cut = describeGroup(this.store.cutSelection());
+        if (this.touchOnly()) this.startPasting(`Cut ${cut}. Tap the map to put it down, then Done.`);
+        else this.announce(`Cut ${cut}. Press ${MOD}+V to paste.`);
         return;
+      }
       case 'duplicate':
         this.store.copySelection();
         this.startPasting();
@@ -358,10 +405,15 @@ export class PlannerPage {
     this.variantPicker.set({ uid, x: bounds.left, y: bounds.bottom + 4 });
   }
 
-  private startPasting(): boolean {
+  private startPasting(message?: string): boolean {
     if (!this.store.startPasting()) return false;
-    this.announce('Click to put down a copy. Press Esc when done.');
+    this.announce(message ?? (this.touchOnly() ? 'Tap the map to put down a copy, then Done.' : 'Click to put down a copy. Press Esc when done.'));
     return true;
+  }
+
+  /** Whether the screen is used by touch alone, with no mouse or keyboard shortcuts to mention. */
+  private touchOnly(): boolean {
+    return this.document.defaultView?.matchMedia('(hover: none) and (pointer: coarse)').matches ?? false;
   }
 
   private async importSaveFile(xml: string): Promise<void> {

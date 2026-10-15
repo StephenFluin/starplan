@@ -2,6 +2,7 @@ import { Component, inject, input, output, signal } from '@angular/core';
 import { CATALOG, RangeGroup } from '../../core/data/catalog';
 import { MapSeason } from '../../core/data/game-art';
 import { BrushShape, PlannerStore, RestrictionOverlay, Tool } from '../../core/planner-store';
+import { NgTemplateOutlet } from '@angular/common';
 import { DismissPopover } from './dismiss-popover';
 import { PlansMenu } from './plans-menu';
 
@@ -21,34 +22,37 @@ export type ToolbarAction =
 /** Top bar with tools, history, layout choice, view options and file actions. */
 @Component({
   selector: 'app-planner-toolbar',
-  imports: [PlansMenu, DismissPopover],
+  imports: [PlansMenu, DismissPopover, NgTemplateOutlet],
   host: { role: 'toolbar', 'aria-label': 'Planner tools' },
   template: `
     <span class="brand">Starplan</span>
     <app-plans-menu />
 
-    <label class="layout">
-      <span class="visually-hidden">Farm layout</span>
-      <select [value]="store.layout().id" (change)="changeLayout($any($event.target))">
-        <optgroup label="Farms">
-          @for (layout of farms; track layout.id) {
-            <option [value]="layout.id">{{ layout.name }}</option>
-          }
-        </optgroup>
-        <optgroup label="Interiors">
-          @for (layout of interiors; track layout.id) {
-            <option [value]="layout.id">{{ layout.name }}</option>
-          }
-        </optgroup>
-        @if (community.length) {
-          <optgroup label="Community maps">
-            @for (layout of community; track layout.id) {
+    <ng-template #farmPicker>
+      <label class="layout">
+        <span class="visually-hidden">Farm layout</span>
+        <select [value]="store.layout().id" (change)="changeLayout($any($event.target))">
+          <optgroup label="Farms">
+            @for (layout of farms; track layout.id) {
               <option [value]="layout.id">{{ layout.name }}</option>
             }
           </optgroup>
-        }
-      </select>
-    </label>
+          <optgroup label="Interiors">
+            @for (layout of interiors; track layout.id) {
+              <option [value]="layout.id">{{ layout.name }}</option>
+            }
+          </optgroup>
+          @if (community.length) {
+            <optgroup label="Community maps">
+              @for (layout of community; track layout.id) {
+                <option [value]="layout.id">{{ layout.name }}</option>
+              }
+            </optgroup>
+          }
+        </select>
+      </label>
+    </ng-template>
+    <span class="wide"><ng-container *ngTemplateOutlet="farmPicker" /></span>
 
     <div class="group" role="group" aria-label="Tool">
       @for (tool of tools; track tool.id) {
@@ -91,108 +95,129 @@ export type ToolbarAction =
       </button>
     </div>
 
-    <div class="group" role="group" aria-label="Zoom">
-      <button type="button" aria-label="Zoom out" title="Zoom out (-)" (click)="action.emit('zoom-out')">−</button>
-      <button type="button" title="Fit map to screen (0)" (click)="action.emit('fit')">Fit</button>
-      <button type="button" aria-label="Zoom in" title="Zoom in (+)" (click)="action.emit('zoom-in')">+</button>
-    </div>
-
-    <div class="menu" (appDismissPopover)="optionsOpen.set(false)">
-      <button type="button" aria-haspopup="true" [attr.aria-expanded]="optionsOpen()" (click)="optionsOpen.update((o) => !o)">
-        View
+    <!-- On phones the rest goes in a More menu; on wider screens it lines up in the bar. -->
+    <div class="more" (appDismissPopover)="moreOpen.set(false)">
+      <button
+        type="button"
+        class="icon more-toggle"
+        aria-label="More"
+        aria-haspopup="true"
+        aria-controls="toolbar-more"
+        [attr.aria-expanded]="moreOpen()"
+        (click)="moreOpen.update((o) => !o)"
+      >
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle class="filled" cx="3" cy="8" r="1" /><circle class="filled" cx="8" cy="8" r="1" /><circle class="filled" cx="13" cy="8" r="1" /></svg>
       </button>
-      @if (optionsOpen()) {
-        <div class="popover" role="group" aria-label="View and options">
-          <label><input type="checkbox" [checked]="store.options().showGrid" (change)="store.setOption('showGrid', $any($event.target).checked)" /> Grid (G)</label>
-          <label><input type="checkbox" [checked]="counterOpen()" (change)="action.emit('toggle-counter')" /> Item count</label>
-          <fieldset>
-            <legend>Season</legend>
-            @for (season of seasons; track season.id) {
-              <label>
-                <input type="radio" name="season" [checked]="store.options().season === season.id" (change)="store.setOption('season', season.id)" />
-                {{ season.label }}
-              </label>
-            }
-          </fieldset>
-          <fieldset>
-            <legend>Show placeable area</legend>
-            @for (overlay of overlays; track overlay.id) {
-              <label>
-                <input
-                  type="radio"
-                  name="overlay"
-                  [checked]="store.options().restrictionOverlay === overlay.id"
-                  (change)="store.setOption('restrictionOverlay', overlay.id)"
-                />
-                {{ overlay.label }}
-              </label>
-            }
-          </fieldset>
-          <fieldset>
-            <legend>Always show ranges</legend>
-            @for (group of rangeGroups; track group.id) {
-              <label>
-                <input
-                  type="checkbox"
-                  [checked]="store.options().alwaysShowRanges.includes(group.id)"
-                  (change)="store.toggleRangeGroup(group.id)"
-                />
-                {{ group.label }}
-              </label>
-            }
-          </fieldset>
-          <fieldset>
-            <legend>Placement</legend>
-            <label><input type="checkbox" [checked]="store.options().overwrite" (change)="store.setOption('overwrite', $any($event.target).checked)" /> Paint over existing tiles</label>
-            <label><input type="checkbox" [checked]="store.options().anywhere" (change)="store.setOption('anywhere', $any($event.target).checked)" /> Allow placing anywhere</label>
-          </fieldset>
+      <div id="toolbar-more" class="more-panel" [class.open]="moreOpen()">
+        @if (moreOpen()) {
+          <ng-container *ngTemplateOutlet="farmPicker" />
+        }
+        <div class="group" role="group" aria-label="Zoom">
+          <button type="button" aria-label="Zoom out" title="Zoom out (-)" (click)="action.emit('zoom-out')">−</button>
+          <button type="button" title="Fit map to screen (0)" (click)="run('fit')">Fit</button>
+          <button type="button" aria-label="Zoom in" title="Zoom in (+)" (click)="action.emit('zoom-in')">+</button>
         </div>
-      }
-    </div>
 
-    <div class="menu" (appDismissPopover)="helpersOpen.set(false)">
-      <button type="button" aria-haspopup="true" [attr.aria-expanded]="helpersOpen()" (click)="helpersOpen.update((o) => !o)">Helpers</button>
-      @if (helpersOpen()) {
-        <div class="popover commands" role="group" aria-label="Helpers">
-          @for (command of helperCommands; track command.itemId) {
-            <button type="button" (click)="helpersOpen.set(false); coverCrops.emit(command.itemId)">
-              {{ command.label }}<small>{{ command.hint }}</small>
-            </button>
-          }
-          <div class="with-choice">
-            <button type="button" (click)="helpersOpen.set(false); coverCrops.emit(sprinkler())">
-              Water crops with sprinklers<small>Adds as few as it takes for every crop to be watered</small>
-            </button>
-            <label>
-              <span class="visually-hidden">Sprinkler type</span>
-              <select [value]="sprinkler()" (change)="sprinkler.set($any($event.target).value)">
-                @for (option of sprinklers; track option.id) {
-                  <option [value]="option.id">{{ option.name }}</option>
+        <div class="menu" (appDismissPopover)="optionsOpen.set(false)">
+          <button type="button" aria-haspopup="true" [attr.aria-expanded]="optionsOpen()" (click)="optionsOpen.update((o) => !o)">
+            View
+          </button>
+          @if (optionsOpen()) {
+            <div class="popover" role="group" aria-label="View and options">
+              <label><input type="checkbox" [checked]="store.options().showGrid" (change)="store.setOption('showGrid', $any($event.target).checked)" /> Grid (G)</label>
+              <label><input type="checkbox" [checked]="counterOpen()" (change)="action.emit('toggle-counter')" /> Item count</label>
+              <fieldset>
+                <legend>Season</legend>
+                @for (season of seasons; track season.id) {
+                  <label>
+                    <input type="radio" name="season" [checked]="store.options().season === season.id" (change)="store.setOption('season', season.id)" />
+                    {{ season.label }}
+                  </label>
                 }
-              </select>
-            </label>
-          </div>
-        </div>
-      }
-    </div>
-
-    <button type="button" class="help" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" (click)="action.emit('shortcuts')">?</button>
-
-    <span class="spacer"></span>
-
-    <div class="menu" (appDismissPopover)="fileOpen.set(false)">
-      <button type="button" aria-haspopup="true" [attr.aria-expanded]="fileOpen()" (click)="fileOpen.update((o) => !o)">File</button>
-      @if (fileOpen()) {
-        <div class="popover end commands" role="group" aria-label="File">
-          @for (command of fileCommands; track command.action) {
-            <button type="button" (click)="fileOpen.set(false); action.emit(command.action)">
-              {{ command.label }}<small>{{ command.hint }}</small>
-            </button>
+              </fieldset>
+              <fieldset>
+                <legend>Show placeable area</legend>
+                @for (overlay of overlays; track overlay.id) {
+                  <label>
+                    <input
+                      type="radio"
+                      name="overlay"
+                      [checked]="store.options().restrictionOverlay === overlay.id"
+                      (change)="store.setOption('restrictionOverlay', overlay.id)"
+                    />
+                    {{ overlay.label }}
+                  </label>
+                }
+              </fieldset>
+              <fieldset>
+                <legend>Always show ranges</legend>
+                @for (group of rangeGroups; track group.id) {
+                  <label>
+                    <input
+                      type="checkbox"
+                      [checked]="store.options().alwaysShowRanges.includes(group.id)"
+                      (change)="store.toggleRangeGroup(group.id)"
+                    />
+                    {{ group.label }}
+                  </label>
+                }
+              </fieldset>
+              <fieldset>
+                <legend>Placement</legend>
+                <label><input type="checkbox" [checked]="store.options().overwrite" (change)="store.setOption('overwrite', $any($event.target).checked)" /> Paint over existing tiles</label>
+                <label><input type="checkbox" [checked]="store.options().anywhere" (change)="store.setOption('anywhere', $any($event.target).checked)" /> Allow placing anywhere</label>
+              </fieldset>
+            </div>
           }
         </div>
-      }
+
+        <div class="menu" (appDismissPopover)="helpersOpen.set(false)">
+          <button type="button" aria-haspopup="true" [attr.aria-expanded]="helpersOpen()" (click)="helpersOpen.update((o) => !o)">Helpers</button>
+          @if (helpersOpen()) {
+            <div class="popover commands" role="group" aria-label="Helpers">
+              @for (command of helperCommands; track command.itemId) {
+                <button type="button" (click)="helpersOpen.set(false); moreOpen.set(false); coverCrops.emit(command.itemId)">
+                  {{ command.label }}<small>{{ command.hint }}</small>
+                </button>
+              }
+              <div class="with-choice">
+                <button type="button" (click)="helpersOpen.set(false); moreOpen.set(false); coverCrops.emit(sprinkler())">
+                  Water crops with sprinklers<small>Adds as few as it takes for every crop to be watered</small>
+                </button>
+                <label>
+                  <span class="visually-hidden">Sprinkler type</span>
+                  <select [value]="sprinkler()" (change)="sprinkler.set($any($event.target).value)">
+                    @for (option of sprinklers; track option.id) {
+                      <option [value]="option.id">{{ option.name }}</option>
+                    }
+                  </select>
+                </label>
+              </div>
+            </div>
+          }
+        </div>
+
+        <button type="button" class="help" title="Keyboard shortcuts (?)" (click)="run('shortcuts')">
+          <span class="glyph" aria-hidden="true">?</span><span class="help-label">Keyboard shortcuts</span>
+        </button>
+
+        <span class="spacer"></span>
+
+        <div class="menu" (appDismissPopover)="fileOpen.set(false)">
+          <button type="button" aria-haspopup="true" [attr.aria-expanded]="fileOpen()" (click)="fileOpen.update((o) => !o)">File</button>
+          @if (fileOpen()) {
+            <div class="popover end commands" role="group" aria-label="File">
+              @for (command of fileCommands; track command.action) {
+                <button type="button" (click)="fileOpen.set(false); run(command.action)">
+                  {{ command.label }}<small>{{ command.hint }}</small>
+                </button>
+              }
+            </div>
+          }
+        </div>
+        <button type="button" class="primary share" title="Copy a link to this plan" (click)="run('share')">Share</button>
+      </div>
     </div>
-    <button type="button" class="primary share" title="Copy a link to this plan" (click)="action.emit('share')">Share</button>
   `,
   styles: `
     :host {
@@ -212,6 +237,7 @@ export type ToolbarAction =
     .menu { position: relative; }
     .menu > button, .share, .help { border: 1px solid var(--border); border-radius: 6px; }
     .help { min-width: 30px; font-weight: 600; }
+    .help-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     .share { border-color: var(--accent); }
     button.icon { display: inline-flex; align-items: center; padding: 5px 8px; }
     button.icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -232,6 +258,35 @@ export type ToolbarAction =
     .with-choice label { padding: 0 8px; }
     .with-choice select { width: 100%; }
     .spacer { flex: 1; }
+    .more, .more-panel { display: contents; }
+    .more > .more-toggle, .more-panel > .layout { display: none; }
+
+    /* Phones: the plan, tools and history in two rows, and the rest in the More menu. */
+    @media (max-width: 640px), (max-height: 480px) and (pointer: coarse) {
+      :host { position: relative; gap: 6px; padding: 6px 8px; }
+      .brand, .wide, .glyph, .more-panel .spacer { display: none; }
+      app-plans-menu { flex: 1 1 140px; min-width: 0; }
+      .more { display: block; margin-left: auto; }
+      .more > .more-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; }
+      .more-panel { display: none; }
+      .more-panel.open {
+        position: absolute; top: calc(100% + 4px); right: 8px; z-index: 10; display: grid; gap: 8px;
+        width: min(320px, calc(100% - 16px)); max-height: 75dvh; overflow-y: auto; box-sizing: border-box; padding: 10px;
+        background: var(--panel); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+      }
+      .more-panel > .layout { display: flex; }
+      .more-panel select, .menu > button, .help, .share { width: 100%; text-align: left; }
+      .more-panel .group button { flex: 1; }
+      .more-panel .popover { position: static; min-width: 0; margin-top: 4px; box-shadow: none; }
+      .help-label { position: static; width: auto; height: auto; clip-path: none; }
+    }
+    /* Fingers need bigger targets, and iOS zooms into fields with text under 16px. */
+    @media (pointer: coarse) {
+      button, select { min-height: 44px; }
+      button.icon { min-width: 40px; justify-content: center; }
+      select { font-size: 16px; }
+      .popover label { min-height: 36px; }
+    }
   `,
 })
 export class PlannerToolbar {
@@ -243,6 +298,8 @@ export class PlannerToolbar {
   /** Whether the item count panel is open. */
   readonly counterOpen = input(false);
 
+  /** The More menu, which holds most of the bar on phones. */
+  protected readonly moreOpen = signal(false);
   protected readonly optionsOpen = signal(false);
   protected readonly fileOpen = signal(false);
   protected readonly helpersOpen = signal(false);
@@ -313,6 +370,12 @@ export class PlannerToolbar {
     { id: 'beehive', label: 'Bee houses' },
     { id: 'junimo', label: 'Junimo huts' },
   ];
+
+  /** Emits an action, closing the More menu it may have come from. */
+  protected run(action: ToolbarAction): void {
+    this.moreOpen.set(false);
+    this.action.emit(action);
+  }
 
   protected changeLayout(select: HTMLSelectElement): void {
     this.layoutChange.emit(select.value);
