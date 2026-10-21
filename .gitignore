@@ -45,3 +45,11 @@ Thumbs.db
 
 # Firebase CLI deploy cache
 /.firebase
+
+# Local env, OS, editor-agent and emulator files
+.env
+.env.*
+.claude/settings.local.json
+*-debug.log
+firebase-export-*/
+!.env.example
