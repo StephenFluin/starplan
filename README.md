@@ -84,6 +84,49 @@ This writes `public/assets/` and `src/app/core/data/layouts.generated.ts`.
 
 See [backlog.md](backlog.md) for planned work.
 
+## Working on this project
+
+These conventions are for anyone changing the code, whether that's a person or an AI coding
+assistant working in the repo.
+
+### Before you commit
+
+```bash
+npm run lint           # ESLint, including Angular template and accessibility rules
+npm run format         # Prettier (CI runs npm run format:check)
+npm test               # unit tests
+npm run build
+```
+
+### Angular and TypeScript style
+
+The app follows current Angular (v22) conventions:
+
+- **Components** are standalone (the default, so don't add `standalone: true`), small, and do one
+  job. OnPush change detection is the default, so don't set `changeDetection`. Small components use
+  inline templates; external template and style paths are relative to the component file.
+- **State** lives in signals: `signal()` for local state, `computed()` for derived state, and
+  `linkedSignal()` for state that must follow several sources. Change signals with `set()` or
+  `update()` and keep transformations pure.
+- **Inputs and outputs** use `input()`, `output()` and, for two-way bindings, `model()` rather
+  than decorators. Inject dependencies with `inject()`, and make singletons
+  `providedIn: 'root'` (or `@Service` for new ones).
+- **Templates** use built-in control flow (`@if`, `@for`, `@switch`), `class` and `style` bindings
+  instead of `ngClass`/`ngStyle`, the async pipe for observables, and import only the directives
+  and pipes they use (no `CommonModule`). Host bindings go in the decorator's `host` object, not
+  `@HostBinding`/`@HostListener`. Keep logic out of templates, and don't reach for globals such as
+  `new Date()` there.
+- **Forms**: Signal Forms (`@angular/forms/signals`) for new forms, otherwise reactive forms.
+- **Images**: `NgOptimizedImage` for static images (it can't handle inline base64 images).
+- **Routing**: lazy-load feature routes.
+- **TypeScript** is strict. Let inference work when the type is obvious, and use `unknown` rather
+  than `any`.
+
+### Accessibility
+
+Every page must pass AXE checks and meet WCAG AA, including focus management, color contrast and
+ARIA attributes.
+
 ## Deployment
 
 The site is fully static: the planner page is prerendered at build time and everything else runs in the browser, so it's hosted on [Firebase Hosting](https://firebase.google.com/docs/hosting) with no server and no billing account needed.
