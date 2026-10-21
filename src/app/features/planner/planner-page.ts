@@ -1,4 +1,12 @@
-import { Component, DOCUMENT, ElementRef, afterNextRender, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  DOCUMENT,
+  ElementRef,
+  afterNextRender,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { Analytics } from '../../core/analytics';
 import { NO_SELECTION, PlannerStore, Tool, isEmptySelection } from '../../core/planner-store';
 import { SaveImportError, importSave } from '../../core/plan/save-import';
@@ -22,7 +30,8 @@ const LONG_MESSAGE = 10_000;
 
 const SAVE_ERRORS: Record<SaveImportError, string> = {
   'not-a-save': 'That file is not a plan or a Stardew Valley save this planner can read.',
-  'save-info': "That's the save's SaveGameInfo file. Pick the other file in the same folder: the one named like the folder.",
+  'save-info':
+    "That's the save's SaveGameInfo file. Pick the other file in the same folder: the one named like the folder.",
   'unknown-farm': 'That save is on a farm type from a mod, which the planner has no map for.',
 };
 /** Tiles Shift + an arrow key moves the selection or the keyboard cursor. */
@@ -30,21 +39,45 @@ const NUDGE_LARGE = 5;
 
 @Component({
   selector: 'app-planner-page',
-  imports: [PlannerToolbar, ItemPalette, ItemPeek, DismissPopover, MapCanvas, ItemCounter, QuickSearch, VariantPicker, ShortcutsDialog, SelectionBar],
+  imports: [
+    PlannerToolbar,
+    ItemPalette,
+    ItemPeek,
+    DismissPopover,
+    MapCanvas,
+    ItemCounter,
+    QuickSearch,
+    VariantPicker,
+    ShortcutsDialog,
+    SelectionBar,
+  ],
   host: { '(document:keydown)': 'onKeydown($event)' },
   template: `
     <header>
-      <app-planner-toolbar [counterOpen]="counterOpen()" (action)="onAction($event)" (layoutChange)="changeLayout($event)" (coverCrops)="coverCrops($event)" />
+      <app-planner-toolbar
+        [counterOpen]="counterOpen()"
+        (action)="onAction($event)"
+        (layoutChange)="changeLayout($event)"
+        (coverCrops)="coverCrops($event)"
+      />
     </header>
     <div class="body">
-      <aside class="items" aria-label="Items" [class.open]="itemsOpen()" (appDismissPopover)="closeItems()">
+      <aside
+        class="items"
+        aria-label="Items"
+        [class.open]="itemsOpen()"
+        (appDismissPopover)="closeItems()"
+      >
         <app-item-peek [(open)]="itemsOpen" />
         <div #itemSheet id="item-sheet" class="sheet">
           <app-item-palette (picked)="closeItems()" />
           <footer class="notice">
             Unofficial, non-commercial fan project. Not affiliated with or endorsed by ConcernedApe.
             Stardew Valley and its art © ConcernedApe LLC. Starplan ©&nbsp;Stephen Fluin,
-            <a href="https://github.com/StephenFluin/starplan" target="_blank" rel="noopener">source code</a> under the AGPL.
+            <a href="https://github.com/StephenFluin/starplan" target="_blank" rel="noopener"
+              >source code</a
+            >
+            under the AGPL.
           </footer>
         </div>
       </aside>
@@ -57,14 +90,19 @@ const NUDGE_LARGE = 5;
           (blocked)="announce(blockedMessage($event))"
         />
         @if (store.pasting() || hasSelection()) {
-          <app-selection-bar (action)="onSelectionAction($event)" (changeType)="openVariantPicker($event.uid, $event.anchor)" />
+          <app-selection-bar
+            (action)="onSelectionAction($event)"
+            (changeType)="openVariantPicker($event.uid, $event.anchor)"
+          />
         }
         @if (itemsOpen()) {
           <div class="scrim" aria-hidden="true"></div>
         }
       </main>
       @if (counterOpen()) {
-        <aside class="counter" aria-label="Item count"><app-item-counter (closed)="counterOpen.set(false)" /></aside>
+        <aside class="counter" aria-label="Item count">
+          <app-item-counter (closed)="counterOpen.set(false)" />
+        </aside>
       }
     </div>
     @if (quickSearchAt(); as at) {
@@ -82,52 +120,164 @@ const NUDGE_LARGE = 5;
       <app-shortcuts-dialog (closed)="shortcutsOpen.set(false)" />
     }
     <p class="status" role="status" aria-live="polite">{{ status() }}</p>
-    <input #fileInput type="file" accept="application/json,.json" hidden (change)="importFile($event)" />
+    <input
+      #fileInput
+      type="file"
+      accept="application/json,.json"
+      hidden
+      (change)="importFile($event)"
+    />
     <!-- Save files have no extension, so this one takes any file. -->
     <input #saveInput type="file" hidden (change)="importFile($event)" />
   `,
   styles: `
-    :host { display: flex; flex-direction: column; height: 100dvh; }
-    .body { flex: 1; display: flex; min-height: 0; }
-    aside { width: 240px; flex: none; display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-right: 1px solid var(--border); }
-    aside > *, .sheet > * { flex: 1; min-height: 0; }
-    .sheet { display: flex; flex-direction: column; }
+    :host {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+    }
+    .body {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+    }
+    aside {
+      width: 240px;
+      flex: none;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+    }
+    aside > *,
+    .sheet > * {
+      flex: 1;
+      min-height: 0;
+    }
+    .sheet {
+      display: flex;
+      flex-direction: column;
+    }
     .sheet > .notice {
-      flex: none; margin: 0; padding: 8px 10px; border-top: 1px solid var(--border);
-      font-size: 11px; line-height: 1.4; color: var(--muted);
+      flex: none;
+      margin: 0;
+      padding: 8px 10px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--muted);
     }
-    .notice a { color: var(--text); }
-    aside.counter { border-right: 0; border-left: 1px solid var(--border); }
-    main { position: relative; flex: 1; min-width: 0; display: flex; }
-    app-selection-bar { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 5; max-width: calc(100% - 16px); }
-    app-map-canvas { flex: 1; }
-    .status:empty { display: none; }
+    .notice a {
+      color: var(--text);
+    }
+    aside.counter {
+      border-right: 0;
+      border-left: 1px solid var(--border);
+    }
+    main {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+      display: flex;
+    }
+    app-selection-bar {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 5;
+      max-width: calc(100% - 16px);
+    }
+    app-map-canvas {
+      flex: 1;
+    }
+    .status:empty {
+      display: none;
+    }
     .status {
-      position: fixed; bottom: 44px; left: 50%; transform: translateX(-50%); margin: 0; padding: 8px 14px;
-      border-radius: 6px; background: var(--panel); border: 1px solid var(--border); box-shadow: 0 4px 16px rgb(0 0 0 / 0.4);
+      position: fixed;
+      bottom: 44px;
+      left: 50%;
+      transform: translateX(-50%);
+      margin: 0;
+      padding: 8px 14px;
+      border-radius: 6px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 16px rgb(0 0 0 / 0.4);
     }
-    .scrim { display: none; }
+    .scrim {
+      display: none;
+    }
     @media (max-width: 720px) {
-      aside { width: 180px; }
-      aside.counter { position: fixed; right: 0; top: 0; bottom: 0; z-index: 15; }
+      aside {
+        width: 180px;
+      }
+      aside.counter {
+        position: fixed;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 15;
+      }
     }
     /* Phones: the map takes the screen, and the item list folds into a bar below it. */
     @media (max-width: 640px), (max-height: 480px) and (pointer: coarse) {
-      .body { flex-direction: column; }
-      main { min-height: 0; }
-      aside.items { order: 1; position: relative; z-index: 7; width: auto; border: 0; border-top: 1px solid var(--border); }
-      aside.items > * { flex: none; }
-      .sheet { display: none; }
+      .body {
+        flex-direction: column;
+      }
+      main {
+        min-height: 0;
+      }
+      aside.items {
+        order: 1;
+        position: relative;
+        z-index: 7;
+        width: auto;
+        border: 0;
+        border-top: 1px solid var(--border);
+      }
+      aside.items > * {
+        flex: none;
+      }
+      .sheet {
+        display: none;
+      }
       aside.open .sheet {
-        display: flex; position: absolute; left: 0; right: 0; bottom: 100%; height: min(65dvh, 520px);
-        background: var(--panel); border-top: 1px solid var(--border); border-radius: 12px 12px 0 0;
+        display: flex;
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 100%;
+        height: min(65dvh, 520px);
+        background: var(--panel);
+        border-top: 1px solid var(--border);
+        border-radius: 12px 12px 0 0;
         box-shadow: 0 -8px 24px rgb(0 0 0 / 0.45);
       }
-      .scrim { display: block; position: absolute; inset: 0; z-index: 6; background: rgb(0 0 0 / 0.45); }
-      .status { bottom: 100px; width: max-content; max-width: calc(100vw - 32px); box-sizing: border-box; z-index: 30; }
+      .scrim {
+        display: block;
+        position: absolute;
+        inset: 0;
+        z-index: 6;
+        background: rgb(0 0 0 / 0.45);
+      }
+      .status {
+        bottom: 100px;
+        width: max-content;
+        max-width: calc(100vw - 32px);
+        box-sizing: border-box;
+        z-index: 30;
+      }
     }
     @media (max-width: 640px) {
-      app-selection-bar { left: 8px; right: 8px; transform: none; max-width: none; }
+      app-selection-bar {
+        left: 8px;
+        right: 8px;
+        transform: none;
+        max-width: none;
+      }
     }
   `,
 })
@@ -155,7 +305,8 @@ export class PlannerPage {
 
   constructor() {
     afterNextRender(async () => {
-      if ((await this.store.restore()) === 'shared') this.analytics.event({ name: 'open_shared_plan', params: { farm: this.farm() } });
+      if ((await this.store.restore()) === 'shared')
+        this.analytics.event({ name: 'open_shared_plan', params: { farm: this.farm() } });
     });
   }
 
@@ -177,7 +328,10 @@ export class PlannerPage {
 
       case 'new':
         await this.store.newPlan(this.store.layout().id);
-        this.analytics.event({ name: 'new_plan', params: { farm: this.farm(), source: 'new_button' } });
+        this.analytics.event({
+          name: 'new_plan',
+          params: { farm: this.farm(), source: 'new_button' },
+        });
         this.announce('Started a new plan. Earlier plans are under Plans.');
         return;
       case 'import-json':
@@ -187,8 +341,14 @@ export class PlannerPage {
         this.saveInput().nativeElement.click();
         return;
       case 'export-json':
-        this.download(new Blob([JSON.stringify(this.store.snapshot())], { type: 'application/json' }), 'json');
-        this.analytics.event({ name: 'export_plan', params: { format: 'json', farm: this.farm() } });
+        this.download(
+          new Blob([JSON.stringify(this.store.snapshot())], { type: 'application/json' }),
+          'json',
+        );
+        this.analytics.event({
+          name: 'export_plan',
+          params: { format: 'json', farm: this.farm() },
+        });
         return;
       case 'export-png': {
         const png = await map.exportPng();
@@ -204,7 +364,10 @@ export class PlannerPage {
 
   protected async changeLayout(layoutId: string): Promise<void> {
     await this.store.newPlan(layoutId);
-    this.analytics.event({ name: 'new_plan', params: { farm: this.farm(), source: 'farm_picker' } });
+    this.analytics.event({
+      name: 'new_plan',
+      params: { farm: this.farm(), source: 'farm_picker' },
+    });
     this.announce('Started a new plan on this map. Earlier plans are under Plans.');
   }
 
@@ -222,14 +385,21 @@ export class PlannerPage {
       return;
     }
     await this.store.load(parsed.plan, file.name.replace(/\.json$/i, ''), parsed.legacy);
-    this.analytics.event({ name: 'import_plan', params: { format: parsed.legacy ? 'v2' : 'starplan', farm: this.farm() } });
+    this.analytics.event({
+      name: 'import_plan',
+      params: { format: parsed.legacy ? 'v2' : 'starplan', farm: this.farm() },
+    });
     this.announce(`Imported ${file.name}.`);
   }
 
   protected onKeydown(event: KeyboardEvent): void {
     const target = event.target;
     // Typing in fields, and keys in dialogs, aren't shortcuts.
-    if (target instanceof Element && target.closest('input, select, textarea, [contenteditable="true"], dialog')) return;
+    if (
+      target instanceof Element &&
+      target.closest('input, select, textarea, [contenteditable="true"], dialog')
+    )
+      return;
     const mod = event.ctrlKey || event.metaKey;
     const key = event.key.toLowerCase();
 
@@ -257,7 +427,8 @@ export class PlannerPage {
     }
     if (mod && key === 'v') {
       event.preventDefault();
-      if (!this.startPasting()) this.announce(`Nothing copied yet. Select something and press ${MOD}+C.`);
+      if (!this.startPasting())
+        this.announce(`Nothing copied yet. Select something and press ${MOD}+C.`);
       return;
     }
     if ((mod || event.altKey) && !key.startsWith('arrow')) return;
@@ -317,7 +488,8 @@ export class PlannerPage {
       case 'arrowup':
       case 'arrowdown': {
         // The item list and the item count scroll with the arrow keys.
-        if (target instanceof Element && target.closest('app-item-palette, app-item-counter')) return;
+        if (target instanceof Element && target.closest('app-item-palette, app-item-counter'))
+          return;
         event.preventDefault();
         const x = key === 'arrowleft' ? -1 : key === 'arrowright' ? 1 : 0;
         const y = key === 'arrowup' ? -1 : key === 'arrowdown' ? 1 : 0;
@@ -346,22 +518,34 @@ export class PlannerPage {
     if (!plan || !item) return;
     const watering = item.range?.group === 'sprinkler';
     const added = plan.positions.length;
-    const unreachable = plan.unreachable ? ` ${plan.unreachable} crop tiles are out of reach of anywhere one can go.` : '';
+    const unreachable = plan.unreachable
+      ? ` ${plan.unreachable} crop tiles are out of reach of anywhere one can go.`
+      : '';
     if (!added) {
-      const done = watering ? 'Every crop is already watered by a sprinkler.' : 'Every crop is already in range of a scarecrow.';
-      this.announce(plan.unreachable ? `No ${item.name} can reach the crops left uncovered.${unreachable}` : done);
+      const done = watering
+        ? 'Every crop is already watered by a sprinkler.'
+        : 'Every crop is already in range of a scarecrow.';
+      this.announce(
+        plan.unreachable
+          ? `No ${item.name} can reach the crops left uncovered.${unreachable}`
+          : done,
+      );
       return;
     }
     const onCrops = plan.onCrops ? ` (${plan.onCrops} in place of a crop)` : '';
     const covered = watering ? ' Every crop is watered.' : ' Every crop is in range.';
-    this.announce(`Added ${item.name} ×${added}${onCrops}.${unreachable || covered} Undo to take them back.`, LONG_MESSAGE);
+    this.announce(
+      `Added ${item.name} ×${added}${onCrops}.${unreachable || covered} Undo to take them back.`,
+      LONG_MESSAGE,
+    );
   }
 
   protected closeItems(): void {
     if (!this.itemsOpen()) return;
     this.itemsOpen.set(false);
     // Folding the list away hides whatever had focus in it, so it goes back to the bar.
-    if (this.itemSheet().nativeElement.contains(this.document.activeElement)) this.itemPeek().focus();
+    if (this.itemSheet().nativeElement.contains(this.document.activeElement))
+      this.itemPeek().focus();
   }
 
   protected hasSelection(): boolean {
@@ -373,13 +557,15 @@ export class PlannerPage {
       // A touchscreen has no keyboard to paste with later, so copies go down straight away.
       case 'copy': {
         const copied = describeGroup(this.store.copySelection());
-        if (this.touchOnly()) this.startPasting(`Copied ${copied}. Tap the map to put down copies, then Done.`);
+        if (this.touchOnly())
+          this.startPasting(`Copied ${copied}. Tap the map to put down copies, then Done.`);
         else this.announce(`Copied ${copied}. Press ${MOD}+V to paste.`);
         return;
       }
       case 'cut': {
         const cut = describeGroup(this.store.cutSelection());
-        if (this.touchOnly()) this.startPasting(`Cut ${cut}. Tap the map to put it down, then Done.`);
+        if (this.touchOnly())
+          this.startPasting(`Cut ${cut}. Tap the map to put it down, then Done.`);
         else this.announce(`Cut ${cut}. Press ${MOD}+V to paste.`);
         return;
       }
@@ -407,13 +593,20 @@ export class PlannerPage {
 
   private startPasting(message?: string): boolean {
     if (!this.store.startPasting()) return false;
-    this.announce(message ?? (this.touchOnly() ? 'Tap the map to put down a copy, then Done.' : 'Click to put down a copy. Press Esc when done.'));
+    this.announce(
+      message ??
+        (this.touchOnly()
+          ? 'Tap the map to put down a copy, then Done.'
+          : 'Click to put down a copy. Press Esc when done.'),
+    );
     return true;
   }
 
   /** Whether the screen is used by touch alone, with no mouse or keyboard shortcuts to mention. */
   private touchOnly(): boolean {
-    return this.document.defaultView?.matchMedia('(hover: none) and (pointer: coarse)').matches ?? false;
+    return (
+      this.document.defaultView?.matchMedia('(hover: none) and (pointer: coarse)').matches ?? false
+    );
   }
 
   private async importSaveFile(xml: string): Promise<void> {
@@ -428,11 +621,17 @@ export class PlannerPage {
     await this.store.load(result.plan, result.name);
     this.analytics.event({ name: 'import_plan', params: { format: 'save', farm: this.farm() } });
     const left = [...result.skipped].sort((a, b) => b[1] - a[1]);
-    const listed = left.slice(0, 3).map(([what, count]) => (count > 1 ? `${what} ×${count}` : what));
+    const listed = left
+      .slice(0, 3)
+      .map(([what, count]) => (count > 1 ? `${what} ×${count}` : what));
     const more = left.slice(3).reduce((sum, [, count]) => sum + count, 0);
-    const leftOut = listed.length ? ` Left out: ${listed.join(', ')}${more ? ` and ${more} more` : ''}.` : '';
+    const leftOut = listed.length
+      ? ` Left out: ${listed.join(', ')}${more ? ` and ${more} more` : ''}.`
+      : '';
     const count = result.interiors.length;
-    const insides = count ? ` The insides of ${count === 1 ? 'one building' : `${count} buildings`} are in your plans too.` : '';
+    const insides = count
+      ? ` The insides of ${count === 1 ? 'one building' : `${count} buildings`} are in your plans too.`
+      : '';
     this.announce(`Imported ${result.name} from your save.${insides}${leftOut}`, LONG_MESSAGE);
   }
 
@@ -452,7 +651,10 @@ export class PlannerPage {
   private async share(): Promise<void> {
     const url = await this.store.shareUrl();
     history.replaceState(null, '', url);
-    this.analytics.event({ name: 'share', params: { method: 'link', content_type: 'plan', farm: this.farm() } });
+    this.analytics.event({
+      name: 'share',
+      params: { method: 'link', content_type: 'plan', farm: this.farm() },
+    });
     try {
       await navigator.clipboard.writeText(url);
       this.announce('Link copied. Anyone with it can open this plan.');

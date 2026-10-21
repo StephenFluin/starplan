@@ -1,4 +1,13 @@
-import { Component, ElementRef, afterNextRender, computed, inject, input, output, viewChildren } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  afterNextRender,
+  computed,
+  inject,
+  input,
+  output,
+  viewChildren,
+} from '@angular/core';
 import { NgOptimizedImage } from '@angular/common';
 import { CatalogItem, spriteUrl, variantsOf } from '../../core/data/catalog';
 import { PlannerStore } from '../../core/planner-store';
@@ -34,25 +43,63 @@ import { PlannerStore } from '../../core/planner-store';
   `,
   styles: `
     :host {
-      position: fixed; z-index: 20; min-width: 200px; max-width: 280px; padding: 8px; border-radius: 8px;
-      background: var(--panel); color: var(--text); border: 1px solid var(--border);
+      position: fixed;
+      z-index: 20;
+      min-width: 200px;
+      max-width: 280px;
+      padding: 8px;
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
       box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
       /* Opens at the pointer, moved in from the screen's edges, and scrolls if it's still too tall. */
       --top: clamp(8px, var(--y), 100dvh - 240px);
-      left: clamp(8px, var(--x), 100vw - 306px); top: var(--top);
-      max-height: calc(100dvh - 26px - var(--top)); overflow-y: auto;
+      left: clamp(8px, var(--x), 100vw - 306px);
+      top: var(--top);
+      max-height: calc(100dvh - 26px - var(--top));
+      overflow-y: auto;
     }
-    .heading { margin: 0 4px 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
-    .options { display: grid; gap: 2px; }
+    .heading {
+      margin: 0 4px 6px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+    .options {
+      display: grid;
+      gap: 2px;
+    }
     button {
-      display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; text-align: left;
-      border: 1px solid transparent; background: transparent; color: var(--text); font: inherit; cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      text-align: left;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
     }
-    button:hover { background: var(--hover); }
-    button.current { border-color: var(--accent); background: var(--selected); }
-    img { image-rendering: pixelated; object-fit: contain; flex: none; }
+    button:hover {
+      background: var(--hover);
+    }
+    button.current {
+      border-color: var(--accent);
+      background: var(--selected);
+    }
+    img {
+      image-rendering: pixelated;
+      object-fit: contain;
+      flex: none;
+    }
     @media (pointer: coarse) {
-      button { min-height: 44px; }
+      button {
+        min-height: 44px;
+      }
     }
   `,
 })

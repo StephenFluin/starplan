@@ -85,7 +85,9 @@ describe('coverageLayout', () => {
 
   it('never replaces crops outside the drawn area', () => {
     // Crops all around a 7x7 field: the edge sprinklers have to stay inside.
-    doc.apply(paintTiles(doc, map, item('parsnip'), { x: 0, y: 0, width: 17, height: 17 }, options));
+    doc.apply(
+      paintTiles(doc, map, item('parsnip'), { x: 0, y: 0, width: 17, height: 17 }, options),
+    );
     const rect = { x: 5, y: 5, width: 7, height: 7 };
     const layout = coverageLayout(doc, map, item('q-sprinkler'), rect, options);
     expect(layout.every((at) => inside(rect, at))).toBe(true);
@@ -105,14 +107,23 @@ describe('coverageLayout', () => {
     const half = RestrictionMap.decode(40, 40, ['3a3e34a', '3a3e34a', '3a3e34a', '1480a'].join(''));
     expect(coverageLayout(doc, half, item('q-sprinkler'), rect, options)).toHaveLength(1);
 
-    doc.apply({ tiles: [], objects: [{ uid: 1, before: null, after: { uid: 1, itemId: 'q-sprinkler', x: 1, y: 1 } }] });
+    doc.apply({
+      tiles: [],
+      objects: [{ uid: 1, before: null, after: { uid: 1, itemId: 'q-sprinkler', x: 1, y: 1 } }],
+    });
     expect(coverageLayout(doc, map, item('q-sprinkler'), rect, options)).toEqual([{ x: 4, y: 1 }]);
   });
 
   it('does not place sprinklers on tiles where they are not allowed', () => {
     // Fences block objects, so sprinklers must go elsewhere but can still water the fence row.
     doc.apply(paintTiles(doc, map, item('fence'), { x: 0, y: 1, width: 3, height: 1 }, options));
-    const layout = coverageLayout(doc, map, item('q-sprinkler'), { x: 0, y: 0, width: 3, height: 3 }, options);
+    const layout = coverageLayout(
+      doc,
+      map,
+      item('q-sprinkler'),
+      { x: 0, y: 0, width: 3, height: 3 },
+      options,
+    );
     expect(layout.every((at) => at.y !== 1)).toBe(true);
   });
 
@@ -148,13 +159,30 @@ describe('coverageLayout', () => {
     it('needs one scarecrow for a small field, and puts it just outside when that reaches', () => {
       const rect = { x: 5, y: 5, width: 9, height: 9 };
       expect(coverageLayout(doc, map, item('scarecrow'), rect, options)).toHaveLength(1);
-      const [row] = coverageLayout(doc, map, item('scarecrow'), { x: 5, y: 5, width: 9, height: 1 }, options);
+      const [row] = coverageLayout(
+        doc,
+        map,
+        item('scarecrow'),
+        { x: 5, y: 5, width: 9, height: 1 },
+        options,
+      );
       expect(row.y).not.toBe(5);
     });
 
     it('ignores sprinklers when counting existing coverage', () => {
-      doc.apply({ tiles: [], objects: [{ uid: 1, before: null, after: { uid: 1, itemId: 'irid-pressured-sprinkler', x: 8, y: 8 } }] });
-      expect(coverageLayout(doc, map, item('scarecrow'), { x: 5, y: 5, width: 7, height: 7 }, options)).toHaveLength(1);
+      doc.apply({
+        tiles: [],
+        objects: [
+          {
+            uid: 1,
+            before: null,
+            after: { uid: 1, itemId: 'irid-pressured-sprinkler', x: 8, y: 8 },
+          },
+        ],
+      });
+      expect(
+        coverageLayout(doc, map, item('scarecrow'), { x: 5, y: 5, width: 7, height: 7 }, options),
+      ).toHaveLength(1);
     });
   });
 });

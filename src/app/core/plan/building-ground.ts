@@ -9,7 +9,11 @@ import { IMPASSABLE, NOT_BUILDABLE, NOT_TILLABLE, RestrictionMap } from './restr
  * farmhouse's mailbox is solid. Where buildings' areas overlap, the first building's wins.
  * Objects in `ignore` (being moved) change nothing, as a moving building doesn't in the game.
  */
-export function restrictionsWithBuildings(ground: RestrictionMap, doc: PlanDocument, ignore: ReadonlySet<number> = new Set()): RestrictionMap {
+export function restrictionsWithBuildings(
+  ground: RestrictionMap,
+  doc: PlanDocument,
+  ignore: ReadonlySet<number> = new Set(),
+): RestrictionMap {
   const changed = new Map<number, readonly [number, number, number]>();
   for (const obj of doc.allObjects()) {
     if (ignore.has(obj.uid)) continue;
@@ -17,7 +21,8 @@ export function restrictionsWithBuildings(ground: RestrictionMap, doc: PlanDocum
       for (let y = obj.y + effect.y; y < obj.y + effect.y + effect.height; y++) {
         for (let x = obj.x + effect.x; x < obj.x + effect.x + effect.width; x++) {
           const cell = y * ground.width + x;
-          if (ground.inBounds(x, y) && !changed.has(cell)) changed.set(cell, [x, y, withEffect(ground.bits(x, y), effect)]);
+          if (ground.inBounds(x, y) && !changed.has(cell))
+            changed.set(cell, [x, y, withEffect(ground.bits(x, y), effect)]);
         }
       }
     }

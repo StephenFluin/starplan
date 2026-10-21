@@ -58,7 +58,14 @@ export interface BuildingRules {
    * Art the game draws on the ground under the building, below floors (the greenhouse's shadow and
    * doorstep, the pet bowl's platform). In pixels from the footprint's top-left corner.
    */
-  background?: { file: string; seasons?: SeasonalFiles; x: number; y: number; width: number; height: number };
+  background?: {
+    file: string;
+    seasons?: SeasonalFiles;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 /**

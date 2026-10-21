@@ -1,5 +1,22 @@
-import { Application, Assets, Container, Graphics, Rectangle, Sprite, Texture, TextureSource, TilingSprite } from 'pixi.js';
-import { CATALOG, CatalogItem, RangeGroup, findItem, spriteUrl, variantsOf } from '../../../core/data/catalog';
+import {
+  Application,
+  Assets,
+  Container,
+  Graphics,
+  Rectangle,
+  Sprite,
+  Texture,
+  TextureSource,
+  TilingSprite,
+} from 'pixi.js';
+import {
+  CATALOG,
+  CatalogItem,
+  RangeGroup,
+  findItem,
+  spriteUrl,
+  variantsOf,
+} from '../../../core/data/catalog';
 import { GAME_SPRITES } from '../../../core/data/game-art.generated';
 import { MapSeason, Tiling } from '../../../core/data/game-art';
 import { LayoutInfo, seasonalImage } from '../../../core/data/layout-info';
@@ -131,9 +148,17 @@ export class MapRenderer {
     await Assets.load([
       ...new Set([
         ...CATALOG.map((item) => absoluteUrl(spriteUrl(item))),
-        ...CATALOG.flatMap((item) => (item.building?.background ? [absoluteUrl(`assets/game/${item.building.background.file}`)] : [])),
+        ...CATALOG.flatMap((item) =>
+          item.building?.background
+            ? [absoluteUrl(`assets/game/${item.building.background.file}`)]
+            : [],
+        ),
         ...Object.values(GAME_SPRITES).map((sprite) => absoluteUrl(`assets/game/${sprite.file}`)),
-        ...CATALOG.flatMap((item) => (item.tiling ? tilingFiles(item.tiling).map((file) => absoluteUrl(`assets/game/${file}`)) : [])),
+        ...CATALOG.flatMap((item) =>
+          item.tiling
+            ? tilingFiles(item.tiling).map((file) => absoluteUrl(`assets/game/${file}`))
+            : [],
+        ),
       ]),
     ]);
 
@@ -203,7 +228,9 @@ export class MapRenderer {
     await Assets.load([
       ...new Set([
         ...CATALOG.map((item) => absoluteUrl(spriteUrl(item, season))),
-        ...CATALOG.flatMap((item) => (item.building?.background ? [absoluteUrl(this.groundArtFile(item))] : [])),
+        ...CATALOG.flatMap((item) =>
+          item.building?.background ? [absoluteUrl(this.groundArtFile(item))] : [],
+        ),
       ]),
     ]);
     if (this.destroyed) return;
@@ -215,10 +242,14 @@ export class MapRenderer {
   private async loadMapImages(): Promise<void> {
     const layout = this.layout;
     if (!layout) return;
-    this.background.texture = await Assets.load<Texture>(absoluteUrl(`assets/layouts/${seasonalImage(layout, layout.image, this.season)}`));
+    this.background.texture = await Assets.load<Texture>(
+      absoluteUrl(`assets/layouts/${seasonalImage(layout, layout.image, this.season)}`),
+    );
     const dirt = layout.greenhouseDirt;
     if (dirt) {
-      this.greenhouseDirt.texture = await Assets.load<Texture>(absoluteUrl(`assets/layouts/${seasonalImage(layout, dirt.image, this.season)}`));
+      this.greenhouseDirt.texture = await Assets.load<Texture>(
+        absoluteUrl(`assets/layouts/${seasonalImage(layout, dirt.image, this.season)}`),
+      );
       this.greenhouseDirt.position.set(dirt.x * TILE, dirt.y * TILE);
     }
   }
@@ -260,7 +291,9 @@ export class MapRenderer {
   }
 
   private updateGreenhouseDirt(): void {
-    this.greenhouseDirt.visible = Boolean(this.layout && this.doc && greenhouseDirtShown(this.doc, this.layout));
+    this.greenhouseDirt.visible = Boolean(
+      this.layout && this.doc && greenhouseDirtShown(this.doc, this.layout),
+    );
   }
 
   /** Draws (or clears) a ground tile, and redraws the fences and floors around it that join it. */
@@ -288,7 +321,12 @@ export class MapRenderer {
       const layout = this.layout;
       // Neighbours of the same fence or floor join it; so does the edge of the map, for floors.
       const joins = (dx: number, dy: number) => {
-        if (layout && tiling.kind === 'floor' && (x + dx < 0 || y + dy < 0 || x + dx >= layout.width || y + dy >= layout.height)) return true;
+        if (
+          layout &&
+          tiling.kind === 'floor' &&
+          (x + dx < 0 || y + dy < 0 || x + dx >= layout.width || y + dy >= layout.height)
+        )
+          return true;
         const id = doc?.tileAt(x + dx, y + dy);
         const other = id ? findItem(id)?.tiling : undefined;
         return other?.kind === tiling.kind && other.group === tiling.group;
@@ -304,7 +342,12 @@ export class MapRenderer {
           // The torch a fence holds, nudged at the ends of a run as the game does.
           const sum = fenceSum(joins);
           const torch = new Sprite(Texture.from(absoluteUrl(spriteUrl(findItem('torch')!))));
-          const nudge = sum === 10 ? tiling.torch.rightEnd : sum === 100 ? tiling.torch.leftEnd : tiling.torch.x;
+          const nudge =
+            sum === 10
+              ? tiling.torch.rightEnd
+              : sum === 100
+                ? tiling.torch.leftEnd
+                : tiling.torch.x;
           torch.position.set(nudge, tiling.torch.y);
           torch.setSize(TILE, TILE);
           view.addChild(torch);
@@ -325,7 +368,10 @@ export class MapRenderer {
     let texture = this.pieceTextures.get(id);
     if (!texture) {
       const sheet = Texture.from(absoluteUrl(`assets/game/${piece.file}`));
-      texture = new Texture({ source: sheet.source, frame: new Rectangle(piece.sx, piece.sy, piece.width, piece.height) });
+      texture = new Texture({
+        source: sheet.source,
+        frame: new Rectangle(piece.sx, piece.sy, piece.width, piece.height),
+      });
       this.pieceTextures.set(id, texture);
     }
     return texture;
@@ -378,7 +424,10 @@ export class MapRenderer {
     } else {
       // v2 sprites: fit the footprint's width, keeping proportions.
       const width = item.width * TILE;
-      const height = Math.min((item.spriteHeight ?? item.height) * TILE, Math.round((width * sprite.texture.height) / sprite.texture.width));
+      const height = Math.min(
+        (item.spriteHeight ?? item.height) * TILE,
+        Math.round((width * sprite.texture.height) / sprite.texture.width),
+      );
       sprite.position.set(0, bottom - height);
       sprite.setSize(width, height);
     }
@@ -466,7 +515,11 @@ export class MapRenderer {
     for (const obj of this.doc.allObjects()) {
       const range = findItem(obj.itemId)?.range;
       if (!range) continue;
-      if (this.alwaysShowRanges.includes(range.group) || obj.uid === this.hoveredUid || this.selectedUids.has(obj.uid)) {
+      if (
+        this.alwaysShowRanges.includes(range.group) ||
+        obj.uid === this.hoveredUid ||
+        this.selectedUids.has(obj.uid)
+      ) {
         addRange(obj);
       }
     }
@@ -492,7 +545,8 @@ export class MapRenderer {
     }
     for (const ghost of preview?.ghosts ?? []) {
       if (ghost.item.range) {
-        for (const [x, y] of rangeTiles(ghost.item.range, ghost.x, ghost.y)) g.rect(x * TILE, y * TILE, TILE, TILE);
+        for (const [x, y] of rangeTiles(ghost.item.range, ghost.x, ghost.y))
+          g.rect(x * TILE, y * TILE, TILE, TILE);
         g.fill({ color: ghost.item.range.color, alpha: 0.45 });
       }
       const view = this.createObjectView(ghost.item, true);
@@ -513,7 +567,11 @@ export class MapRenderer {
     }
     if (preview?.cursor) {
       const { x, y } = preview.cursor;
-      g.rect(x * TILE, y * TILE, TILE, TILE).stroke({ color: 0xfbbf24, width: 2 / this.zoom, alignment: 1 });
+      g.rect(x * TILE, y * TILE, TILE, TILE).stroke({
+        color: 0xfbbf24,
+        width: 2 / this.zoom,
+        alignment: 1,
+      });
     }
     if (preview?.blocked?.length) {
       for (const [x, y] of preview.blocked) g.rect(x * TILE, y * TILE, TILE, TILE);
@@ -540,7 +598,10 @@ export class MapRenderer {
   centreTile(): { x: number; y: number } {
     const { x, y, zoom } = this.camera.view;
     const { width, height } = this.app.renderer.screen;
-    return { x: Math.floor((width / 2 - x) / zoom / TILE), y: Math.floor((height / 2 - y) / zoom / TILE) };
+    return {
+      x: Math.floor((width / 2 - x) / zoom / TILE),
+      y: Math.floor((height / 2 - y) / zoom / TILE),
+    };
   }
 
   /** Pans so a tile sits in the middle of the view (as near as the map's edges allow). */
@@ -548,7 +609,10 @@ export class MapRenderer {
     this.camera.stop();
     const { x, y, zoom } = this.camera.view;
     const { width, height } = this.app.renderer.screen;
-    this.panBy(width / 2 - (x + (tileX + 0.5) * TILE * zoom), height / 2 - (y + (tileY + 0.5) * TILE * zoom));
+    this.panBy(
+      width / 2 - (x + (tileX + 0.5) * TILE * zoom),
+      height / 2 - (y + (tileY + 0.5) * TILE * zoom),
+    );
   }
 
   /**
@@ -558,7 +622,11 @@ export class MapRenderer {
   zoomAt(factor: number, clientX?: number, clientY?: number, animate = true): void {
     const bounds = this.app.canvas.getBoundingClientRect();
     this.camera.animate = animate && !this.reducedMotion.matches;
-    this.camera.zoomAt(factor, clientX === undefined ? undefined : clientX - bounds.left, clientY === undefined ? undefined : clientY - bounds.top);
+    this.camera.zoomAt(
+      factor,
+      clientX === undefined ? undefined : clientX - bounds.left,
+      clientY === undefined ? undefined : clientY - bounds.top,
+    );
     this.applyView();
   }
 
@@ -594,16 +662,30 @@ export class MapRenderer {
 
   /** Renders the whole map, without overlays, to a PNG. */
   async exportPng(): Promise<Blob> {
-    const hidden = [this.previewLayer, this.overlayLayer, this.grid].filter((c): c is Container => Boolean(c?.visible));
+    const hidden = [this.previewLayer, this.overlayLayer, this.grid].filter((c): c is Container =>
+      Boolean(c?.visible),
+    );
     for (const c of hidden) c.visible = false;
     this.camera.stop();
     this.world.position.set(0, 0);
     this.world.scale.set(1);
     try {
-      const frame = new Rectangle(0, 0, (this.layout?.width ?? 0) * TILE, (this.layout?.height ?? 0) * TILE);
-      const canvas = this.app.renderer.extract.canvas({ target: this.world, frame, resolution: 2 }) as HTMLCanvasElement;
+      const frame = new Rectangle(
+        0,
+        0,
+        (this.layout?.width ?? 0) * TILE,
+        (this.layout?.height ?? 0) * TILE,
+      );
+      const canvas = this.app.renderer.extract.canvas({
+        target: this.world,
+        frame,
+        resolution: 2,
+      }) as HTMLCanvasElement;
       return await new Promise<Blob>((resolve, reject) =>
-        canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('PNG export failed'))), 'image/png'),
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error('PNG export failed'))),
+          'image/png',
+        ),
       );
     } finally {
       this.syncWorld();

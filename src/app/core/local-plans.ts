@@ -25,7 +25,10 @@ export class LocalPlans {
     const index = this.readJson(INDEX_KEY);
     if (!Array.isArray(index)) return [];
     return index
-      .filter((entry): entry is LocalPlanInfo => typeof entry?.id === 'string' && typeof entry?.name === 'string')
+      .filter(
+        (entry): entry is LocalPlanInfo =>
+          typeof entry?.id === 'string' && typeof entry?.name === 'string',
+      )
       .sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
@@ -38,7 +41,10 @@ export class LocalPlans {
   write(id: string, plan: SavedPlan, name: string, now: number): boolean {
     if (!this.set(PLAN_PREFIX + id, JSON.stringify(plan))) return false;
     const others = this.list().filter((entry) => entry.id !== id);
-    return this.set(INDEX_KEY, JSON.stringify([{ id, name, layout: plan.layout, updatedAt: now }, ...others]));
+    return this.set(
+      INDEX_KEY,
+      JSON.stringify([{ id, name, layout: plan.layout, updatedAt: now }, ...others]),
+    );
   }
 
   rename(id: string, name: string): void {

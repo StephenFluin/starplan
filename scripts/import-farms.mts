@@ -47,7 +47,10 @@ interface FarmSpec {
    */
   greenhouseDirt?: string;
   /** Objects and fences the game adds when the farm is created. */
-  starter?: { objects: { itemId: string; x: number; y: number }[]; tiles: { itemId: string; x: number; y: number }[] };
+  starter?: {
+    objects: { itemId: string; x: number; y: number }[];
+    tiles: { itemId: string; x: number; y: number }[];
+  };
 }
 
 // The game's defaults (Farm.GetGreenhouseStartLocation and friends), for maps without properties.
@@ -70,11 +73,29 @@ function meadowlandsStarter(): FarmSpec['starter'] {
 }
 
 const FARMS: FarmSpec[] = [
-  { id: 'regular', name: 'Standard Farm', map: 'Farm', greenhouse: STANDARD_GREENHOUSE, greenhouseDirt: 'Farm_Greenhouse_Dirt' },
+  {
+    id: 'regular',
+    name: 'Standard Farm',
+    map: 'Farm',
+    greenhouse: STANDARD_GREENHOUSE,
+    greenhouseDirt: 'Farm_Greenhouse_Dirt',
+  },
   { id: 'fishing', name: 'Riverland Farm', map: 'Farm_Fishing', greenhouse: STANDARD_GREENHOUSE },
   { id: 'foraging', name: 'Forest Farm', map: 'Farm_Foraging', greenhouse: STANDARD_GREENHOUSE },
-  { id: 'mining', name: 'Hill-top Farm', map: 'Farm_Mining', greenhouse: STANDARD_GREENHOUSE, greenhouseDirt: 'Farm_Greenhouse_Dirt' },
-  { id: 'combat', name: 'Wilderness Farm', map: 'Farm_Combat', greenhouse: STANDARD_GREENHOUSE, greenhouseDirt: 'Farm_Greenhouse_Dirt' },
+  {
+    id: 'mining',
+    name: 'Hill-top Farm',
+    map: 'Farm_Mining',
+    greenhouse: STANDARD_GREENHOUSE,
+    greenhouseDirt: 'Farm_Greenhouse_Dirt',
+  },
+  {
+    id: 'combat',
+    name: 'Wilderness Farm',
+    map: 'Farm_Combat',
+    greenhouse: STANDARD_GREENHOUSE,
+    greenhouseDirt: 'Farm_Greenhouse_Dirt',
+  },
   {
     id: 'fourcorners',
     name: 'Four Corners Farm',
@@ -83,7 +104,13 @@ const FARMS: FarmSpec[] = [
     greenhouseDirt: 'Farm_Greenhouse_Dirt_FourCorners',
   },
   { id: 'beach', name: 'Beach Farm', map: 'Farm_Island', greenhouse: { x: 14, y: 14 } },
-  { id: 'ranching', name: 'Meadowlands Farm', map: 'Farm_Ranching', greenhouse: STANDARD_GREENHOUSE, starter: meadowlandsStarter() },
+  {
+    id: 'ranching',
+    name: 'Meadowlands Farm',
+    map: 'Farm_Ranching',
+    greenhouse: STANDARD_GREENHOUSE,
+    starter: meadowlandsStarter(),
+  },
 ];
 
 // --- TMX parsing -----------------------------------------------------------------------------
@@ -124,7 +151,12 @@ function attrs(text: string): Record<string, string> {
 }
 
 function decodeXml(text: string): string {
-  return text.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+  return text
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
 }
 
 function properties(text: string | undefined): Props {
@@ -172,7 +204,12 @@ function readMap(name: string, season: Season = 'spring'): TmxMap {
       const tileProps = properties(tile[2]);
       if (Object.keys(tileProps).length) props.set(Number(attrs(tile[1]).id), tileProps);
     }
-    tilesets.push({ firstGid: Number(info.firstgid), image, columns: Math.floor(image.width / TILE), props });
+    tilesets.push({
+      firstGid: Number(info.firstgid),
+      image,
+      columns: Math.floor(image.width / TILE),
+      props,
+    });
   }
   tilesets.sort((a, b) => b.firstGid - a.firstGid);
 
@@ -180,7 +217,11 @@ function readMap(name: string, season: Season = 'spring'): TmxMap {
   for (const match of xml.matchAll(/<layer\b([^>]*)>([\s\S]*?)<\/layer>/g)) {
     const info = attrs(match[1]);
     const data = match[2].match(/<data encoding="csv">([\s\S]*?)<\/data>/)![1];
-    layers.push({ name: info.name, visible: info.visible !== '0', gids: data.split(',').map((v) => Number(v.trim())) });
+    layers.push({
+      name: info.name,
+      visible: info.visible !== '0',
+      gids: data.split(',').map((v) => Number(v.trim())),
+    });
   }
 
   const tileData = new Map<string, Map<string, Props>>();
@@ -197,7 +238,14 @@ function readMap(name: string, season: Season = 'spring'): TmxMap {
     tileData.set(layer, byTile);
   }
 
-  return { width: Number(head.width), height: Number(head.height), props: mapProps, tilesets, layers, tileData };
+  return {
+    width: Number(head.width),
+    height: Number(head.height),
+    props: mapProps,
+    tilesets,
+    layers,
+    tileData,
+  };
 }
 
 function tilesetFor(map: TmxMap, gid: number): Tileset | undefined {
@@ -205,7 +253,12 @@ function tilesetFor(map: TmxMap, gid: number): Tileset | undefined {
 }
 
 /** The tile on a layer and its properties: its tileset's, overridden by any TileData object there. */
-function tileAt(map: TmxMap, layerName: string, x: number, y: number): { gid: number; props: Props } {
+function tileAt(
+  map: TmxMap,
+  layerName: string,
+  x: number,
+  y: number,
+): { gid: number; props: Props } {
   const layer = map.layers.find((l) => l.name === layerName);
   const gid = (layer?.gids[y * map.width + x] ?? 0) & ~(FLIP_H | FLIP_V | FLIP_D);
   const set = gid ? tilesetFor(map, gid) : undefined;
@@ -216,7 +269,11 @@ function tileAt(map: TmxMap, layerName: string, x: number, y: number): { gid: nu
 // --- Rendering -------------------------------------------------------------------------------
 
 function render(map: TmxMap): Image {
-  const out: Image = { width: map.width * TILE, height: map.height * TILE, data: new Uint8Array(map.width * map.height * TILE * TILE * 4) };
+  const out: Image = {
+    width: map.width * TILE,
+    height: map.height * TILE,
+    data: new Uint8Array(map.width * map.height * TILE * TILE * 4),
+  };
   for (const layer of map.layers) {
     // "Paths" holds invisible markers (spawns, trees); the game never draws it.
     if (!layer.visible || layer.name.startsWith('Paths')) continue;
@@ -233,7 +290,14 @@ function render(map: TmxMap): Image {
   return out;
 }
 
-function drawTile(out: Image, set: Tileset, index: number, dx: number, dy: number, flags: number): void {
+function drawTile(
+  out: Image,
+  set: Tileset,
+  index: number,
+  dx: number,
+  dy: number,
+  flags: number,
+): void {
   const sx = (index % set.columns) * TILE;
   const sy = Math.floor(index / set.columns) * TILE;
   for (let y = 0; y < TILE; y++) {
@@ -247,7 +311,8 @@ function drawTile(out: Image, set: Tileset, index: number, dx: number, dy: numbe
       const alpha = set.image.data[s + 3] / 255;
       if (!alpha) continue;
       const d = ((dy + y) * out.width + dx + x) * 4;
-      for (let c = 0; c < 3; c++) out.data[d + c] = Math.round(set.image.data[s + c] * alpha + out.data[d + c] * (1 - alpha));
+      for (let c = 0; c < 3; c++)
+        out.data[d + c] = Math.round(set.image.data[s + c] * alpha + out.data[d + c] * (1 - alpha));
       out.data[d + 3] = Math.max(out.data[d + 3], set.image.data[s + 3]);
     }
   }
@@ -267,7 +332,10 @@ function restrictions(map: TmxMap): Uint8Array {
   const mask = new Uint8Array(map.width * map.height);
   for (let y = 0; y < map.height; y++) {
     for (let x = 0; x < map.width; x++) {
-      mask[y * map.width + x] = tileRestrictions(tileAt(map, 'Back', x, y), tileAt(map, 'Buildings', x, y));
+      mask[y * map.width + x] = tileRestrictions(
+        tileAt(map, 'Back', x, y),
+        tileAt(map, 'Buildings', x, y),
+      );
     }
   }
   return mask;
@@ -278,17 +346,27 @@ function patchRestrictions(map: TmxMap, patch: TmxMap, x0: number, y0: number): 
   const mask = new Uint8Array(patch.width * patch.height);
   for (let y = 0; y < patch.height; y++) {
     for (let x = 0; x < patch.width; x++) {
-      mask[y * patch.width + x] = tileRestrictions(tileAt(patch, 'Back', x, y), tileAt(map, 'Buildings', x0 + x, y0 + y));
+      mask[y * patch.width + x] = tileRestrictions(
+        tileAt(patch, 'Back', x, y),
+        tileAt(map, 'Buildings', x0 + x, y0 + y),
+      );
     }
   }
   return mask;
 }
 
-function tileRestrictions(back: { gid: number; props: Props }, building: { gid: number; props: Props }): number {
+function tileRestrictions(
+  back: { gid: number; props: Props },
+  building: { gid: number; props: Props },
+): number {
   const blocked =
-    !back.gid || back.props['Water'] !== undefined || isFalse(back.props['Passable']) || (building.gid > 0 && building.props['Passable'] === undefined);
+    !back.gid ||
+    back.props['Water'] !== undefined ||
+    isFalse(back.props['Passable']) ||
+    (building.gid > 0 && building.props['Passable'] === undefined);
   const diggable = back.props['Diggable'] !== undefined;
-  const buildable = !blocked && !isFalse(back.props['Buildable']) && (isTrue(back.props['Buildable']) || diggable);
+  const buildable =
+    !blocked && !isFalse(back.props['Buildable']) && (isTrue(back.props['Buildable']) || diggable);
   let bits = 0;
   if (blocked) bits |= IMPASSABLE | NOT_BUILDABLE | NOT_TILLABLE;
   if (!buildable) bits |= NOT_BUILDABLE;
@@ -298,7 +376,7 @@ function tileRestrictions(back: { gid: number; props: Props }, building: { gid: 
 
 function encodeMask(mask: Uint8Array): string {
   let out = '';
-  for (let i = 0; i < mask.length; ) {
+  for (let i = 0; i < mask.length;) {
     let run = 1;
     while (i + run < mask.length && mask[i + run] === mask[i]) run++;
     out += `${run}${String.fromCharCode(97 + mask[i])}`;
@@ -311,7 +389,9 @@ function encodeMask(mask: Uint8Array): string {
 
 function point(map: TmxMap, property: string, fallback: Point): Point {
   const value = map.props[property]?.trim().split(/\s+/).map(Number);
-  return value && value.length >= 2 && value.every(Number.isFinite) ? { x: value[0], y: value[1] } : fallback;
+  return value && value.length >= 2 && value.every(Number.isFinite)
+    ? { x: value[0], y: value[1] }
+    : fallback;
 }
 
 const tsPoint = (p: Point) => `{ x: ${p.x}, y: ${p.y} }`;
@@ -327,7 +407,10 @@ function main() {
     const map = readMap(farm.map);
     writeFileSync(join(layoutDir, `${farm.id}.png`), encodePng(render(map)));
     for (const season of SEASONS.slice(1)) {
-      writeFileSync(join(layoutDir, `${farm.id}-${season}.png`), encodePng(render(readMap(farm.map, season))));
+      writeFileSync(
+        join(layoutDir, `${farm.id}-${season}.png`),
+        encodePng(render(readMap(farm.map, season))),
+      );
     }
     writeFileSync(join(maskDir, `${farm.id}.txt`), encodeMask(restrictions(map)));
 
@@ -339,10 +422,16 @@ function main() {
     if (farm.greenhouseDirt) {
       // Drawn and enforced once the greenhouse has moved, as in the game.
       const patch = readMap(farm.greenhouseDirt);
-      const image = `${farm.greenhouseDirt.replace(/^Farm_/, '').replace(/_/g, '-').toLowerCase()}.png`;
+      const image = `${farm.greenhouseDirt
+        .replace(/^Farm_/, '')
+        .replace(/_/g, '-')
+        .toLowerCase()}.png`;
       writeFileSync(join(layoutDir, image), encodePng(render(patch)));
       for (const season of SEASONS.slice(1)) {
-        writeFileSync(join(layoutDir, image.replace(/\.png$/, `-${season}.png`)), encodePng(render(readMap(farm.greenhouseDirt, season))));
+        writeFileSync(
+          join(layoutDir, image.replace(/\.png$/, `-${season}.png`)),
+          encodePng(render(readMap(farm.greenhouseDirt, season))),
+        );
       }
       const mask = encodeMask(patchRestrictions(map, patch, greenhouse.x, greenhouse.y));
       dirt = `greenhouseDirt: { image: ${JSON.stringify(image)}, x: ${greenhouse.x}, y: ${greenhouse.y}, width: ${patch.width}, height: ${patch.height}, restrictions: ${JSON.stringify(mask)} }`;
@@ -366,7 +455,9 @@ function main() {
     if (farm.starter) {
       const list = (items: { itemId: string; x: number; y: number }[]) =>
         `[${items.map((i) => `{ itemId: ${JSON.stringify(i.itemId)}, x: ${i.x}, y: ${i.y} }`).join(', ')}]`;
-      fields.push(`starter: { objects: ${list(farm.starter.objects)}, tiles: ${list(farm.starter.tiles)} }`);
+      fields.push(
+        `starter: { objects: ${list(farm.starter.objects)}, tiles: ${list(farm.starter.tiles)} }`,
+      );
     }
     entries.push(`  {\n    ${fields.join(',\n    ')},\n  }`);
     console.log(`${farm.id}: ${map.width}x${map.height}`);

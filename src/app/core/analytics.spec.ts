@@ -17,7 +17,9 @@ describe('loadGtag', () => {
   it('queues the page view config and loads gtag.js for the measurement ID', () => {
     expect(loadGtag(doc, 'G-TEST123')).toBe(true);
     expect(scripts()).toEqual(['https://www.googletagmanager.com/gtag/js?id=G-TEST123']);
-    const queued = (window as Window & { dataLayer?: IArguments[] }).dataLayer!.map((args) => [...args]);
+    const queued = (window as Window & { dataLayer?: IArguments[] }).dataLayer!.map((args) => [
+      ...args,
+    ]);
     expect(queued[0][0]).toBe('js');
     expect(queued[1]).toEqual(['config', 'G-TEST123']);
   });
@@ -28,7 +30,10 @@ describe('loadGtag', () => {
   });
 
   it('respects Global Privacy Control and Do Not Track', () => {
-    for (const [name, value] of [['globalPrivacyControl', true], ['doNotTrack', '1']] as const) {
+    for (const [name, value] of [
+      ['globalPrivacyControl', true],
+      ['doNotTrack', '1'],
+    ] as const) {
       Object.defineProperty(navigator, name, { value, configurable: true });
       try {
         expect(loadGtag(doc, 'G-TEST123'), name).toBe(false);

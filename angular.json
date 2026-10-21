@@ -54,17 +54,13 @@
                 "input": "public"
               }
             ],
-            "styles": [
-              "src/styles.scss"
-            ],
+            "styles": ["src/styles.scss"],
             "server": "src/main.server.ts",
             "outputMode": "static",
             "security": {
               "allowedHosts": []
             },
-            "allowedCommonJsDependencies": [
-              "@xmldom/xmldom"
-            ]
+            "allowedCommonJsDependencies": ["@xmldom/xmldom"]
           },
           "configurations": {
             "production": {

@@ -13,7 +13,8 @@ export type Restriction = 'tillable' | 'buildable' | 'accessible';
 /** Tiles live on the ground grid (one per cell); objects have a footprint and sit above tiles. */
 export type ItemKind = 'tile' | 'object';
 
-export type Category = 'buildings' | 'crops' | 'craftables' | 'trees' | 'paths' | 'fences' | 'decor' | 'misc';
+export type Category =
+  'buildings' | 'crops' | 'craftables' | 'trees' | 'paths' | 'fences' | 'decor' | 'misc';
 
 export type Season = 'spring' | 'summer' | 'fall' | 'winter' | 'island';
 
@@ -63,18 +64,44 @@ const JUNIMO = 0x89cff0;
 type Extra = Partial<Omit<CatalogItem, 'id' | 'name' | 'kind' | 'category'>>;
 
 function tile(id: string, name: string, category: Category, extra: Extra = {}): CatalogItem {
-  return { id, name, kind: 'tile', category, sprite: id, width: 1, height: 1, restriction: 'tillable', ...extra };
+  return {
+    id,
+    name,
+    kind: 'tile',
+    category,
+    sprite: id,
+    width: 1,
+    height: 1,
+    restriction: 'tillable',
+    ...extra,
+  };
 }
 
 function object(id: string, name: string, category: Category, extra: Extra = {}): CatalogItem {
-  return { id, name, kind: 'object', category, sprite: id, width: 1, height: 1, restriction: 'accessible', ...extra };
+  return {
+    id,
+    name,
+    kind: 'object',
+    category,
+    sprite: id,
+    width: 1,
+    height: 1,
+    restriction: 'accessible',
+    ...extra,
+  };
 }
 
 function crop(id: string, name: string, seasons: readonly Season[]): CatalogItem {
   return tile(id, name, 'crops', { seasons });
 }
 
-function building(id: string, name: string, width: number, height: number, extra: Extra = {}): CatalogItem {
+function building(
+  id: string,
+  name: string,
+  width: number,
+  height: number,
+  extra: Extra = {},
+): CatalogItem {
   return object(id, name, 'buildings', { width, height, restriction: 'buildable', ...extra });
 }
 
@@ -94,7 +121,10 @@ const ITEMS: readonly CatalogItem[] = [
   building('house', 'Farmhouse', 9, 5, { spriteHeight: 9 }),
   building('house-upgrade-2', 'Farmhouse (upgrade 2)', 9, 5, { spriteHeight: 9 }),
   building('house-upgrade-3', 'Farmhouse (upgrade 3)', 9, 5, { spriteHeight: 9 }),
-  building('greenhouse', 'Greenhouse (broken)', 7, 6, { sprite: 'greenhouse-broken', spriteHeight: 10 }),
+  building('greenhouse', 'Greenhouse (broken)', 7, 6, {
+    sprite: 'greenhouse-broken',
+    spriteHeight: 10,
+  }),
   building('greenhouse-fixed', 'Greenhouse', 7, 6, { spriteHeight: 10 }),
   building('barn', 'Barn', 7, 4),
   building('big-barn', 'Big Barn', 7, 4),
@@ -122,7 +152,14 @@ const ITEMS: readonly CatalogItem[] = [
   building('hay-pet-bowl', 'Hay Pet Bowl', 2, 2),
   building('shipping-bin', 'Shipping Bin', 2, 1, { spriteHeight: 2 }),
   building('junimo-hut', 'Junimo Hut', 3, 2, {
-    range: { shape: 'square', radius: 8, origin: { x: 1, y: 1 }, includeCenter: true, color: JUNIMO, group: 'junimo' },
+    range: {
+      shape: 'square',
+      radius: 8,
+      origin: { x: 1, y: 1 },
+      includeCenter: true,
+      color: JUNIMO,
+      group: 'junimo',
+    },
   }),
   building('earth-obelisk', 'Earth Obelisk', 3, 2),
   building('water-obelisk', 'Water Obelisk', 3, 2),
@@ -265,11 +302,27 @@ const ITEMS: readonly CatalogItem[] = [
   crop('ancient-fruit', 'Ancient Fruit', ['spring', 'summer', 'fall']),
   crop('tea', 'Tea Bush', ['spring', 'summer', 'fall']),
   tile('trellis', 'Trellis', 'crops'),
-  object('giant-cauliflower', 'Giant Cauliflower', 'crops', { width: 3, height: 3, restriction: 'tillable' }),
+  object('giant-cauliflower', 'Giant Cauliflower', 'crops', {
+    width: 3,
+    height: 3,
+    restriction: 'tillable',
+  }),
   object('giant-melon', 'Giant Melon', 'crops', { width: 3, height: 3, restriction: 'tillable' }),
-  object('giant-pumpkin', 'Giant Pumpkin', 'crops', { width: 3, height: 3, restriction: 'tillable' }),
-  object('giant-powdermelon', 'Giant Powdermelon', 'crops', { width: 3, height: 3, restriction: 'tillable' }),
-  object('giant-qi-fruit', 'Giant Qi Fruit', 'crops', { width: 3, height: 3, restriction: 'tillable' }),
+  object('giant-pumpkin', 'Giant Pumpkin', 'crops', {
+    width: 3,
+    height: 3,
+    restriction: 'tillable',
+  }),
+  object('giant-powdermelon', 'Giant Powdermelon', 'crops', {
+    width: 3,
+    height: 3,
+    restriction: 'tillable',
+  }),
+  object('giant-qi-fruit', 'Giant Qi Fruit', 'crops', {
+    width: 3,
+    height: 3,
+    restriction: 'tillable',
+  }),
 
   // Trees
   tree('apple', 'Apple Tree'),
@@ -400,9 +453,28 @@ export const VARIANT_FAMILIES: readonly (readonly string[])[] = [
   ['barn', 'big-barn', 'deluxe-barn'],
   ['coop', 'big-coop', 'deluxe-coop'],
   ['shed', 'big-shed'],
-  ['stone-cabin', 'plank-cabin', 'log-cabin', 'rustic-cabin', 'trailer-cabin', 'neighbor-cabin', 'beach-cabin'],
+  [
+    'stone-cabin',
+    'plank-cabin',
+    'log-cabin',
+    'rustic-cabin',
+    'trailer-cabin',
+    'neighbor-cabin',
+    'beach-cabin',
+  ],
   ['pet-bowl', 'stone-pet-bowl', 'hay-pet-bowl'],
-  ['scarecrow', 'deluxe-scarecrow', 'rarecrow-1', 'rarecrow-2', 'rarecrow-3', 'rarecrow-4', 'rarecrow-5', 'rarecrow-6', 'rarecrow-7', 'rarecrow-8'],
+  [
+    'scarecrow',
+    'deluxe-scarecrow',
+    'rarecrow-1',
+    'rarecrow-2',
+    'rarecrow-3',
+    'rarecrow-4',
+    'rarecrow-5',
+    'rarecrow-6',
+    'rarecrow-7',
+    'rarecrow-8',
+  ],
   ['sprinkler', 'q-sprinkler', 'irid-sprinkler'],
   ['pressured-sprinkler', 'q-pressured-sprinkler', 'irid-pressured-sprinkler'],
   ['chest', 'stone-chest', 'big-chest', 'big-stone-chest'],
@@ -410,11 +482,24 @@ export const VARIANT_FAMILIES: readonly (readonly string[])[] = [
   ['furnace', 'heavy-furnace'],
   ['worm-bin', 'deluxe-worm-bin'],
   ['wood-lamp-post', 'iron-lamp-post'],
-  ['torch', 'campfire', 'wooden-brazier', 'stone-brazier', 'gold-brazier', 'carved-brazier', 'stump-brazier', 'barrel-brazier', 'skull-brazier', 'marble-brazier'],
+  [
+    'torch',
+    'campfire',
+    'wooden-brazier',
+    'stone-brazier',
+    'gold-brazier',
+    'carved-brazier',
+    'stump-brazier',
+    'barrel-brazier',
+    'skull-brazier',
+    'marble-brazier',
+  ],
 ];
 
 const BY_ID = new Map(CATALOG.map((item) => [item.id, item]));
-const FAMILY_OF = new Map(VARIANT_FAMILIES.flatMap((family) => family.map((id) => [id, family] as const)));
+const FAMILY_OF = new Map(
+  VARIANT_FAMILIES.flatMap((family) => family.map((id) => [id, family] as const)),
+);
 
 /** Every variant of an item, including itself, in display order. Empty when it has none. */
 export function variantsOf(id: string): CatalogItem[] {
@@ -428,7 +513,8 @@ export function findItem(id: string): CatalogItem | undefined {
 
 /** Whole tiles the art extends above the footprint (roofs), for hit-testing. */
 export function spriteOverhang(item: CatalogItem): number {
-  if (item.art) return Math.max(0, Math.ceil((item.art.height - item.art.offsetY) / 16) - item.height);
+  if (item.art)
+    return Math.max(0, Math.ceil((item.art.height - item.art.offsetY) / 16) - item.height);
   return (item.spriteHeight ?? item.height) - item.height;
 }
 

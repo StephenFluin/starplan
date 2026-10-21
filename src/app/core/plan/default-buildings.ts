@@ -31,7 +31,8 @@ export function legacySpriteOffset(itemId: string): number {
 export function defaultBuildings(layout: LayoutInfo): DefaultBuilding[] {
   const result: DefaultBuilding[] = [];
   const add = (itemId: string, at: TilePoint | undefined) => {
-    if (at && findItem(itemId)) result.push({ itemId, x: at.x, y: at.y + legacySpriteOffset(itemId) });
+    if (at && findItem(itemId))
+      result.push({ itemId, x: at.x, y: at.y + legacySpriteOffset(itemId) });
   };
   add('house', layout.house);
   add('greenhouse', layout.greenhouse);
@@ -49,14 +50,18 @@ export function isGreenhouse(itemId: string): boolean {
 
 /** Where the layout's greenhouse starts (its footprint's top-left), if it has one. */
 export function greenhouseStart(layout: LayoutInfo): TilePoint | null {
-  return layout.greenhouse ? { x: layout.greenhouse.x, y: layout.greenhouse.y + legacySpriteOffset('greenhouse') } : null;
+  return layout.greenhouse
+    ? { x: layout.greenhouse.x, y: layout.greenhouse.y + legacySpriteOffset('greenhouse') }
+    : null;
 }
 
 /** Whether a greenhouse stands at the layout's start location. */
 export function greenhouseAtStart(doc: PlanDocument, layout: LayoutInfo): boolean {
   const start = greenhouseStart(layout);
   const obj = start && doc.objectAt(start.x, start.y);
-  return Boolean(obj && start && obj.x === start.x && obj.y === start.y && isGreenhouse(obj.itemId));
+  return Boolean(
+    obj && start && obj.x === start.x && obj.y === start.y && isGreenhouse(obj.itemId),
+  );
 }
 
 /**

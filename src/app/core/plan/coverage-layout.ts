@@ -69,14 +69,31 @@ export function coverageLayout(
   // Ranges with no perfect tiling (scarecrows' circles) use the farm-wide set-cover planner, with
   // the drawn area's tiles as the targets.
   const tilings = [...lattices(range, rect)];
-  if (tilings.length === 1 && range.shape !== 'square' && !(range.shape === 'diamond' && range.radius === 1)) {
+  if (
+    tilings.length === 1 &&
+    range.shape !== 'square' &&
+    !(range.shape === 'diamond' && range.radius === 1)
+  ) {
     const target = new Uint8Array(doc.width * doc.height);
     for (let y = rect.y; y < rect.y + rect.height; y++) {
       for (let x = rect.x; x < rect.x + rect.width; x++) {
-        if (map.inBounds(x, y) && x < doc.width && y < doc.height && field.needs[field.targetIndex(x, y)]) target[y * doc.width + x] = 1;
+        if (
+          map.inBounds(x, y) &&
+          x < doc.width &&
+          y < doc.height &&
+          field.needs[field.targetIndex(x, y)]
+        )
+          target[y * doc.width + x] = 1;
       }
     }
-    return planCover(doc, map, item, options, target, (x, y) => field.inArea(x, y) && canPlace(x, y)).positions;
+    return planCover(
+      doc,
+      map,
+      item,
+      options,
+      target,
+      (x, y) => field.inArea(x, y) && canPlace(x, y),
+    ).positions;
   }
 
   // Rank finished layouts: moving items outward changes how many end up inside the area.
@@ -106,7 +123,12 @@ function markNeeds(
   // Existing items of the same kind near the area already cover some of it.
   // 16 is the largest radius in the catalog (deluxe scarecrow).
   const reach = 16;
-  for (const obj of doc.objectsInRect(rect.x - reach, rect.y - reach, rect.width + reach * 2, rect.height + reach * 2)) {
+  for (const obj of doc.objectsInRect(
+    rect.x - reach,
+    rect.y - reach,
+    rect.width + reach * 2,
+    rect.height + reach * 2,
+  )) {
     const range = findItem(obj.itemId)?.range;
     if (range?.group !== group) continue;
     for (const [x, y] of rangeTiles(range, obj.x, obj.y)) {
@@ -120,7 +142,10 @@ function markNeeds(
  * Square ranges tile on a (2r+1) grid; the plus-shaped basic sprinkler tiles on the
  * (x + 2y) mod 5 lattice. Other shapes fall back to the greedy pass alone.
  */
-function* lattices(range: RangeShape, rect: TileRect): Generator<(x: number, y: number) => boolean> {
+function* lattices(
+  range: RangeShape,
+  rect: TileRect,
+): Generator<(x: number, y: number) => boolean> {
   if (range.shape === 'square') {
     const step = range.radius * 2 + 1;
     for (let oy = 0; oy < step; oy++) {
@@ -177,7 +202,12 @@ class CoverageField {
     private readonly gridKey: (at: TilePosition) => string,
   ) {
     this.needs = new Uint8Array(target.width * target.height);
-    this.area = { x: target.x - reach, y: target.y - reach, width: target.width + reach * 2, height: target.height + reach * 2 };
+    this.area = {
+      x: target.x - reach,
+      y: target.y - reach,
+      width: target.width + reach * 2,
+      height: target.height + reach * 2,
+    };
   }
 
   inTarget(x: number, y: number): boolean {
@@ -206,7 +236,10 @@ class CoverageField {
   }
 
   /** Lattice placements, then greedy patching of anything left uncovered, then pruning. */
-  solve(onLattice: (x: number, y: number) => boolean, canPlace: (x: number, y: number) => boolean): TilePosition[] {
+  solve(
+    onLattice: (x: number, y: number) => boolean,
+    canPlace: (x: number, y: number) => boolean,
+  ): TilePosition[] {
     const state = this.emptyState();
     const { target } = this;
 
@@ -214,7 +247,8 @@ class CoverageField {
     // little as one tile (plus-shaped sprinklers). Outside spots come from the patching below.
     for (let y = target.y; y < target.y + target.height; y++) {
       for (let x = target.x; x < target.x + target.width; x++) {
-        if (onLattice(x, y) && canPlace(x, y) && this.gain(state, x, y) > 0) this.place(state, x, y);
+        if (onLattice(x, y) && canPlace(x, y) && this.gain(state, x, y) > 0)
+          this.place(state, x, y);
       }
     }
 
@@ -248,7 +282,10 @@ class CoverageField {
   }
 
   /** Moves items from inside the drawn area to outside it wherever coverage stays complete. */
-  shiftOutward(layout: readonly TilePosition[], canPlace: (x: number, y: number) => boolean): TilePosition[] {
+  shiftOutward(
+    layout: readonly TilePosition[],
+    canPlace: (x: number, y: number) => boolean,
+  ): TilePosition[] {
     const state = this.emptyState();
     for (const at of layout) this.place(state, at.x, at.y);
 
@@ -278,7 +315,8 @@ class CoverageField {
     let bestDistance = Infinity;
     // Any spot covering the first uncovered tile is within reach of it.
     for (const [cx, cy] of this.candidatesFor(uncovered[0].x, uncovered[0].y)) {
-      if (this.inTarget(cx, cy) || state.occupied[this.areaIndex(cx, cy)] || !canPlace(cx, cy)) continue;
+      if (this.inTarget(cx, cy) || state.occupied[this.areaIndex(cx, cy)] || !canPlace(cx, cy))
+        continue;
       if (!uncovered.every((t) => covers.has(`${t.x - cx},${t.y - cy}`))) continue;
       const distance = Math.abs(cx - near.x) + Math.abs(cy - near.y);
       if (distance < bestDistance) {
@@ -302,7 +340,10 @@ class CoverageField {
 
   /** Candidate spots covering (or standing on) a tile, within the candidate area. */
   private candidatesFor(x: number, y: number): [number, number][] {
-    const spots: [number, number][] = [[x, y], ...this.offsets.map(([dx, dy]): [number, number] => [x - dx, y - dy])];
+    const spots: [number, number][] = [
+      [x, y],
+      ...this.offsets.map(([dx, dy]): [number, number] => [x - dx, y - dy]),
+    ];
     return spots.filter(([cx, cy]) => within(this.area, cx, cy));
   }
 
@@ -335,7 +376,8 @@ class CoverageField {
     let redundant = true;
     this.forEachCovered(at.x, at.y, (tx, ty) => {
       const i = this.targetIndex(tx, ty);
-      if (this.needs[i] && !state.occupied[this.areaIndex(tx, ty)] && state.cover[i] < 2) redundant = false;
+      if (this.needs[i] && !state.occupied[this.areaIndex(tx, ty)] && state.cover[i] < 2)
+        redundant = false;
     });
     return redundant;
   }

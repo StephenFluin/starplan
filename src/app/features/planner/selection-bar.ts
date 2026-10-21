@@ -31,40 +31,103 @@ export function describeGroup(group: Group | null): string {
   template: `
     @if (store.pasting()) {
       <span class="summary">Pasting {{ clipboard() }}: click the map to put down copies.</span>
-      <button type="button" class="primary" title="Stop pasting (Esc)" (click)="action.emit('stop-paste')">Done</button>
+      <button
+        type="button"
+        class="primary"
+        title="Stop pasting (Esc)"
+        (click)="action.emit('stop-paste')"
+      >
+        Done
+      </button>
     } @else {
       <span class="summary">{{ summary() }}</span>
       @if (variantUid() !== null) {
-        <button type="button" title="Change type (V)" (click)="changeType.emit({ uid: variantUid()!, anchor: $any($event.currentTarget) })">
+        <button
+          type="button"
+          title="Change type (V)"
+          (click)="changeType.emit({ uid: variantUid()!, anchor: $any($event.currentTarget) })"
+        >
           Change type
         </button>
       }
-      <button type="button" [title]="'Copy (' + mod + '+C)'" (click)="action.emit('copy')">Copy</button>
-      <button type="button" [title]="'Cut (' + mod + '+X)'" (click)="action.emit('cut')">Cut</button>
-      <button type="button" [title]="'Duplicate (' + mod + '+D): then click to put the copy down'" (click)="action.emit('duplicate')">Duplicate</button>
+      <button type="button" [title]="'Copy (' + mod + '+C)'" (click)="action.emit('copy')">
+        Copy
+      </button>
+      <button type="button" [title]="'Cut (' + mod + '+X)'" (click)="action.emit('cut')">
+        Cut
+      </button>
+      <button
+        type="button"
+        [title]="'Duplicate (' + mod + '+D): then click to put the copy down'"
+        (click)="action.emit('duplicate')"
+      >
+        Duplicate
+      </button>
       <button type="button" title="Delete (Delete)" (click)="action.emit('delete')">Delete</button>
-      <button type="button" aria-label="Clear selection" title="Clear selection (Esc)" (click)="action.emit('deselect')">✕</button>
+      <button
+        type="button"
+        aria-label="Clear selection"
+        title="Clear selection (Esc)"
+        (click)="action.emit('deselect')"
+      >
+        ✕
+      </button>
     }
   `,
   styles: `
     :host {
-      display: flex; align-items: center; gap: 4px; padding: 4px 4px 4px 12px; border-radius: 8px;
-      background: var(--panel); border: 1px solid var(--border); box-shadow: 0 4px 16px rgb(0 0 0 / 0.4); font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 4px 4px 12px;
+      border-radius: 8px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 16px rgb(0 0 0 / 0.4);
+      font-size: 13px;
     }
-    .summary { margin-right: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .summary {
+      margin-right: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     button {
-      padding: 4px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--text); font: inherit; cursor: pointer;
+      padding: 4px 10px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
       white-space: nowrap;
     }
-    button:hover { background: var(--hover); }
-    button.primary { background: var(--accent); color: var(--accent-text); }
+    button:hover {
+      background: var(--hover);
+    }
+    button.primary {
+      background: var(--accent);
+      color: var(--accent-text);
+    }
     @media (max-width: 640px) {
-      :host { flex-wrap: wrap; justify-content: center; padding: 4px; }
-      .summary { flex-basis: 100%; margin: 4px 8px; text-align: center; }
-      button { padding: 4px 8px; }
+      :host {
+        flex-wrap: wrap;
+        justify-content: center;
+        padding: 4px;
+      }
+      .summary {
+        flex-basis: 100%;
+        margin: 4px 8px;
+        text-align: center;
+      }
+      button {
+        padding: 4px 8px;
+      }
     }
     @media (pointer: coarse) {
-      button { min-height: 40px; }
+      button {
+        min-height: 40px;
+      }
     }
   `,
 })

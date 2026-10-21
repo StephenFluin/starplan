@@ -6,7 +6,14 @@
  *
  * --mods also imports community (modded) farm layouts that ship restriction data.
  */
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 
 interface V2Layout {
@@ -58,9 +65,28 @@ const OFFICIAL_NAMES: Record<string, string> = {
 };
 
 /** Farm types imported from the game's own maps by scripts/import-farms.mts instead. */
-const GAME_FARMS = new Set(['regular', 'combat', 'fishing', 'foraging', 'mining', 'ranching', 'beach', 'fourcorners']);
+const GAME_FARMS = new Set([
+  'regular',
+  'combat',
+  'fishing',
+  'foraging',
+  'mining',
+  'ranching',
+  'beach',
+  'fourcorners',
+]);
 
-const INTERIORS = new Set(['greenhouse', 'barn', 'barn-big', 'barn-deluxe', 'coop', 'coop-big', 'coop-deluxe', 'shed', 'shed-big']);
+const INTERIORS = new Set([
+  'greenhouse',
+  'barn',
+  'barn-big',
+  'barn-deluxe',
+  'coop',
+  'coop-big',
+  'coop-deluxe',
+  'shed',
+  'shed-big',
+]);
 
 // Restriction bits, run-length encoded as "<count><letter>" where a=0, b=1, ... h=7.
 const IMPASSABLE = 1;
@@ -100,7 +126,7 @@ function buildMask(name: string, width: number, height: number): string | null {
   mark(tillable['tillable.occupied']?.Tiles, NOT_TILLABLE);
 
   let out = '';
-  for (let i = 0; i < mask.length; ) {
+  for (let i = 0; i < mask.length;) {
     let run = 1;
     while (i + run < mask.length && mask[i + run] === mask[i]) run++;
     out += `${run}${String.fromCharCode(97 + mask[i])}`;
@@ -153,7 +179,8 @@ function main() {
     if (layout.author) fields.push(`author: ${JSON.stringify(layout.author)}`);
     if (layout.url) fields.push(`url: ${JSON.stringify(layout.url)}`);
     if (layout.house) fields.push(`house: { x: ${layout.house.x}, y: ${layout.house.y} }`);
-    if (layout.greenhouse) fields.push(`greenhouse: { x: ${layout.greenhouse.x}, y: ${layout.greenhouse.y} }`);
+    if (layout.greenhouse)
+      fields.push(`greenhouse: { x: ${layout.greenhouse.x}, y: ${layout.greenhouse.y} }`);
     entries.push(`  {\n    ${fields.join(',\n    ')},\n  }`);
   }
 

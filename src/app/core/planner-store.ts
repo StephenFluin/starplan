@@ -4,7 +4,14 @@ import { CatalogItem, RangeGroup, findItem, variantsOf } from './data/catalog';
 import { MapSeason } from './data/game-art';
 import { LayoutInfo } from './data/layout-info';
 import { LAYOUTS } from './data/layouts';
-import { Patch, PlanDocument, cellKey, emptyPatch, invertPatch, isEmptyPatch, parseKey } from './plan/plan-document';
+import {
+  Patch,
+  PlanDocument,
+  cellKey,
+  invertPatch,
+  isEmptyPatch,
+  parseKey,
+} from './plan/plan-document';
 import {
   Area,
   Group,
@@ -92,7 +99,12 @@ export class PlannerStore {
   private baseRestrictions = RestrictionMap.open(DEFAULT_LAYOUT.width, DEFAULT_LAYOUT.height);
   private dirtRestrictions: RestrictionMap | null = null;
   /** Restriction maps for the document as it stands, by the objects they leave out. */
-  private restrictionCache: { doc: PlanDocument; version: number; ground: RestrictionMap; maps: Map<string, RestrictionMap> } | null = null;
+  private restrictionCache: {
+    doc: PlanDocument;
+    version: number;
+    ground: RestrictionMap;
+    maps: Map<string, RestrictionMap>;
+  } | null = null;
 
   /**
    * Where things can go now: the farm's ground (with the dirt patch the greenhouse's first move lays),
@@ -104,10 +116,18 @@ export class PlannerStore {
 
   /** The same, leaving out objects about to move or change: a moving building doesn't change the ground. */
   restrictionsIgnoring(uids: readonly number[]): RestrictionMap {
-    const ground = this.dirtRestrictions && greenhouseDirtShown(this.doc, this.layoutState()) ? this.dirtRestrictions : this.baseRestrictions;
+    const ground =
+      this.dirtRestrictions && greenhouseDirtShown(this.doc, this.layoutState())
+        ? this.dirtRestrictions
+        : this.baseRestrictions;
     let cache = this.restrictionCache;
     if (cache?.doc !== this.doc || cache.version !== this.doc.version || cache.ground !== ground) {
-      cache = this.restrictionCache = { doc: this.doc, version: this.doc.version, ground, maps: new Map() };
+      cache = this.restrictionCache = {
+        doc: this.doc,
+        version: this.doc.version,
+        ground,
+        maps: new Map(),
+      };
     }
     const key = [...uids].sort((a, b) => a - b).join();
     let map = cache.maps.get(key);
@@ -182,7 +202,8 @@ export class PlannerStore {
     this.revisionState();
     const counts = new Map<string, number>();
     for (const [, itemId] of this.doc.allTiles()) counts.set(itemId, (counts.get(itemId) ?? 0) + 1);
-    for (const obj of this.doc.allObjects()) counts.set(obj.itemId, (counts.get(obj.itemId) ?? 0) + 1);
+    for (const obj of this.doc.allObjects())
+      counts.set(obj.itemId, (counts.get(obj.itemId) ?? 0) + 1);
     return [...counts]
       .map(([id, count]) => ({ item: findItem(id), count }))
       .filter((entry): entry is { item: CatalogItem; count: number } => Boolean(entry.item))
@@ -198,7 +219,9 @@ export class PlannerStore {
     this.activeItem.set(item);
     this.pasting.set(false);
     this.tool.set('brush');
-    this.recentItems.update((recent) => [item.id, ...recent.filter((id) => id !== item.id)].slice(0, MAX_RECENT));
+    this.recentItems.update((recent) =>
+      [item.id, ...recent.filter((id) => id !== item.id)].slice(0, MAX_RECENT),
+    );
   }
 
   setOption<K extends keyof PlannerOptions>(key: K, value: PlannerOptions[K]): void {
@@ -222,7 +245,9 @@ export class PlannerStore {
     if (!item) return;
     const options = this.options();
     if (usesCoverageLayout(item) && (rect.width > 1 || rect.height > 1)) {
-      this.commit(placeAt(this.doc, item, coverageLayout(this.doc, this.restrictions, item, rect, options)));
+      this.commit(
+        placeAt(this.doc, item, coverageLayout(this.doc, this.restrictions, item, rect, options)),
+      );
       return;
     }
     this.commit(
@@ -242,7 +267,13 @@ export class PlannerStore {
     const options = this.options();
     this.commit(
       item.kind === 'tile'
-        ? paintTiles(this.doc, this.restrictions, item, points.map(({ x, y }): [number, number] => [x, y]), options)
+        ? paintTiles(
+            this.doc,
+            this.restrictions,
+            item,
+            points.map(({ x, y }): [number, number] => [x, y]),
+            options,
+          )
         : placeEach(this.doc, this.restrictions, item, points, options),
     );
   }
@@ -287,7 +318,15 @@ export class PlannerStore {
   /** What moving the selection by an offset would do, without doing it. */
   tryMoveSelection(dx: number, dy: number): GroupPlacement {
     const selection = this.selection();
-    return putGroup(this.doc, this.restrictionsIgnoring(selection.objects), this.selectedGroup(), dx, dy, this.options(), true);
+    return putGroup(
+      this.doc,
+      this.restrictionsIgnoring(selection.objects),
+      this.selectedGroup(),
+      dx,
+      dy,
+      this.options(),
+      true,
+    );
   }
 
   /** The selected tiles and objects, where they are now. */
@@ -311,7 +350,9 @@ export class PlannerStore {
         if (this.doc.tileAt(x, y)) tiles.push(cellKey(x, y));
       }
     }
-    const objects = this.doc.objectsInRect(rect.x, rect.y, rect.width, rect.height).map((obj) => obj.uid);
+    const objects = this.doc
+      .objectsInRect(rect.x, rect.y, rect.width, rect.height)
+      .map((obj) => obj.uid);
     this.selection.set({ objects, tiles });
   }
 
@@ -362,7 +403,9 @@ export class PlannerStore {
   /** What pasting the clipboard with its top-left at a tile would do, without doing it. */
   tryPaste(x: number, y: number): GroupPlacement | null {
     const clipboard = this.clipboard();
-    return clipboard && putGroup(this.doc, this.restrictions, clipboard, x, y, this.options(), false);
+    return (
+      clipboard && putGroup(this.doc, this.restrictions, clipboard, x, y, this.options(), false)
+    );
   }
 
   /** Pastes the clipboard with its top-left at a tile, and selects the copy. Returns why it doesn't fit there, or null. */
@@ -536,7 +579,9 @@ export class PlannerStore {
       history.replaceState(null, '', location.pathname + location.search);
       return 'shared';
     }
-    const current = this.localPlans.currentId ?? this.localPlans.migrateLegacyAutosave(newPlanId(), 'My farm', Date.now());
+    const current =
+      this.localPlans.currentId ??
+      this.localPlans.migrateLegacyAutosave(newPlanId(), 'My farm', Date.now());
     if (current && (await this.openPlan(current))) return 'saved';
     const latest = this.localPlans.list()[0];
     if (latest && (await this.openPlan(latest.id))) return 'saved';
@@ -548,7 +593,9 @@ export class PlannerStore {
     const layout = this.layouts.find((l) => l.id === layoutId) ?? DEFAULT_LAYOUT;
     this.baseRestrictions = await this.loadRestrictions(layout);
     const dirt = layout.greenhouseDirt;
-    this.dirtRestrictions = dirt ? this.baseRestrictions.withArea(dirt.x, dirt.y, dirt.width, dirt.height, dirt.restrictions) : null;
+    this.dirtRestrictions = dirt
+      ? this.baseRestrictions.withArea(dirt.x, dirt.y, dirt.width, dirt.height, dirt.restrictions)
+      : null;
     this.doc = new PlanDocument(layout.width, layout.height);
     this.selection.set(NO_SELECTION);
     this.layoutState.set(layout);
@@ -564,7 +611,10 @@ export class PlannerStore {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return RestrictionMap.decode(layout.width, layout.height, await response.text());
     } catch (error) {
-      console.error(`Could not load restrictions for ${layout.id}; placement is unrestricted.`, error);
+      console.error(
+        `Could not load restrictions for ${layout.id}; placement is unrestricted.`,
+        error,
+      );
       return RestrictionMap.open(layout.width, layout.height);
     }
   }
@@ -600,7 +650,8 @@ export class PlannerStore {
     const { objects, tiles } = this.selection();
     const keptObjects = objects.filter((uid) => this.doc.object(uid));
     const keptTiles = tiles.filter((cell) => this.doc.tileAt(...parseKey(cell)));
-    if (keptObjects.length < objects.length || keptTiles.length < tiles.length) this.selection.set({ objects: keptObjects, tiles: keptTiles });
+    if (keptObjects.length < objects.length || keptTiles.length < tiles.length)
+      this.selection.set({ objects: keptObjects, tiles: keptTiles });
   }
 
   private scheduleAutosave(): void {
@@ -627,7 +678,9 @@ export class PlannerStore {
     try {
       const raw = localStorage.getItem(OPTIONS_KEY);
       const stored: unknown = raw ? JSON.parse(raw) : null;
-      return typeof stored === 'object' && stored !== null ? (stored as Partial<PlannerOptions>) : {};
+      return typeof stored === 'object' && stored !== null
+        ? (stored as Partial<PlannerOptions>)
+        : {};
     } catch {
       return {};
     }

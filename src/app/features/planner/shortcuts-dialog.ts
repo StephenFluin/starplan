@@ -6,21 +6,35 @@ interface Shortcut {
 }
 
 /** On Apple keyboards the shortcuts use ⌘ rather than Ctrl. */
-export const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl';
+export const MOD =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl';
 
 const SECTIONS: readonly { title: string; shortcuts: readonly Shortcut[] }[] = [
   {
     title: 'Moving around',
     shortcuts: [
       { keys: ['Drag empty ground'], action: 'Move the map (Select tool)' },
-      { keys: ['Right-drag', 'Space + drag', 'Two-finger drag'], action: 'Move the map with any tool' },
+      {
+        keys: ['Right-drag', 'Space + drag', 'Two-finger drag'],
+        action: 'Move the map with any tool',
+      },
       { keys: ['Scroll', 'Pinch'], action: 'Zoom in or out where the pointer is' },
       { keys: ['Double-click'], action: 'Zoom in there (Shift: out)' },
       { keys: ['+', '−', '0'], action: 'Zoom in, zoom out, fit the map' },
-      { keys: ['Arrow keys'], action: 'Move the map a tile, when nothing is selected; on the map, a cursor marks the middle tile' },
+      {
+        keys: ['Arrow keys'],
+        action:
+          'Move the map a tile, when nothing is selected; on the map, a cursor marks the middle tile',
+      },
       { keys: [`${MOD} + arrows`], action: 'Move the cursor five tiles' },
-      { keys: ['Shift + arrows'], action: 'Stretch a rectangle from the cursor, for Enter to fill, outline, erase or select' },
-      { keys: ['Enter'], action: 'Place, select or erase at the cursor (Shift + Enter: add to the selection)' },
+      {
+        keys: ['Shift + arrows'],
+        action: 'Stretch a rectangle from the cursor, for Enter to fill, outline, erase or select',
+      },
+      {
+        keys: ['Enter'],
+        action: 'Place, select or erase at the cursor (Shift + Enter: add to the selection)',
+      },
     ],
   },
   {
@@ -29,7 +43,11 @@ const SECTIONS: readonly { title: string; shortcuts: readonly Shortcut[] }[] = [
       { keys: ['B'], action: 'Place' },
       { keys: ['S'], action: 'Select (press again to go back)' },
       { keys: ['E'], action: 'Erase (press again to go back)' },
-      { keys: ['R', 'O', 'W', 'F'], action: 'Drag to fill a rectangle, go around its edge, fill it in rows with walkways, or freehand' },
+      {
+        keys: ['R', 'O', 'W', 'F'],
+        action:
+          'Drag to fill a rectangle, go around its edge, fill it in rows with walkways, or freehand',
+      },
       { keys: ['G'], action: 'Show or hide the grid' },
     ],
   },
@@ -53,7 +71,10 @@ const SECTIONS: readonly { title: string; shortcuts: readonly Shortcut[] }[] = [
       { keys: ['Delete'], action: 'Delete the selection' },
       { keys: [`${MOD} + A`], action: 'Select everything' },
       { keys: [`${MOD} + C`, `${MOD} + X`], action: 'Copy or cut the selection' },
-      { keys: [`${MOD} + V`, `${MOD} + D`], action: 'Paste, or duplicate the selection; then click to put copies down' },
+      {
+        keys: [`${MOD} + V`, `${MOD} + D`],
+        action: 'Paste, or duplicate the selection; then click to put copies down',
+      },
       { keys: ['Esc'], action: 'Cancel a drag, stop pasting, or clear the selection' },
     ],
   },
@@ -71,7 +92,15 @@ const SECTIONS: readonly { title: string; shortcuts: readonly Shortcut[] }[] = [
 @Component({
   selector: 'app-shortcuts-dialog',
   template: `
-    <dialog #dialog aria-labelledby="shortcuts-title" (close)="closed.emit()" (click)="onBackdropClick($event)">
+    <!-- The click handler only closes on backdrop clicks; a native <dialog> already closes on
+      Escape, and the Close button covers the keyboard. -->
+    <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
+    <dialog
+      #dialog
+      aria-labelledby="shortcuts-title"
+      (close)="closed.emit()"
+      (click)="onBackdropClick($event)"
+    >
       <header>
         <h2 id="shortcuts-title">Keyboard shortcuts</h2>
         <button type="button" aria-label="Close" (click)="dialog.close()">✕</button>
@@ -100,35 +129,105 @@ const SECTIONS: readonly { title: string; shortcuts: readonly Shortcut[] }[] = [
   `,
   styles: `
     dialog {
-      width: min(760px, calc(100vw - 32px)); max-height: calc(100dvh - 64px); padding: 0; overflow: auto;
-      background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px;
+      width: min(760px, calc(100vw - 32px));
+      max-height: calc(100dvh - 64px);
+      padding: 0;
+      overflow: auto;
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
       box-shadow: 0 16px 48px rgb(0 0 0 / 0.6);
     }
-    dialog::backdrop { background: rgb(0 0 0 / 0.5); }
+    dialog::backdrop {
+      background: rgb(0 0 0 / 0.5);
+    }
     header {
-      position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
     }
-    h2 { margin: 0; font-size: 16px; }
-    header button { border: 0; border-radius: 6px; padding: 4px 8px; background: transparent; color: var(--text); font: inherit; cursor: pointer; }
-    header button:hover { background: var(--hover); }
-    .sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 8px 24px; padding: 12px 16px 16px; }
-    h3 { margin: 4px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
-    dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; font-size: 13px; }
-    dt { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-    dd { margin: 0; align-self: center; }
+    h2 {
+      margin: 0;
+      font-size: 16px;
+    }
+    header button {
+      border: 0;
+      border-radius: 6px;
+      padding: 4px 8px;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      cursor: pointer;
+    }
+    header button:hover {
+      background: var(--hover);
+    }
+    .sections {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+      gap: 8px 24px;
+      padding: 12px 16px 16px;
+    }
+    h3 {
+      margin: 4px 0 6px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+    dl {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 6px 12px;
+      margin: 0;
+      font-size: 13px;
+    }
+    dt {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+    }
+    dd {
+      margin: 0;
+      align-self: center;
+    }
     kbd {
-      padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px;
-      background: var(--input-bg); font: 12px/1.5 ui-monospace, monospace; white-space: nowrap;
+      padding: 1px 6px;
+      border: 1px solid var(--border);
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      background: var(--input-bg);
+      font:
+        12px/1.5 ui-monospace,
+        monospace;
+      white-space: nowrap;
     }
-    .or { color: var(--muted); font-size: 12px; }
+    .or {
+      color: var(--muted);
+      font-size: 12px;
+    }
     /* On phones each description goes under its keys. */
     @media (max-width: 640px) {
-      dl { grid-template-columns: 1fr; gap: 4px; }
-      dd { margin-bottom: 6px; }
+      dl {
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+      dd {
+        margin-bottom: 6px;
+      }
     }
     @media (pointer: coarse) {
-      header button { min-width: 44px; min-height: 44px; }
+      header button {
+        min-width: 44px;
+        min-height: 44px;
+      }
     }
   `,
 })

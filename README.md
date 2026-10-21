@@ -27,20 +27,20 @@ Built with Angular (UI and state) and PixiJS (map rendering).
 
 ## Controls
 
-| Input | Action |
-| --- | --- |
-| B / S / E | Place / Select / Erase (pressing S or E again goes back to the previous tool) |
-| Ctrl/⌘ + Z, Ctrl/⌘ + Shift + Z (or Ctrl + Y) | Undo / redo |
-| Delete / Backspace | Delete the selected objects |
-| V | Switch the selected item to its next variant |
-| Esc | Cancel the current drag, or clear the selection |
-| Drag empty ground (Select tool), right-drag, middle-drag, Space + drag, arrow keys | Pan (flick to glide) |
-| Scroll wheel or trackpad, pinch | Zoom in or out where the pointer is |
-| Double-click empty ground (Select tool), Shift + double-click | Zoom in / out there |
-| + / - / 0 | Zoom in / out / fit |
-| Two fingers (touchscreens) | Pinch to zoom, drag to pan |
-| G | Toggle grid |
-| Right click, press and hold (touchscreens) | Quick item search |
+| Input                                                                              | Action                                                                        |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| B / S / E                                                                          | Place / Select / Erase (pressing S or E again goes back to the previous tool) |
+| Ctrl/⌘ + Z, Ctrl/⌘ + Shift + Z (or Ctrl + Y)                                       | Undo / redo                                                                   |
+| Delete / Backspace                                                                 | Delete the selected objects                                                   |
+| V                                                                                  | Switch the selected item to its next variant                                  |
+| Esc                                                                                | Cancel the current drag, or clear the selection                               |
+| Drag empty ground (Select tool), right-drag, middle-drag, Space + drag, arrow keys | Pan (flick to glide)                                                          |
+| Scroll wheel or trackpad, pinch                                                    | Zoom in or out where the pointer is                                           |
+| Double-click empty ground (Select tool), Shift + double-click                      | Zoom in / out there                                                           |
+| + / - / 0                                                                          | Zoom in / out / fit                                                           |
+| Two fingers (touchscreens)                                                         | Pinch to zoom, drag to pan                                                    |
+| G                                                                                  | Toggle grid                                                                   |
+| Right click, press and hold (touchscreens)                                         | Quick item search                                                             |
 
 ## Analytics
 

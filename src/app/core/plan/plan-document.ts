@@ -41,7 +41,9 @@ export function invertPatch(patch: Patch): Patch {
   return {
     tiles: patch.tiles.map((t) => ({ x: t.x, y: t.y, before: t.after, after: t.before })).reverse(),
     objects: patch.objects.map((o) => ({ uid: o.uid, before: o.after, after: o.before })).reverse(),
-    ...(patch.greenhouseMoved && { greenhouseMoved: { before: patch.greenhouseMoved.after, after: patch.greenhouseMoved.before } }),
+    ...(patch.greenhouseMoved && {
+      greenhouseMoved: { before: patch.greenhouseMoved.after, after: patch.greenhouseMoved.before },
+    }),
   };
 }
 
@@ -178,7 +180,10 @@ export class PlanDocument {
 }
 
 /** The tiles an object covers: its item's footprint, or one tile if the item is unknown. */
-export function* footprint(obj: { x: number; y: number }, item: Pick<CatalogItem, 'width' | 'height'> | undefined): Generator<[number, number]> {
+export function* footprint(
+  obj: { x: number; y: number },
+  item: Pick<CatalogItem, 'width' | 'height'> | undefined,
+): Generator<[number, number]> {
   const width = item?.width ?? 1;
   const height = item?.height ?? 1;
   for (let y = obj.y; y < obj.y + height; y++) {

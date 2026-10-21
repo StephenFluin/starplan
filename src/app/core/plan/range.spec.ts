@@ -9,7 +9,14 @@ const range = (id: string) => {
 
 describe('rangeTiles', () => {
   it('waters the four neighbours for a basic sprinkler', () => {
-    expect(rangeTiles(range('sprinkler'), 5, 5).sort()).toEqual([[4, 5], [5, 4], [5, 6], [6, 5]].sort());
+    expect(rangeTiles(range('sprinkler'), 5, 5).sort()).toEqual(
+      [
+        [4, 5],
+        [5, 4],
+        [5, 6],
+        [6, 5],
+      ].sort(),
+    );
   });
 
   it('covers 8, 24 and 48 tiles for quality, iridium and pressurised iridium sprinklers', () => {

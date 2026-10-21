@@ -30,7 +30,9 @@ const MAX_WHEEL_PX = 150;
  * pointer, in proportion to how far you scroll. Trackpad pinches arrive as Ctrl+wheel with small
  * deltas, so they zoom faster per pixel.
  */
-export function wheelZoomFactor(event: Pick<WheelEvent, 'deltaY' | 'deltaMode' | 'ctrlKey'>): number {
+export function wheelZoomFactor(
+  event: Pick<WheelEvent, 'deltaY' | 'deltaMode' | 'ctrlKey'>,
+): number {
   const scale = event.deltaMode === 1 ? LINE_PX : event.deltaMode === 2 ? PAGE_PX : 1;
   const delta = Math.max(-MAX_WHEEL_PX, Math.min(MAX_WHEEL_PX, event.deltaY * scale));
   return Math.pow(event.ctrlKey ? PINCH_STEP : WHEEL_STEP, -delta / 100);
@@ -92,7 +94,12 @@ export class Camera {
    * Zooms by a factor around a screen point (the viewport's centre by default). Successive calls
    * during an animation add up, so a fast scroll zooms smoothly rather than in jumps.
    */
-  zoomAt(factor: number, sx = this.viewport.width / 2, sy = this.viewport.height / 2, now = performance.now()): void {
+  zoomAt(
+    factor: number,
+    sx = this.viewport.width / 2,
+    sy = this.viewport.height / 2,
+    now = performance.now(),
+  ): void {
     this.glide = null;
     const current = this.view.zoom;
     const target = this.clampZoom((this.zoomAnimation?.to ?? current) * factor);
@@ -132,7 +139,11 @@ export class Camera {
       const dt = Math.min(64, now - glide.last);
       glide.last = now;
       const before = this.view;
-      this.view = this.clamp({ ...before, x: before.x + glide.vx * dt, y: before.y + glide.vy * dt });
+      this.view = this.clamp({
+        ...before,
+        x: before.x + glide.vx * dt,
+        y: before.y + glide.vy * dt,
+      });
       const decay = Math.pow(GLIDE_FRICTION, dt);
       glide.vx *= decay;
       glide.vy *= decay;
@@ -148,12 +159,20 @@ export class Camera {
   }
 
   private applyZoom(zoom: number, anchor: ZoomAnimation['anchor']): void {
-    this.view = this.clamp({ zoom, x: anchor.sx - anchor.mx * zoom, y: anchor.sy - anchor.my * zoom });
+    this.view = this.clamp({
+      zoom,
+      x: anchor.sx - anchor.mx * zoom,
+      y: anchor.sy - anchor.my * zoom,
+    });
   }
 
   private fitZoom(): number {
     if (!this.map.width || !this.map.height) return 1;
-    return Math.min(MAX_ZOOM, this.viewport.width / this.map.width, this.viewport.height / this.map.height);
+    return Math.min(
+      MAX_ZOOM,
+      this.viewport.width / this.map.width,
+      this.viewport.height / this.map.height,
+    );
   }
 
   private clampZoom(zoom: number): number {

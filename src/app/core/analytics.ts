@@ -52,6 +52,7 @@ export function loadGtag(document: Document, measurementId: string): boolean {
   const dataLayer = window.dataLayer;
   window.gtag = function gtag() {
     // gtag.js expects each command as an arguments object, not an array.
+    // eslint-disable-next-line prefer-rest-params
     dataLayer.push(arguments);
   };
   window.gtag('js', new Date());

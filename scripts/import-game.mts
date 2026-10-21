@@ -10,7 +10,13 @@
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import type { BuildingRules, GroundEffect, MapSeason, SeasonalFiles, Tiling } from '../src/app/core/data/game-art.ts';
+import type {
+  BuildingRules,
+  GroundEffect,
+  MapSeason,
+  SeasonalFiles,
+  Tiling,
+} from '../src/app/core/data/game-art.ts';
 import { type Image, blank, crop, decodePng, encodePng, paste } from './png.mts';
 
 const TILE = 16;
@@ -40,7 +46,14 @@ interface BuildingData {
   AllowsFlooringUnderneath?: boolean;
   /** Rows of X (solid) and O (passable), which may reach past the footprint. */
   CollisionMap?: string | null;
-  DrawLayers?: { Texture: string | null; SourceRect: DataRect; DrawPosition: string; DrawInBackground: boolean }[] | null;
+  DrawLayers?:
+    | {
+        Texture: string | null;
+        SourceRect: DataRect;
+        DrawPosition: string;
+        DrawInBackground: boolean;
+      }[]
+    | null;
 }
 
 interface Rect {
@@ -150,10 +163,21 @@ const ITEMS: Record<string, { bigCraftable: string } | { object: string }> = {
 };
 
 /** Items cropped from a texture by hand: giant crops (Data/GiantCrops.json). */
-const CROPPED: Record<string, { texture: string; rect: Rect; footprint: { width: number; height: number } }> = {
+const CROPPED: Record<
+  string,
+  { texture: string; rect: Rect; footprint: { width: number; height: number } }
+> = {
   // Giant crops draw one row above their 3x3 footprint.
-  'giant-powdermelon': { texture: 'LooseSprites/Cursors_1_6', rect: { x: 320, y: 448, width: 48, height: 64 }, footprint: { width: 3, height: 3 } },
-  'giant-qi-fruit': { texture: 'LooseSprites/Cursors_1_6', rect: { x: 368, y: 448, width: 48, height: 64 }, footprint: { width: 3, height: 3 } },
+  'giant-powdermelon': {
+    texture: 'LooseSprites/Cursors_1_6',
+    rect: { x: 320, y: 448, width: 48, height: 64 },
+    footprint: { width: 3, height: 3 },
+  },
+  'giant-qi-fruit': {
+    texture: 'LooseSprites/Cursors_1_6',
+    rect: { x: 368, y: 448, width: 48, height: 64 },
+    footprint: { width: 3, height: 3 },
+  },
 };
 
 const SEASONS: readonly MapSeason[] = ['spring', 'summer', 'fall', 'winter'];
@@ -232,11 +256,21 @@ const EXTRAS: Record<string, { texture: string }> = {
  * reaching one tile left of its footprint and two rows below it. doesTileHaveProperty makes the
  * doorstep unbuildable and untillable, and the rest of that area buildable but untillable.
  */
-function greenhouseGround(data: BuildingData): { ground: GroundEffect[]; background: (season: MapSeason) => Image } {
+function greenhouseGround(data: BuildingData): {
+  ground: GroundEffect[];
+  background: (season: MapSeason) => Image;
+} {
   const { X: width, Y: height } = data.Size;
   const door = data.HumanDoor!;
   const ground: GroundEffect[] = [
-    { x: door.X - 1, y: door.Y + 1, width: 3, height: height + 1 - door.Y, buildable: false, tillable: false },
+    {
+      x: door.X - 1,
+      y: door.Y + 1,
+      width: 3,
+      height: height + 1 - door.Y,
+      buildable: false,
+      tillable: false,
+    },
     { x: -1, y: 0, width: width + 1, height: height + 1, buildable: true, tillable: false },
     { x: 1, y: height + 1, width: width - 2, height: 1, buildable: true, tillable: false },
   ];
@@ -246,7 +280,8 @@ function greenhouseGround(data: BuildingData): { ground: GroundEffect[]; backgro
     const image = blank((width + 1) * TILE, 9 * TILE);
     const outdoors = texture(`Maps/${season}_outdoorsTileSheet`);
     const columns = outdoors.width / TILE;
-    const tile = (index: number) => crop(outdoors, (index % columns) * TILE, Math.floor(index / columns) * TILE, TILE, TILE);
+    const tile = (index: number) =>
+      crop(outdoors, (index % columns) * TILE, Math.floor(index / columns) * TILE, TILE, TILE);
     for (let i = 0; i < 3; i++) {
       paste(image, tile(812), (door.X + i) * TILE, (door.Y + 1) * TILE);
       paste(image, tile(838), (door.X + i) * TILE, (door.Y + 2) * TILE);
@@ -258,19 +293,36 @@ function greenhouseGround(data: BuildingData): { ground: GroundEffect[]; backgro
 }
 
 /** Placement rules and ground art for a catalog building, from its game data. */
-function buildingRules(id: string, art: BuildingArt, data: BuildingData, spriteHeight: number, outDir: string): BuildingRules {
+function buildingRules(
+  id: string,
+  art: BuildingArt,
+  data: BuildingData,
+  spriteHeight: number,
+  outDir: string,
+): BuildingRules {
   const rules: BuildingRules = { floorsUnderneath: data.AllowsFlooringUnderneath ?? true };
-  if (data.HumanDoor && data.HumanDoor.X >= 0) rules.door = { x: data.HumanDoor.X, y: data.HumanDoor.Y };
+  if (data.HumanDoor && data.HumanDoor.X >= 0)
+    rules.door = { x: data.HumanDoor.X, y: data.HumanDoor.Y };
   const placement = data.AdditionalPlacementTiles ?? [];
   if (placement.length) {
-    rules.placementTiles = placement.map(({ TileArea: a, OnlyNeedsToBePassable }) => ({ x: a.X, y: a.Y, width: a.Width, height: a.Height, passableOnly: OnlyNeedsToBePassable }));
+    rules.placementTiles = placement.map(({ TileArea: a, OnlyNeedsToBePassable }) => ({
+      x: a.X,
+      y: a.Y,
+      width: a.Width,
+      height: a.Height,
+      passableOnly: OnlyNeedsToBePassable,
+    }));
   }
   // Solid tiles of the collision map beyond the footprint (the farmhouse's mailbox).
   const ground: GroundEffect[] = [];
-  const rows = (data.CollisionMap ?? '').trim().split('\n').map((row) => row.trim());
+  const rows = (data.CollisionMap ?? '')
+    .trim()
+    .split('\n')
+    .map((row) => row.trim());
   rows.forEach((row, y) => {
     [...row].forEach((cell, x) => {
-      if (cell === 'X' && (x >= data.Size.X || y >= data.Size.Y)) ground.push({ x, y, width: 1, height: 1, solid: true });
+      if (cell === 'X' && (x >= data.Size.X || y >= data.Size.Y))
+        ground.push({ x, y, width: 1, height: 1, solid: true });
     });
   });
 
@@ -284,17 +336,29 @@ function buildingRules(id: string, art: BuildingArt, data: BuildingData, spriteH
   for (const layer of data.DrawLayers ?? []) {
     if (!layer.DrawInBackground) continue;
     if (background) throw new Error(`${id} has more than one background`);
-    const sheet = texture(layer.Texture ?? `Buildings/${art.texture ?? data.Texture.split('\\').pop()!}`);
+    const sheet = texture(
+      layer.Texture ?? `Buildings/${art.texture ?? data.Texture.split('\\').pop()!}`,
+    );
     const r = layer.SourceRect;
     const [x, y] = layer.DrawPosition.split(',').map((v) => Number(v.trim()));
-    background = { image: () => crop(sheet, r.X, r.Y, r.Width, r.Height), x, y: data.Size.Y * TILE - spriteHeight + y };
+    background = {
+      image: () => crop(sheet, r.X, r.Y, r.Width, r.Height),
+      x,
+      y: data.Size.Y * TILE - spriteHeight + y,
+    };
   }
   if (ground.length) rules.ground = ground;
   if (background) {
     // Named after the texture, so variants that share one (the broken and repaired greenhouse) share the file.
     const name = `${(art.texture ?? art.building).toLowerCase().replace(/\s+/g, '-')}-background`;
     const spring = background.image('spring');
-    rules.background = { ...seasonal(name, outDir, background.image), x: background.x, y: background.y, width: spring.width, height: spring.height };
+    rules.background = {
+      ...seasonal(name, outDir, background.image),
+      x: background.x,
+      y: background.y,
+      width: spring.width,
+      height: spring.height,
+    };
   }
   return rules;
 }
@@ -303,7 +367,11 @@ function buildingRules(id: string, art: BuildingArt, data: BuildingData, spriteH
  * Writes art for each season: <name>.png for spring, and <name>-<season>.png for the seasons whose
  * art differs. Returns the files.
  */
-function seasonal(name: string, outDir: string, draw: (season: MapSeason) => Image): { file: string; seasons?: SeasonalFiles } {
+function seasonal(
+  name: string,
+  outDir: string,
+  draw: (season: MapSeason) => Image,
+): { file: string; seasons?: SeasonalFiles } {
   const spring = encodePng(draw('spring'));
   writeFileSync(join(outDir, `${name}.png`), spring);
   const seasons: SeasonalFiles = {};
@@ -318,7 +386,11 @@ function seasonal(name: string, outDir: string, draw: (season: MapSeason) => Ima
 
 /** A plain data value as a TypeScript literal. */
 function literal(value: unknown): string {
-  return JSON.stringify(value).replace(/"(\w+)":/g, '$1: ').replace(/,/g, ', ').replace(/{/g, '{ ').replace(/}/g, ' }');
+  return JSON.stringify(value)
+    .replace(/"(\w+)":/g, '$1: ')
+    .replace(/,/g, ', ')
+    .replace(/{/g, '{ ')
+    .replace(/}/g, ' }');
 }
 
 const images = new Map<string, Image>();
@@ -339,7 +411,9 @@ interface SpriteData {
 }
 
 function main() {
-  const buildings = JSON.parse(readFileSync(join(content, 'Data', 'Buildings.json'), 'utf8')) as Record<string, BuildingData>;
+  const buildings = JSON.parse(
+    readFileSync(join(content, 'Data', 'Buildings.json'), 'utf8'),
+  ) as Record<string, BuildingData>;
   const outDir = join(ROOT, 'public/assets/game');
   mkdirSync(outDir, { recursive: true });
 
@@ -352,25 +426,47 @@ function main() {
     const sheet = texture(`Buildings/${textureName}`);
     // An empty SourceRect means the footprint's width and the texture's full height.
     const own = data.SourceRect && data.SourceRect.Width > 0 ? data.SourceRect : null;
-    const rect = art.rect ?? (own ? { x: own.X, y: own.Y, width: own.Width, height: own.Height } : { x: 0, y: 0, width: data.Size.X * TILE, height: sheet.height });
+    const rect =
+      art.rect ??
+      (own
+        ? { x: own.X, y: own.Y, width: own.Width, height: own.Height }
+        : { x: 0, y: 0, width: data.Size.X * TILE, height: sheet.height });
     const [offsetX, offsetY] = (data.DrawOffset ?? '0, 0').split(',').map((v) => Number(v.trim()));
     const file = `${id}.png`;
-    writeFileSync(join(outDir, file), encodePng(crop(sheet, rect.x, rect.y, rect.width, rect.height)));
+    writeFileSync(
+      join(outDir, file),
+      encodePng(crop(sheet, rect.x, rect.y, rect.width, rect.height)),
+    );
     entries.push(
       `  ${JSON.stringify(id)}: { file: ${JSON.stringify(file)}, width: ${rect.width}, height: ${rect.height}, offsetX: ${offsetX}, offsetY: ${offsetY}, footprint: { width: ${data.Size.X}, height: ${data.Size.Y} } },`,
     );
-    rules.push(`  ${JSON.stringify(id)}: ${literal(buildingRules(id, art, data, rect.height, outDir))},`);
+    rules.push(
+      `  ${JSON.stringify(id)}: ${literal(buildingRules(id, art, data, rect.height, outDir))},`,
+    );
   }
 
-  const save = (id: string, sheet: Image, rect: Rect, footprint: { width: number; height: number }) => {
+  const save = (
+    id: string,
+    sheet: Image,
+    rect: Rect,
+    footprint: { width: number; height: number },
+  ) => {
     const file = `${id}.png`;
-    writeFileSync(join(outDir, file), encodePng(crop(sheet, rect.x, rect.y, rect.width, rect.height)));
+    writeFileSync(
+      join(outDir, file),
+      encodePng(crop(sheet, rect.x, rect.y, rect.width, rect.height)),
+    );
     entries.push(
       `  ${JSON.stringify(id)}: { file: ${JSON.stringify(file)}, width: ${rect.width}, height: ${rect.height}, offsetX: 0, offsetY: 0, footprint: { width: ${footprint.width}, height: ${footprint.height} } },`,
     );
   };
-  const bigCraftables = JSON.parse(readFileSync(join(content, 'Data', 'BigCraftables.json'), 'utf8')) as Record<string, SpriteData>;
-  const objects = JSON.parse(readFileSync(join(content, 'Data', 'Objects.json'), 'utf8')) as Record<string, SpriteData>;
+  const bigCraftables = JSON.parse(
+    readFileSync(join(content, 'Data', 'BigCraftables.json'), 'utf8'),
+  ) as Record<string, SpriteData>;
+  const objects = JSON.parse(readFileSync(join(content, 'Data', 'Objects.json'), 'utf8')) as Record<
+    string,
+    SpriteData
+  >;
   for (const [id, item] of Object.entries(ITEMS)) {
     // Big craftables are 16x32 and stand on one tile; objects are 16x16.
     const big = 'bigCraftable' in item;
@@ -380,29 +476,53 @@ function main() {
     const sheet = texture(data.Texture ?? (big ? 'TileSheets/Craftables' : 'Maps/springobjects'));
     const height = big ? 2 * TILE : TILE;
     const columns = Math.floor(sheet.width / TILE);
-    const rect = { x: (data.SpriteIndex % columns) * TILE, y: Math.floor(data.SpriteIndex / columns) * height, width: TILE, height };
+    const rect = {
+      x: (data.SpriteIndex % columns) * TILE,
+      y: Math.floor(data.SpriteIndex / columns) * height,
+      width: TILE,
+      height,
+    };
     save(id, sheet, rect, { width: 1, height: 1 });
   }
-  for (const [id, item] of Object.entries(CROPPED)) save(id, texture(item.texture), item.rect, item.footprint);
-  const wildTrees = JSON.parse(readFileSync(join(content, 'Data', 'WildTrees.json'), 'utf8')) as Record<string, { Textures: { Texture: string; Season: string | null }[] }>;
+  for (const [id, item] of Object.entries(CROPPED))
+    save(id, texture(item.texture), item.rect, item.footprint);
+  const wildTrees = JSON.parse(
+    readFileSync(join(content, 'Data', 'WildTrees.json'), 'utf8'),
+  ) as Record<string, { Textures: { Texture: string; Season: string | null }[] }>;
   for (const [id, type] of Object.entries(WILD_TREES)) {
     const textures = wildTrees[type].Textures;
     const art = seasonal(id, outDir, (season) => {
       // A texture for the season, or else the one without a season.
-      const name = (textures.find((t) => t.Season?.toLowerCase() === season) ?? textures.find((t) => !t.Season)!).Texture;
+      const name = (
+        textures.find((t) => t.Season?.toLowerCase() === season) ?? textures.find((t) => !t.Season)!
+      ).Texture;
       const sheet = texture(name);
       const tree = blank(48, 96);
       paste(tree, crop(sheet, 32, 96, 16, 32), 16, 64);
       paste(tree, crop(sheet, 0, 0, 48, 96), 0, 0);
       return tree;
     });
-    entries.push(`  ${JSON.stringify(id)}: ${literal({ ...art, width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } })},`);
+    entries.push(
+      `  ${JSON.stringify(id)}: ${literal({ ...art, width: 48, height: 96, offsetX: -16, offsetY: 0, footprint: { width: 1, height: 1 } })},`,
+    );
   }
-  const fruitTrees = JSON.parse(readFileSync(join(content, 'Data', 'FruitTrees.json'), 'utf8')) as Record<string, { Texture: string; TextureSpriteRow: number }>;
+  const fruitTrees = JSON.parse(
+    readFileSync(join(content, 'Data', 'FruitTrees.json'), 'utf8'),
+  ) as Record<string, { Texture: string; TextureSpriteRow: number }>;
   for (const [id, sapling] of Object.entries(FRUIT_TREES)) {
     const data = fruitTrees[sapling];
-    const art = seasonal(id, outDir, (season) => crop(texture(data.Texture), 192 + 48 * SEASONS.indexOf(season), data.TextureSpriteRow * 80, 48, 80));
-    entries.push(`  ${JSON.stringify(id)}: ${literal({ ...art, width: 48, height: 80, offsetX: 0, offsetY: 0, footprint: { width: 3, height: 3 } })},`);
+    const art = seasonal(id, outDir, (season) =>
+      crop(
+        texture(data.Texture),
+        192 + 48 * SEASONS.indexOf(season),
+        data.TextureSpriteRow * 80,
+        48,
+        80,
+      ),
+    );
+    entries.push(
+      `  ${JSON.stringify(id)}: ${literal({ ...art, width: 48, height: 80, offsetX: 0, offsetY: 0, footprint: { width: 3, height: 3 } })},`,
+    );
   }
 
   // Fence and floor sheets, and how each item tiles with its neighbours.
@@ -412,9 +532,16 @@ function main() {
     writeFileSync(join(outDir, file), encodePng(texture(path)));
     return file;
   };
-  const fenceData = JSON.parse(readFileSync(join(content, 'Data', 'Fences.json'), 'utf8')) as Record<
+  const fenceData = JSON.parse(
+    readFileSync(join(content, 'Data', 'Fences.json'), 'utf8'),
+  ) as Record<
     string,
-    { Texture: string; HeldObjectDrawOffset: string; LeftEndHeldObjectDrawX: number; RightEndHeldObjectDrawX: number }
+    {
+      Texture: string;
+      HeldObjectDrawOffset: string;
+      LeftEndHeldObjectDrawX: number;
+      RightEndHeldObjectDrawX: number;
+    }
   >;
   for (const [id, { fence, torch }] of Object.entries(FENCES)) {
     const data = fenceData[fence];
@@ -423,15 +550,36 @@ function main() {
       kind: 'fence',
       file: copySheet(data.Texture),
       group: fence,
-      ...(torch && { torch: { x, y, leftEnd: data.LeftEndHeldObjectDrawX, rightEnd: data.RightEndHeldObjectDrawX } }),
+      ...(torch && {
+        torch: {
+          x,
+          y,
+          leftEnd: data.LeftEndHeldObjectDrawX,
+          rightEnd: data.RightEndHeldObjectDrawX,
+        },
+      }),
     };
     tilings.push(`  ${JSON.stringify(id)}: ${literal(tiling)},`);
   }
-  const floorData = JSON.parse(readFileSync(join(content, 'Data', 'FloorsAndPaths.json'), 'utf8')) as Record<
+  const floorData = JSON.parse(
+    readFileSync(join(content, 'Data', 'FloorsAndPaths.json'), 'utf8'),
+  ) as Record<
     string,
-    { Texture: string; Corner: { X: number; Y: number }; WinterTexture: string; WinterCorner: { X: number; Y: number }; ConnectType: string; CornerSize: number }
+    {
+      Texture: string;
+      Corner: { X: number; Y: number };
+      WinterTexture: string;
+      WinterCorner: { X: number; Y: number };
+      ConnectType: string;
+      CornerSize: number;
+    }
   >;
-  const connects: Record<string, 'default' | 'path' | 'decorated' | 'random'> = { Default: 'default', Path: 'path', CornerDecorated: 'decorated', Random: 'random' };
+  const connects: Record<string, 'default' | 'path' | 'decorated' | 'random'> = {
+    Default: 'default',
+    Path: 'path',
+    CornerDecorated: 'decorated',
+    Random: 'random',
+  };
   for (const [id, floor] of Object.entries(FLOORS)) {
     const data = floorData[floor];
     const tiling: Tiling = {
@@ -452,7 +600,9 @@ function main() {
     const image = texture(`Buildings/${extra.texture}`);
     const file = `${id}.png`;
     writeFileSync(join(outDir, file), encodePng(image));
-    extras.push(`  ${JSON.stringify(id)}: { file: ${JSON.stringify(file)}, width: ${image.width}, height: ${image.height} },`);
+    extras.push(
+      `  ${JSON.stringify(id)}: { file: ${JSON.stringify(file)}, width: ${image.width}, height: ${image.height} },`,
+    );
   }
 
   const ts = `// Generated by scripts/import-game.mts from the unpacked game content. Do not edit by hand.
@@ -480,7 +630,9 @@ ${rules.join('\n')}
 };
 `;
   writeFileSync(join(ROOT, 'src/app/core/data/game-art.generated.ts'), ts);
-  console.log(`Imported ${entries.length} items, ${extras.length} extra sprites and ${rules.length} buildings' rules.`);
+  console.log(
+    `Imported ${entries.length} items, ${extras.length} extra sprites and ${rules.length} buildings' rules.`,
+  );
 }
 
 main();

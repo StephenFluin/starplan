@@ -10,7 +10,11 @@ describe('catalog', () => {
 
   it("uses the game's footprints for every item with game art", () => {
     for (const item of CATALOG.filter((i) => i.art)) {
-      expect([item.id, item.width, item.height]).toEqual([item.id, item.art!.footprint.width, item.art!.footprint.height]);
+      expect([item.id, item.width, item.height]).toEqual([
+        item.id,
+        item.art!.footprint.width,
+        item.art!.footprint.height,
+      ]);
     }
   });
 

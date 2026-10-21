@@ -41,7 +41,9 @@ describe('variants', () => {
   it('swaps a placed object in place and undoes cleanly', () => {
     const doc = new PlanDocument(20, 20);
     const map = RestrictionMap.open(20, 20);
-    doc.apply(placeObjects(doc, map, item('scarecrow'), { x: 4, y: 4, width: 1, height: 1 }, options));
+    doc.apply(
+      placeObjects(doc, map, item('scarecrow'), { x: 4, y: 4, width: 1, height: 1 }, options),
+    );
     const [scarecrow] = [...doc.allObjects()];
     const patch = swapObject(doc, map, scarecrow.uid, item('deluxe-scarecrow'), options)!;
     doc.apply(patch);
@@ -54,7 +56,9 @@ describe('variants', () => {
     const doc = new PlanDocument(20, 20);
     // Only the scarecrow's own tile is open, so a larger replacement would be blocked.
     const map = RestrictionMap.decode(20, 20, '84h1a315h');
-    doc.apply(placeObjects(doc, map, item('scarecrow'), { x: 4, y: 4, width: 1, height: 1 }, options));
+    doc.apply(
+      placeObjects(doc, map, item('scarecrow'), { x: 4, y: 4, width: 1, height: 1 }, options),
+    );
     const [scarecrow] = [...doc.allObjects()];
     expect(swapObject(doc, map, scarecrow.uid, item('silo'), options)).toBeNull();
     expect(swapObject(doc, map, scarecrow.uid, item('deluxe-scarecrow'), options)).not.toBeNull();
@@ -64,7 +68,10 @@ describe('variants', () => {
     // Default buildings like the greenhouse sit on tiles marked unbuildable.
     const doc = new PlanDocument(20, 20);
     const blockedEverywhere = RestrictionMap.decode(20, 20, '400h');
-    doc.apply({ tiles: [], objects: [{ uid: 1, before: null, after: { uid: 1, itemId: 'greenhouse', x: 2, y: 2 } }] });
+    doc.apply({
+      tiles: [],
+      objects: [{ uid: 1, before: null, after: { uid: 1, itemId: 'greenhouse', x: 2, y: 2 } }],
+    });
     expect(swapObject(doc, blockedEverywhere, 1, item('greenhouse-fixed'), options)).not.toBeNull();
   });
 });

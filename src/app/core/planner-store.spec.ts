@@ -41,7 +41,10 @@ describe('PlannerStore', () => {
     expect(store.doc.tileCount).toBe(16);
     expect(store.selection().objects).toEqual([store.doc.objectAt(11, 3)!.uid]);
     // Overlapping the copy it just made doesn't fit.
-    expect(store.pasteAt(11, 2)).toEqual({ itemId: 'parsnip', reason: { kind: 'object', itemId: 'sprinkler' } });
+    expect(store.pasteAt(11, 2)).toEqual({
+      itemId: 'parsnip',
+      reason: { kind: 'object', itemId: 'sprinkler' },
+    });
   });
 
   it('goes back to the tool it was using when pasting stops', () => {

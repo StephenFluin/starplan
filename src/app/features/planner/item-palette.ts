@@ -10,7 +10,12 @@ import { PlannerStore } from '../../core/planner-store';
   template: `
     <label class="search">
       <span class="visually-hidden">Search items</span>
-      <input type="search" placeholder="Search items…" [value]="query()" (input)="query.set($any($event.target).value)" />
+      <input
+        type="search"
+        placeholder="Search items…"
+        [value]="query()"
+        (input)="query.set($any($event.target).value)"
+      />
     </label>
     <div class="tabs" role="group" aria-label="Item categories">
       @for (category of categories; track category.id) {
@@ -44,34 +49,100 @@ import { PlannerStore } from '../../core/planner-store';
     </ul>
   `,
   styles: `
-    :host { display: flex; flex-direction: column; min-height: 0; gap: 8px; padding: 8px; }
+    :host {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      gap: 8px;
+      padding: 8px;
+    }
     .search input {
-      width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px;
-      border: 1px solid var(--border); background: var(--input-bg); color: var(--text);
+      width: 100%;
+      box-sizing: border-box;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      color: var(--text);
     }
-    .tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
     .tabs button {
-      padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border);
-      background: transparent; color: var(--text); font-size: 12px; cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      font-size: 12px;
+      cursor: pointer;
     }
-    .tabs button.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
-    .items { list-style: none; margin: 0; padding: 0; overflow-y: auto; display: grid; gap: 2px; }
+    .tabs button.active {
+      background: var(--accent);
+      color: var(--accent-text);
+      border-color: var(--accent);
+    }
+    .items {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      overflow-y: auto;
+      display: grid;
+      gap: 2px;
+    }
     .items button {
-      display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 6px; border-radius: 6px;
-      border: 1px solid transparent; background: transparent; color: var(--text); text-align: left; cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      cursor: pointer;
     }
-    .items button:hover { background: var(--hover); }
-    .items button.active { border-color: var(--accent); background: var(--selected); }
-    .items img { image-rendering: pixelated; object-fit: contain; flex: none; }
-    .empty { padding: 8px; color: var(--muted); }
+    .items button:hover {
+      background: var(--hover);
+    }
+    .items button.active {
+      border-color: var(--accent);
+      background: var(--selected);
+    }
+    .items img {
+      image-rendering: pixelated;
+      object-fit: contain;
+      flex: none;
+    }
+    .empty {
+      padding: 8px;
+      color: var(--muted);
+    }
     @media (max-width: 640px), (max-height: 480px) and (pointer: coarse) {
-      .items { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); align-content: start; }
+      .items {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        align-content: start;
+      }
     }
     @media (pointer: coarse) {
-      .search input { min-height: 44px; font-size: 16px; }
-      .tabs { gap: 6px; }
-      .tabs button { min-height: 36px; padding: 4px 12px; font-size: 14px; }
-      .items button { min-height: 48px; }
+      .search input {
+        min-height: 44px;
+        font-size: 16px;
+      }
+      .tabs {
+        gap: 6px;
+      }
+      .tabs button {
+        min-height: 36px;
+        padding: 4px 12px;
+        font-size: 14px;
+      }
+      .items button {
+        min-height: 48px;
+      }
     }
   `,
 })
@@ -110,6 +181,10 @@ export class ItemPalette {
 
   /** Whether the Place tool is putting down this item. */
   protected isActive(item: CatalogItem): boolean {
-    return item.id === this.store.activeItem()?.id && this.store.tool() === 'brush' && !this.store.pasting();
+    return (
+      item.id === this.store.activeItem()?.id &&
+      this.store.tool() === 'brush' &&
+      !this.store.pasting()
+    );
   }
 }

@@ -46,13 +46,19 @@ interface Spot {
  * players do, it puts them inside fields when that means fewer of them (each takes one crop's
  * place), and on free ground when that's as good.
  */
-export function planCropCover(doc: PlanDocument, map: RestrictionMap, item: CatalogItem, options: PlacementOptions): CropCoverPlan {
+export function planCropCover(
+  doc: PlanDocument,
+  map: RestrictionMap,
+  item: CatalogItem,
+  options: PlacementOptions,
+): CropCoverPlan {
   const range = item.range;
   const none = { positions: [], onCrops: 0, unreachable: 0 };
   if (!range) return none;
   const width = doc.width;
   const size = doc.width * doc.height;
-  const index = (x: number, y: number) => (x >= 0 && y >= 0 && x < doc.width && y < doc.height ? y * width + x : -1);
+  const index = (x: number, y: number) =>
+    x >= 0 && y >= 0 && x < doc.width && y < doc.height ? y * width + x : -1;
 
   // Crops not yet in range of an item of the same group.
   const target = new Uint8Array(size);
@@ -89,7 +95,8 @@ export function planCover(
   if (!range) return none;
   const width = doc.width;
   const size = doc.width * doc.height;
-  const index = (x: number, y: number) => (x >= 0 && y >= 0 && x < doc.width && y < doc.height ? y * width + x : -1);
+  const index = (x: number, y: number) =>
+    x >= 0 && y >= 0 && x < doc.width && y < doc.height ? y * width + x : -1;
   const crop = new Uint8Array(size);
   for (const [key, itemId] of doc.allTiles()) {
     const i = index(...parseKey(key));
@@ -119,36 +126,61 @@ export function planCover(
         if (j >= 0 && target[j]) covers.push(j);
       }
       // A spot on a crop, or on a tile it's meant to cover, takes a tile from the field.
-      spots.push({ cell: i, covers: Int32Array.from(covers), onCrop: crop[i] === 1 || target[i] === 1 });
+      spots.push({
+        cell: i,
+        covers: Int32Array.from(covers),
+        onCrop: crop[i] === 1 || target[i] === 1,
+      });
     }
   }
 
   const spotsByCell = new Map<number, number[]>();
-  spots.forEach((spot, s) => spot.covers.forEach((c) => (spotsByCell.get(c) ?? spotsByCell.set(c, []).get(c)!).push(s)));
+  spots.forEach((spot, s) =>
+    spot.covers.forEach((c) => (spotsByCell.get(c) ?? spotsByCell.set(c, []).get(c)!).push(s)),
+  );
   // Every layout has a scarecrow reaching the hardest crop to reach (usually a field's corner), so
   // start from a spread of those spots, plus the biggest spots overall.
-  const bySize = (list: readonly number[]) => [...list].sort((a, b) => spots[b].covers.length - spots[a].covers.length);
+  const bySize = (list: readonly number[]) =>
+    [...list].sort((a, b) => spots[b].covers.length - spots[a].covers.length);
   let hardest: number[] = [];
-  for (const reach of spotsByCell.values()) if (!hardest.length || reach.length < hardest.length) hardest = reach;
+  for (const reach of spotsByCell.values())
+    if (!hardest.length || reach.length < hardest.length) hardest = reach;
   const reaching = bySize(hardest);
   const stride = Math.max(1, Math.floor(reaching.length / RESTARTS));
-  const starts = [...new Set([...bySize(spots.map((_, s) => s)).slice(0, 4), ...reaching.filter((_, i) => i % stride === 0).slice(0, RESTARTS)])];
+  const starts = [
+    ...new Set([
+      ...bySize(spots.map((_, s) => s)).slice(0, 4),
+      ...reaching.filter((_, i) => i % stride === 0).slice(0, RESTARTS),
+    ]),
+  ];
   const cost = (plan: number[]) => plan.length * 1000 + plan.filter((s) => spots[s].onCrop).length;
 
   // Greedy and prune from every start, and from each alignment of a perfect tiling (square and
   // plus-shaped sprinkler ranges tile a field exactly); then merge pairs in the most promising few.
-  const tilings = lattices(range).map((onLattice) => spots.flatMap((spot, s) => (onLattice(spot.cell % width, Math.floor(spot.cell / width)) ? [s] : [])));
+  const tilings = lattices(range).map((onLattice) =>
+    spots.flatMap((spot, s) =>
+      onLattice(spot.cell % width, Math.floor(spot.cell / width)) ? [s] : [],
+    ),
+  );
   const plans = [...starts.map((start) => [start]), ...tilings].map((initial) => {
     const plan = coverGreedily(spots, target, initial);
     prune(spots, plan, coverCounts(spots, plan, size));
     return plan;
   });
   plans.sort((a, b) => cost(a) - cost(b));
-  for (const plan of plans.slice(0, MERGED)) mergePairs(spots, plan, coverCounts(spots, plan, size), spotsByCell);
-  const chosen = plans.reduce<number[] | null>((best, plan) => (!best || cost(plan) < cost(best) ? plan : best), null) ?? [];
+  for (const plan of plans.slice(0, MERGED))
+    mergePairs(spots, plan, coverCounts(spots, plan, size), spotsByCell);
+  const chosen =
+    plans.reduce<number[] | null>(
+      (best, plan) => (!best || cost(plan) < cost(best) ? plan : best),
+      null,
+    ) ?? [];
   const covered = coverCounts(spots, chosen, size);
   return {
-    positions: chosen.map((s) => ({ x: spots[s].cell % width, y: Math.floor(spots[s].cell / width) })),
+    positions: chosen.map((s) => ({
+      x: spots[s].cell % width,
+      y: Math.floor(spots[s].cell / width),
+    })),
     onCrops: chosen.filter((s) => spots[s].onCrop).length,
     unreachable: targets.filter((t) => !covered[t]).length,
   };
@@ -159,7 +191,11 @@ export function planCover(
  * free ground winning ties. Lazy: a spot's count only ever drops, so a spot whose recounted value
  * still beats every other's last one is the best.
  */
-function coverGreedily(spots: readonly Spot[], target: Uint8Array, initial: readonly number[]): number[] {
+function coverGreedily(
+  spots: readonly Spot[],
+  target: Uint8Array,
+  initial: readonly number[],
+): number[] {
   const left = target.slice();
   const picked: number[] = [];
   const pick = (s: number) => {
@@ -215,7 +251,7 @@ class MaxHeap {
     if (this.items.length) {
       this.items[0] = lastItem;
       this.scores[0] = lastScore;
-      for (let i = 0; ; ) {
+      for (let i = 0; ;) {
         const l = 2 * i + 1;
         const r = l + 1;
         let largest = i;
@@ -244,9 +280,17 @@ function lattices(range: RangeShape): ((x: number, y: number) => boolean)[] {
   const mod = (n: number, m: number) => ((n % m) + m) % m;
   if (range.shape === 'square') {
     const step = range.radius * 2 + 1;
-    return Array.from({ length: step * step }, (_, i) => (x: number, y: number) => mod(x - (i % step), step) === 0 && mod(y - Math.floor(i / step), step) === 0);
+    return Array.from(
+      { length: step * step },
+      (_, i) => (x: number, y: number) =>
+        mod(x - (i % step), step) === 0 && mod(y - Math.floor(i / step), step) === 0,
+    );
   }
-  if (range.shape === 'diamond' && range.radius === 1) return Array.from({ length: 5 }, (_, k) => (x: number, y: number) => mod(x + 2 * y - k, 5) === 0);
+  if (range.shape === 'diamond' && range.radius === 1)
+    return Array.from(
+      { length: 5 },
+      (_, k) => (x: number, y: number) => mod(x + 2 * y - k, 5) === 0,
+    );
   return [];
 }
 
@@ -267,11 +311,16 @@ function prune(spots: readonly Spot[], plan: number[], counts: Int32Array): void
 }
 
 /** Replaces any two scarecrows with one spot that covers everything only they cover. */
-function mergePairs(spots: readonly Spot[], plan: number[], counts: Int32Array, spotsByCell: ReadonlyMap<number, number[]>): void {
+function mergePairs(
+  spots: readonly Spot[],
+  plan: number[],
+  counts: Int32Array,
+  spotsByCell: ReadonlyMap<number, number[]>,
+): void {
   // How many of the pair cover each tile, and which tiles a replacement must cover.
   const pairCount = new Int32Array(counts.length);
   const needed = new Uint8Array(counts.length);
-  for (let merged = true; merged; ) {
+  for (let merged = true; merged;) {
     merged = false;
     pairs: for (let i = 0; i < plan.length; i++) {
       for (let j = i + 1; j < plan.length; j++) {

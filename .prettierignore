@@ -1,0 +1,8 @@
+dist/
+.angular/
+coverage/
+public/
+package-lock.json
+.claude/
+# Written by the scripts/import-*.mts generators
+src/app/core/data/*.generated.ts

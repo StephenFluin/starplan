@@ -9,7 +9,10 @@
     "import-v2": "node scripts/import-v2.mts",
     "import-farms": "node scripts/import-farms.mts",
     "import-game": "node scripts/import-game.mts",
-    "test": "ng test"
+    "test": "ng test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "license": "AGPL-3.0-or-later",
   "private": true,
@@ -31,10 +34,14 @@
     "@angular/build": "^22.2.2",
     "@angular/cli": "^22.2.2",
     "@angular/compiler-cli": "^22.2.0",
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.12.0",
+    "angular-eslint": "^22.6.0",
+    "eslint": "^10.13.0",
     "jsdom": "30.1.2",
-    "prettier": "^3.8.1",
+    "prettier": "^3.9.10",
     "typescript": "~6.0.2",
+    "typescript-eslint": "^8.71.0",
     "vitest": "4.1.11"
   }
 }

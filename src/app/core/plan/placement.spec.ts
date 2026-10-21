@@ -1,6 +1,22 @@
 import { findItem } from '../data/catalog';
 import { PlanDocument, invertPatch } from './plan-document';
-import { Group, PlacementOptions, checkObject, erase, lineCells, moveObjects, outlineCells, outlinePositions, paintTiles, rowCells, rowPositions, placeEach, placeObjects, putGroup, rectFromCorners } from './placement';
+import {
+  Group,
+  PlacementOptions,
+  checkObject,
+  erase,
+  lineCells,
+  moveObjects,
+  outlineCells,
+  outlinePositions,
+  paintTiles,
+  rowCells,
+  rowPositions,
+  placeEach,
+  placeObjects,
+  putGroup,
+  rectFromCorners,
+} from './placement';
 import { IMPASSABLE, NOT_BUILDABLE, RestrictionMap } from './restriction-map';
 
 const item = (id: string) => {
@@ -48,14 +64,22 @@ describe('placement', () => {
 
   it('keeps existing tiles when overwrite is off', () => {
     doc.apply(paintTiles(doc, map, item('road'), { x: 0, y: 0, width: 1, height: 1 }, strict));
-    const patch = paintTiles(doc, map, item('wood-floor'), { x: 0, y: 0, width: 2, height: 1 }, { ...strict, overwrite: false });
+    const patch = paintTiles(
+      doc,
+      map,
+      item('wood-floor'),
+      { x: 0, y: 0, width: 2, height: 1 },
+      { ...strict, overwrite: false },
+    );
     expect(patch.tiles).toEqual([{ x: 1, y: 0, before: null, after: 'wood-floor' }]);
   });
 
   it('respects restriction layers unless placing anywhere', () => {
     const blocked = RestrictionMap.decode(10, 10, '1c99a');
     expect(checkObject(doc, blocked, item('silo'), 0, 0, strict).blocked).toEqual([[0, 0]]);
-    expect(checkObject(doc, blocked, item('silo'), 0, 0, { ...strict, anywhere: true }).ok).toBe(true);
+    expect(checkObject(doc, blocked, item('silo'), 0, 0, { ...strict, anywhere: true }).ok).toBe(
+      true,
+    );
   });
 
   it('stops objects overlapping, and allows craftables on paths but not crops', () => {
@@ -105,13 +129,27 @@ describe('placement', () => {
 
   describe('freehand strokes', () => {
     it('join up the cells between pointer samples', () => {
-      expect(lineCells(0, 0, 3, 1)).toEqual([[0, 0], [1, 0], [2, 1], [3, 1]]);
-      expect(lineCells(2, 2, 2, 0)).toEqual([[2, 2], [2, 1], [2, 0]]);
+      expect(lineCells(0, 0, 3, 1)).toEqual([
+        [0, 0],
+        [1, 0],
+        [2, 1],
+        [3, 1],
+      ]);
+      expect(lineCells(2, 2, 2, 0)).toEqual([
+        [2, 2],
+        [2, 1],
+        [2, 0],
+      ]);
       expect(lineCells(1, 1, 1, 1)).toEqual([[1, 1]]);
     });
 
     it('paint and erase just the cells they cross', () => {
-      const stroke: [number, number][] = [[0, 0], [1, 0], [1, 1], [1, 0]];
+      const stroke: [number, number][] = [
+        [0, 0],
+        [1, 0],
+        [1, 1],
+        [1, 0],
+      ];
       const patch = paintTiles(doc, map, item('road'), stroke, strict);
       expect(patch.tiles).toHaveLength(3);
       doc.apply(patch);
@@ -120,7 +158,17 @@ describe('placement', () => {
     });
 
     it('place objects clear of the copies before them', () => {
-      const patch = placeEach(doc, map, item('large-rock'), [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }], strict);
+      const patch = placeEach(
+        doc,
+        map,
+        item('large-rock'),
+        [
+          { x: 0, y: 0 },
+          { x: 1, y: 0 },
+          { x: 2, y: 0 },
+        ],
+        strict,
+      );
       expect(patch.objects.map((o) => o.after?.x)).toEqual([0, 2]);
     });
   });
@@ -128,8 +176,19 @@ describe('placement', () => {
   it('leaves a row in front of the doors when filling a rectangle with buildings', () => {
     // Coops are 6x3 with their door on the bottom row: rows of them start every four tiles.
     const coops = new PlanDocument(20, 20);
-    const patch = placeObjects(coops, RestrictionMap.open(20, 20), item('coop'), { x: 0, y: 0, width: 12, height: 10 }, strict);
-    expect(patch.objects.map((o) => [o.after?.x, o.after?.y])).toEqual([[0, 0], [6, 0], [0, 4], [6, 4]]);
+    const patch = placeObjects(
+      coops,
+      RestrictionMap.open(20, 20),
+      item('coop'),
+      { x: 0, y: 0, width: 12, height: 10 },
+      strict,
+    );
+    expect(patch.objects.map((o) => [o.after?.x, o.after?.y])).toEqual([
+      [0, 0],
+      [6, 0],
+      [0, 4],
+      [6, 4],
+    ]);
   });
 
   it('fills a dragged rectangle with copies stepped by the footprint', () => {
@@ -161,7 +220,8 @@ describe('placement', () => {
 
   // As in the game (GameLocation.buildStructure and Data/Buildings.json).
   describe('buildings', () => {
-    const paint = (id: string, x: number, y: number, width = 1, height = 1) => doc.apply(paintTiles(doc, map, item(id), { x, y, width, height }, strict));
+    const paint = (id: string, x: number, y: number, width = 1, height = 1) =>
+      doc.apply(paintTiles(doc, map, item(id), { x, y, width, height }, strict));
     const place = (id: string, x: number, y: number, on = map) => {
       const patch = placeObjects(doc, on, item(id), { x, y, width: 1, height: 1 }, strict);
       doc.apply(patch);
@@ -174,7 +234,14 @@ describe('placement', () => {
       paint('farmland', 0, 2, 3, 1);
       const patch = place('silo', 0, 0);
       expect(patch.objects).toHaveLength(1);
-      expect(patch.tiles.map((t) => t.before)).toEqual(['grass', 'grass', 'grass', 'farmland', 'farmland', 'farmland']);
+      expect(patch.tiles.map((t) => t.before)).toEqual([
+        'grass',
+        'grass',
+        'grass',
+        'farmland',
+        'farmland',
+        'farmland',
+      ]);
       expect(doc.tileAt(1, 0)).toBe('road');
       expect(doc.tileAt(1, 1)).toBeNull();
       doc.apply(invertPatch(patch));
@@ -215,28 +282,51 @@ describe('placement', () => {
 
     it("need the greenhouse's doorstep passable, though only the tile at its door buildable", () => {
       // The doorstep is the 3x2 below the greenhouse's 7x6 footprint, two tiles in; the door is above (4, 6).
-      const unbuildable = map.withTiles([[3, 6, NOT_BUILDABLE], [5, 6, NOT_BUILDABLE], [4, 7, NOT_BUILDABLE]]);
+      const unbuildable = map.withTiles([
+        [3, 6, NOT_BUILDABLE],
+        [5, 6, NOT_BUILDABLE],
+        [4, 7, NOT_BUILDABLE],
+      ]);
       expect(checkObject(doc, unbuildable, item('greenhouse'), 1, 0, strict).ok).toBe(true);
       paint('parsnip', 3, 6);
       expect(checkObject(doc, unbuildable, item('greenhouse'), 1, 0, strict).ok).toBe(true);
       paint('fence', 5, 7);
-      expect(checkObject(doc, unbuildable, item('greenhouse'), 1, 0, strict).blocked).toEqual([[5, 7]]);
+      expect(checkObject(doc, unbuildable, item('greenhouse'), 1, 0, strict).blocked).toEqual([
+        [5, 7],
+      ]);
       const water = map.withTiles([[4, 7, IMPASSABLE | NOT_BUILDABLE]]);
-      expect(checkObject(doc, water, item('greenhouse'), 1, 0, strict).blocked).toEqual([[4, 7], [5, 7]]);
+      expect(checkObject(doc, water, item('greenhouse'), 1, 0, strict).blocked).toEqual([
+        [4, 7],
+        [5, 7],
+      ]);
 
       const door = map.withTiles([[4, 6, NOT_BUILDABLE]]);
-      expect(checkObject(doc, door, item('greenhouse'), 1, 0, strict).blocked).toEqual([[5, 7], [4, 6]]);
+      expect(checkObject(doc, door, item('greenhouse'), 1, 0, strict).blocked).toEqual([
+        [5, 7],
+        [4, 6],
+      ]);
       paint('road', 4, 6);
       expect(checkObject(doc, door, item('greenhouse'), 1, 0, strict).blocked).toEqual([[5, 7]]);
     });
 
     it('say why they are blocked', () => {
-      const reason = (id: string, x: number, y: number, on = map) => checkObject(doc, on, item(id), x, y, strict).reason;
+      const reason = (id: string, x: number, y: number, on = map) =>
+        checkObject(doc, on, item(id), x, y, strict).reason;
       expect(reason('silo', 8, 8)).toEqual({ kind: 'outside' });
-      expect(reason('silo', 0, 0, map.withTiles([[1, 1, NOT_BUILDABLE]]))).toEqual({ kind: 'ground', restriction: 'buildable' });
-      expect(reason('silo', 0, 0, map.withTiles([[1, 1, IMPASSABLE | NOT_BUILDABLE]]))).toEqual({ kind: 'ground', restriction: 'accessible' });
-      expect(reason('coop', 0, 0, map.withTiles([[1, 3, NOT_BUILDABLE]]))).toEqual({ kind: 'door' });
-      expect(reason('greenhouse', 1, 0, map.withTiles([[3, 7, IMPASSABLE]]))).toEqual({ kind: 'clearance' });
+      expect(reason('silo', 0, 0, map.withTiles([[1, 1, NOT_BUILDABLE]]))).toEqual({
+        kind: 'ground',
+        restriction: 'buildable',
+      });
+      expect(reason('silo', 0, 0, map.withTiles([[1, 1, IMPASSABLE | NOT_BUILDABLE]]))).toEqual({
+        kind: 'ground',
+        restriction: 'accessible',
+      });
+      expect(reason('coop', 0, 0, map.withTiles([[1, 3, NOT_BUILDABLE]]))).toEqual({
+        kind: 'door',
+      });
+      expect(reason('greenhouse', 1, 0, map.withTiles([[3, 7, IMPASSABLE]]))).toEqual({
+        kind: 'clearance',
+      });
       place('keg', 1, 1);
       paint('fence', 2, 2);
       expect(reason('silo', 0, 0)).toEqual({ kind: 'object', itemId: 'keg' });
@@ -244,7 +334,9 @@ describe('placement', () => {
     });
 
     it('may keep standing on their own tiles when they move, as in the game', () => {
-      const unbuildable = map.withTiles([0, 1, 2].flatMap((y) => [0, 1, 2].map((x) => [x, y, NOT_BUILDABLE] as const)));
+      const unbuildable = map.withTiles(
+        [0, 1, 2].flatMap((y) => [0, 1, 2].map((x) => [x, y, NOT_BUILDABLE] as const)),
+      );
       place('silo', 0, 0, RestrictionMap.open(10, 10));
       const uid = doc.objectAt(0, 0)!.uid;
       expect(moveObjects(doc, unbuildable, [uid], 1, 0, strict)).not.toBeNull();
@@ -256,9 +348,15 @@ describe('placement', () => {
     /** A 3x3 parsnip field with a sprinkler in the middle, as a selection would hold it. */
     const field = (): Group => {
       doc.apply(paintTiles(doc, map, item('parsnip'), { x: 0, y: 0, width: 3, height: 3 }, strict));
-      doc.apply(placeObjects(doc, map, item('sprinkler'), { x: 1, y: 1, width: 1, height: 1 }, strict));
+      doc.apply(
+        placeObjects(doc, map, item('sprinkler'), { x: 1, y: 1, width: 1, height: 1 }, strict),
+      );
       return {
-        tiles: [...doc.allTiles()].map(([cell, itemId]) => ({ x: Number(cell.split(',')[0]), y: Number(cell.split(',')[1]), itemId })),
+        tiles: [...doc.allTiles()].map(([cell, itemId]) => ({
+          x: Number(cell.split(',')[0]),
+          y: Number(cell.split(',')[1]),
+          itemId,
+        })),
         objects: [...doc.allObjects()],
       };
     };
@@ -298,7 +396,9 @@ describe('placement', () => {
     it('paint over tiles they land on only when painting over is on', () => {
       const group = field();
       doc.apply(paintTiles(doc, map, item('road'), { x: 4, y: 0, width: 1, height: 1 }, strict));
-      expect(putGroup(doc, map, group, 4, 0, { ...strict, overwrite: false }, true).blocked).toEqual([[4, 0]]);
+      expect(
+        putGroup(doc, map, group, 4, 0, { ...strict, overwrite: false }, true).blocked,
+      ).toEqual([[4, 0]]);
       doc.apply(putGroup(doc, map, group, 4, 0, strict, true).patch);
       expect(doc.tileAt(4, 0)).toBe('parsnip');
     });
@@ -316,7 +416,13 @@ describe('placement', () => {
   describe('replacing crops', () => {
     it('lets sprinklers and scarecrows replace crops, and undo brings the crop back', () => {
       doc.apply(paintTiles(doc, map, item('parsnip'), { x: 0, y: 0, width: 3, height: 3 }, strict));
-      const patch = placeObjects(doc, map, item('q-sprinkler'), { x: 1, y: 1, width: 1, height: 1 }, strict);
+      const patch = placeObjects(
+        doc,
+        map,
+        item('q-sprinkler'),
+        { x: 1, y: 1, width: 1, height: 1 },
+        strict,
+      );
       expect(patch.tiles).toEqual([{ x: 1, y: 1, before: 'parsnip', after: null }]);
       doc.apply(patch);
       expect(doc.tileAt(1, 1)).toBeNull();
@@ -329,7 +435,9 @@ describe('placement', () => {
     });
 
     it("doesn't paint crops under a sprinkler", () => {
-      doc.apply(placeObjects(doc, map, item('sprinkler'), { x: 1, y: 1, width: 1, height: 1 }, strict));
+      doc.apply(
+        placeObjects(doc, map, item('sprinkler'), { x: 1, y: 1, width: 1, height: 1 }, strict),
+      );
       doc.apply(paintTiles(doc, map, item('parsnip'), { x: 0, y: 0, width: 3, height: 3 }, strict));
       expect(doc.tileAt(1, 1)).toBeNull();
       expect(doc.tileCount).toBe(8);
@@ -339,12 +447,17 @@ describe('placement', () => {
       doc.apply(paintTiles(doc, map, item('parsnip'), { x: 0, y: 0, width: 1, height: 1 }, strict));
       expect(checkObject(doc, map, item('keg'), 0, 0, strict).ok).toBe(false);
       doc.apply(paintTiles(doc, map, item('road'), { x: 2, y: 0, width: 1, height: 1 }, strict));
-      expect(placeObjects(doc, map, item('sprinkler'), { x: 2, y: 0, width: 1, height: 1 }, strict).tiles).toEqual([]);
+      expect(
+        placeObjects(doc, map, item('sprinkler'), { x: 2, y: 0, width: 1, height: 1 }, strict)
+          .tiles,
+      ).toEqual([]);
     });
 
     it('replaces crops where a moved sprinkler lands', () => {
       doc.apply(paintTiles(doc, map, item('parsnip'), { x: 3, y: 0, width: 1, height: 1 }, strict));
-      doc.apply(placeObjects(doc, map, item('sprinkler'), { x: 0, y: 0, width: 1, height: 1 }, strict));
+      doc.apply(
+        placeObjects(doc, map, item('sprinkler'), { x: 0, y: 0, width: 1, height: 1 }, strict),
+      );
       const uid = doc.objectAt(0, 0)!.uid;
       const patch = moveObjects(doc, map, [uid], 3, 0, strict)!;
       expect(patch.tiles).toEqual([{ x: 3, y: 0, before: 'parsnip', after: null }]);

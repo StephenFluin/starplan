@@ -33,7 +33,13 @@ export function toSaved(layout: string, doc: PlanDocument): SavedPlan {
     objects.push([obj.itemId, obj.x, obj.y]);
   }
   objects.sort((a, b) => a[2] - b[2] || a[1] - b[1]);
-  return { v: 5, layout, tiles, objects, ...(doc.greenhouseMoved && { greenhouseMoved: true as const }) };
+  return {
+    v: 5,
+    layout,
+    tiles,
+    objects,
+    ...(doc.greenhouseMoved && { greenhouseMoved: true as const }),
+  };
 }
 
 /**
@@ -54,19 +60,31 @@ export function fromSaved(saved: SavedPlan, doc: PlanDocument, layout?: LayoutIn
     const item = findItem(itemId);
     if (!item) continue;
     const offset = migrationOffset(saved.v, item.id);
-    const obj: PlacedObject = { uid: doc.allocateUid(), itemId: item.id, x: x + offset.x, y: y + offset.y };
+    const obj: PlacedObject = {
+      uid: doc.allocateUid(),
+      itemId: item.id,
+      x: x + offset.x,
+      y: y + offset.y,
+    };
     patch.objects.push({ uid: obj.uid, before: null, after: obj });
   }
   if (saved.v < 4 && layout?.petBowl) addPaintedPetBowl(patch, doc, layout.petBowl);
-  if (saved.greenhouseMoved || (layout && greenhouseLeftStart(patch, layout))) patch.greenhouseMoved = { before: false, after: true };
+  if (saved.greenhouseMoved || (layout && greenhouseLeftStart(patch, layout)))
+    patch.greenhouseMoved = { before: false, after: true };
   return patch;
 }
 
 /** Whether the plan has a greenhouse away from the layout's start location (plans saved before greenhouseMoved existed). */
 function greenhouseLeftStart(patch: Patch, layout: LayoutInfo): boolean {
   const start = greenhouseStart(layout);
-  const greenhouses = patch.objects.flatMap((change) => (change.after && isGreenhouse(change.after.itemId) ? [change.after] : []));
-  return start !== null && greenhouses.length > 0 && !greenhouses.some((obj) => obj.x === start.x && obj.y === start.y);
+  const greenhouses = patch.objects.flatMap((change) =>
+    change.after && isGreenhouse(change.after.itemId) ? [change.after] : [],
+  );
+  return (
+    start !== null &&
+    greenhouses.length > 0 &&
+    !greenhouses.some((obj) => obj.x === start.x && obj.y === start.y)
+  );
 }
 
 const PET_BOWL_IDS = new Set(variantsOf('pet-bowl').map((item) => item.id));
@@ -79,7 +97,13 @@ function addPaintedPetBowl(patch: Patch, doc: PlanDocument, at: TilePoint): void
   if (objects.some((obj) => PET_BOWL_IDS.has(obj.itemId))) return;
   const overlaps = objects.some((obj) => {
     const item = findItem(obj.itemId);
-    return item && obj.x < at.x + bowl.width && at.x < obj.x + item.width && obj.y < at.y + bowl.height && at.y < obj.y + item.height;
+    return (
+      item &&
+      obj.x < at.x + bowl.width &&
+      at.x < obj.x + item.width &&
+      obj.y < at.y + bowl.height &&
+      at.y < obj.y + item.height
+    );
   });
   if (overlaps) return;
   const obj: PlacedObject = { uid: doc.allocateUid(), itemId: bowl.id, x: at.x, y: at.y };
@@ -88,7 +112,11 @@ function addPaintedPetBowl(patch: Patch, doc: PlanDocument, at: TilePoint): void
 
 /** Rows to move an object down when loading an older plan version. */
 /** Wild trees, which stood on a 3x3 footprint, trunk in the middle of its bottom row, until v5. */
-const WILD_TREES = new Set(CATALOG.filter((item) => item.category === 'trees' && item.kind === 'object' && item.width === 1).map((item) => item.id));
+const WILD_TREES = new Set(
+  CATALOG.filter(
+    (item) => item.category === 'trees' && item.kind === 'object' && item.width === 1,
+  ).map((item) => item.id),
+);
 
 /** How far to move an object when loading an older plan version. */
 function migrationOffset(version: SavedPlan['v'], itemId: string): { x: number; y: number } {
@@ -103,7 +131,12 @@ function migrationOffset(version: SavedPlan['v'], itemId: string): { x: number; 
 export function isSavedPlan(value: unknown): value is SavedPlan {
   if (typeof value !== 'object' || value === null) return false;
   const plan = value as Partial<SavedPlan>;
-  return (plan.v === 1 || plan.v === 2 || plan.v === 3 || plan.v === 4 || plan.v === 5) && typeof plan.layout === 'string' && typeof plan.tiles === 'object' && Array.isArray(plan.objects);
+  return (
+    (plan.v === 1 || plan.v === 2 || plan.v === 3 || plan.v === 4 || plan.v === 5) &&
+    typeof plan.layout === 'string' &&
+    typeof plan.tiles === 'object' &&
+    Array.isArray(plan.objects)
+  );
 }
 
 interface V2Plan {
@@ -117,7 +150,12 @@ export function fromV2(value: unknown): SavedPlan | null {
   if (typeof value !== 'object' || value === null) return null;
   const v2 = value as V2Plan;
   if (!Array.isArray(v2.tiles) && !Array.isArray(v2.buildings)) return null;
-  const saved: SavedPlan = { v: 1, layout: v2.options?.layout ?? 'regular', tiles: {}, objects: [] };
+  const saved: SavedPlan = {
+    v: 1,
+    layout: v2.options?.layout ?? 'regular',
+    tiles: {},
+    objects: [],
+  };
   for (const tile of v2.tiles ?? []) {
     const item = findItem(tile.type);
     if (!item) continue;
@@ -131,7 +169,11 @@ export function fromV2(value: unknown): SavedPlan | null {
   for (const building of v2.buildings ?? []) {
     const item = findItem(building.type);
     if (!item) continue;
-    saved.objects.push([item.id, Math.floor(Number(building.x) / 16), Math.floor(Number(building.y) / 16)]);
+    saved.objects.push([
+      item.id,
+      Math.floor(Number(building.x) / 16),
+      Math.floor(Number(building.y) / 16),
+    ]);
   }
   return saved;
 }
@@ -155,7 +197,10 @@ export function parsePlanJson(text: string): ParsedPlan | null {
   return plan ? { plan, legacy: true } : null;
 }
 
-async function pipe(bytes: Uint8Array, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {
+async function pipe(
+  bytes: Uint8Array,
+  stream: CompressionStream | DecompressionStream,
+): Promise<Uint8Array> {
   const body = new Response(bytes as BodyInit).body;
   if (!body) throw new Error('Streams are not supported');
   return new Uint8Array(await new Response(body.pipeThrough(stream)).arrayBuffer());

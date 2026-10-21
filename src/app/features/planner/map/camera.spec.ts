@@ -9,7 +9,10 @@ function camera(): Camera {
 }
 
 /** The map point under a screen point. */
-const mapPoint = (cam: Camera, sx: number, sy: number) => ({ x: (sx - cam.view.x) / cam.view.zoom, y: (sy - cam.view.y) / cam.view.zoom });
+const mapPoint = (cam: Camera, sx: number, sy: number) => ({
+  x: (sx - cam.view.x) / cam.view.zoom,
+  y: (sy - cam.view.y) / cam.view.zoom,
+});
 
 describe('wheelZoomFactor', () => {
   it('zooms 1.2x per mouse wheel notch, in either direction', () => {
@@ -18,15 +21,21 @@ describe('wheelZoomFactor', () => {
   });
 
   it('caps a single event, so accelerated wheels zoom smoothly', () => {
-    expect(wheelZoomFactor({ deltaY: -1000, deltaMode: 0, ctrlKey: false })).toBeCloseTo(Math.pow(1.2, 1.5));
+    expect(wheelZoomFactor({ deltaY: -1000, deltaMode: 0, ctrlKey: false })).toBeCloseTo(
+      Math.pow(1.2, 1.5),
+    );
   });
 
   it('treats line-based deltas (Firefox) as pixels', () => {
-    expect(wheelZoomFactor({ deltaY: -3, deltaMode: 1, ctrlKey: false })).toBeCloseTo(Math.pow(1.2, 0.48));
+    expect(wheelZoomFactor({ deltaY: -3, deltaMode: 1, ctrlKey: false })).toBeCloseTo(
+      Math.pow(1.2, 0.48),
+    );
   });
 
   it('zooms faster for pinches, which arrive as small Ctrl + wheel deltas', () => {
-    expect(wheelZoomFactor({ deltaY: -10, deltaMode: 0, ctrlKey: true })).toBeGreaterThan(wheelZoomFactor({ deltaY: -10, deltaMode: 0, ctrlKey: false }));
+    expect(wheelZoomFactor({ deltaY: -10, deltaMode: 0, ctrlKey: true })).toBeGreaterThan(
+      wheelZoomFactor({ deltaY: -10, deltaMode: 0, ctrlKey: false }),
+    );
   });
 });
 

@@ -1,4 +1,14 @@
-import { Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  afterNextRender,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { NgOptimizedImage } from '@angular/common';
 import { CATALOG, CatalogItem, findItem, spriteUrl } from '../../core/data/catalog';
 import { PlannerStore } from '../../core/planner-store';
@@ -34,6 +44,9 @@ const MAX_RESULTS = 10;
     <p class="heading">{{ query() ? 'Results' : 'Recently used' }}</p>
     <ul id="quick-search-results" role="listbox" aria-label="Items">
       @for (item of results(); track item.id; let i = $index) {
+        <!-- Keyboard users pick options from the search box (arrow keys + Enter via
+          aria-activedescendant), so the options themselves stay unfocusable. -->
+        <!-- eslint-disable-next-line @angular-eslint/template/click-events-have-key-events, @angular-eslint/template/interactive-supports-focus -->
         <li
           [id]="'quick-search-' + i"
           role="option"
@@ -52,32 +65,85 @@ const MAX_RESULTS = 10;
   `,
   styles: `
     :host {
-      position: fixed; z-index: 20; width: 260px; padding: 8px; border-radius: 8px;
-      background: var(--panel); color: var(--text); border: 1px solid var(--border);
+      position: fixed;
+      z-index: 20;
+      width: 260px;
+      padding: 8px;
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
       box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
       /* Opens at the pointer, moved in from the screen's edges so it all shows. */
       --top: clamp(8px, var(--y), 100dvh - 410px);
-      left: clamp(8px, var(--x), 100vw - 286px); top: var(--top);
-      display: flex; flex-direction: column; max-height: calc(100dvh - 26px - var(--top));
+      left: clamp(8px, var(--x), 100vw - 286px);
+      top: var(--top);
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100dvh - 26px - var(--top));
     }
     /* On phones, at the top, clear of the keyboard. */
     @media (max-width: 640px), (max-height: 480px) and (pointer: coarse) {
-      :host { --top: 8px; left: 8px; right: 8px; width: auto; }
+      :host {
+        --top: 8px;
+        left: 8px;
+        right: 8px;
+        width: auto;
+      }
     }
     input {
-      width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px;
-      border: 1px solid var(--border); background: var(--input-bg); color: var(--text);
+      width: 100%;
+      box-sizing: border-box;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--input-bg);
+      color: var(--text);
     }
-    .heading { margin: 8px 4px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
-    ul { list-style: none; margin: 0; padding: 0; max-height: 320px; min-height: 0; overflow-y: auto; }
-    li { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 4px; cursor: pointer; }
+    .heading {
+      margin: 8px 4px 4px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+    ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      max-height: 320px;
+      min-height: 0;
+      overflow-y: auto;
+    }
+    li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
     @media (pointer: coarse) {
-      input { min-height: 44px; font-size: 16px; }
-      li { min-height: 44px; box-sizing: border-box; }
+      input {
+        min-height: 44px;
+        font-size: 16px;
+      }
+      li {
+        min-height: 44px;
+        box-sizing: border-box;
+      }
     }
-    li.highlighted { background: var(--selected); }
-    li.empty { color: var(--muted); cursor: default; }
-    img { image-rendering: pixelated; object-fit: contain; }
+    li.highlighted {
+      background: var(--selected);
+    }
+    li.empty {
+      color: var(--muted);
+      cursor: default;
+    }
+    img {
+      image-rendering: pixelated;
+      object-fit: contain;
+    }
   `,
 })
 export class QuickSearch {

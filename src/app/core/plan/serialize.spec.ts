@@ -1,13 +1,24 @@
 import { LAYOUTS } from '../data/layouts';
 import { PlanDocument } from './plan-document';
-import { SavedPlan, decodePlan, encodePlan, fromSaved, fromV2, parsePlanJson, toSaved } from './serialize';
+import {
+  SavedPlan,
+  decodePlan,
+  encodePlan,
+  fromSaved,
+  fromV2,
+  parsePlanJson,
+  toSaved,
+} from './serialize';
 
 describe('serialize', () => {
   const plan: SavedPlan = {
     v: 5,
     layout: 'regular',
     tiles: { road: [1, 2, 3, 4], parsnip: [10, 10] },
-    objects: [['keg', 5, 5], ['house', 59, 12]],
+    objects: [
+      ['keg', 5, 5],
+      ['house', 59, 12],
+    ],
   };
 
   it('round-trips a plan through a document', () => {
@@ -20,17 +31,51 @@ describe('serialize', () => {
 
   it('moves v1 objects from their sprite corner down onto their footprint', () => {
     const doc = new PlanDocument(80, 65);
-    doc.apply(fromSaved({ v: 1, layout: 'regular', tiles: {}, objects: [['house', 59, 8], ['greenhouse', 25, 6], ['keg', 5, 5]] }, doc));
-    expect(toSaved('regular', doc).objects).toEqual([['keg', 5, 5], ['greenhouse', 25, 10], ['house', 59, 12]]);
+    doc.apply(
+      fromSaved(
+        {
+          v: 1,
+          layout: 'regular',
+          tiles: {},
+          objects: [
+            ['house', 59, 8],
+            ['greenhouse', 25, 6],
+            ['keg', 5, 5],
+          ],
+        },
+        doc,
+      ),
+    );
+    expect(toSaved('regular', doc).objects).toEqual([
+      ['keg', 5, 5],
+      ['greenhouse', 25, 10],
+      ['house', 59, 12],
+    ]);
   });
 
   it('moves wild trees from their old 3x3 footprint onto their trunk, and leaves fruit trees', () => {
     const doc = new PlanDocument(80, 65);
-    doc.apply(fromSaved({ v: 4, layout: 'regular', tiles: {}, objects: [['oak-tree', 10, 10], ['apple', 20, 10]] }, doc));
-    expect(toSaved('regular', doc).objects).toEqual([['apple', 20, 10], ['oak-tree', 11, 12]]);
+    doc.apply(
+      fromSaved(
+        {
+          v: 4,
+          layout: 'regular',
+          tiles: {},
+          objects: [
+            ['oak-tree', 10, 10],
+            ['apple', 20, 10],
+          ],
+        },
+        doc,
+      ),
+    );
+    expect(toSaved('regular', doc).objects).toEqual([
+      ['apple', 20, 10],
+      ['oak-tree', 11, 12],
+    ]);
   });
 
-  it("remembers that the greenhouse has moved", () => {
+  it('remembers that the greenhouse has moved', () => {
     const doc = new PlanDocument(80, 65);
     doc.apply({ ...fromSaved(plan, doc), greenhouseMoved: { before: false, after: true } });
     const saved = toSaved('regular', doc);
@@ -62,7 +107,10 @@ describe('serialize', () => {
     };
 
     it('adds the bowl that older plans showed painted into the farm image', () => {
-      expect(load([['keg', 5, 5]])).toEqual([['keg', 5, 5], ['pet-bowl', 53, 7]]);
+      expect(load([['keg', 5, 5]])).toEqual([
+        ['keg', 5, 5],
+        ['pet-bowl', 53, 7],
+      ]);
     });
 
     it('leaves plans alone that already have a bowl, or something on its spot', () => {
@@ -72,14 +120,36 @@ describe('serialize', () => {
     });
 
     it("doesn't add one to layouts without a pet bowl spot", () => {
-      expect(load([], 3, LAYOUTS.find((l) => l.id === 'barn')!)).toEqual([]);
+      expect(
+        load(
+          [],
+          3,
+          LAYOUTS.find((l) => l.id === 'barn')!,
+        ),
+      ).toEqual([]);
     });
   });
 
   it("moves v2 farmhouses down a row onto the game's 9x5 footprint", () => {
     const doc = new PlanDocument(80, 65);
-    doc.apply(fromSaved({ v: 2, layout: 'regular', tiles: {}, objects: [['house-upgrade-2', 59, 11], ['greenhouse', 25, 10]] }, doc));
-    expect(toSaved('regular', doc).objects).toEqual([['greenhouse', 25, 10], ['house-upgrade-2', 59, 12]]);
+    doc.apply(
+      fromSaved(
+        {
+          v: 2,
+          layout: 'regular',
+          tiles: {},
+          objects: [
+            ['house-upgrade-2', 59, 11],
+            ['greenhouse', 25, 10],
+          ],
+        },
+        doc,
+      ),
+    );
+    expect(toSaved('regular', doc).objects).toEqual([
+      ['greenhouse', 25, 10],
+      ['house-upgrade-2', 59, 12],
+    ]);
   });
 
   it('round-trips through a compressed share string', async () => {

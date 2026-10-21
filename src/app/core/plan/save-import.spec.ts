@@ -1,13 +1,24 @@
 import { LAYOUTS } from '../data/layouts';
 import { SaveImport, importSave } from './save-import';
 
-const tile = (x: number, y: number, value: string) => `<item><key><Vector2><X>${x}</X><Y>${y}</Y></Vector2></key><value>${value}</value></item>`;
+const tile = (x: number, y: number, value: string) =>
+  `<item><key><Vector2><X>${x}</X><Y>${y}</Y></Vector2></key><value>${value}</value></item>`;
 const object = (name: string, id: string, big: boolean, extra = '') =>
   `<Object><name>${name}</name><itemId>${id}</itemId><bigCraftable>${big}</bigCraftable>${extra}</Object>`;
-const feature = (type: string, body: string) => `<TerrainFeature xsi:type="${type}">${body}</TerrainFeature>`;
+const feature = (type: string, body: string) =>
+  `<TerrainFeature xsi:type="${type}">${body}</TerrainFeature>`;
 
 /** A small save in the 1.6 format, with whatever the farm should hold. */
-function save(farm: { buildings?: string; objects?: string; terrain?: string; clumps?: string; fields?: string }, root = '<whichFarm>0</whichFarm>') {
+function save(
+  farm: {
+    buildings?: string;
+    objects?: string;
+    terrain?: string;
+    clumps?: string;
+    fields?: string;
+  },
+  root = '<whichFarm>0</whichFarm>',
+) {
   return `<?xml version="1.0" encoding="utf-8"?>
 <SaveGame xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
   <player><farmName>Test</farmName><houseUpgradeLevel>1</houseUpgradeLevel><mailReceived><string>ccPantry</string></mailReceived></player>
@@ -33,7 +44,8 @@ function load(xml: string): SaveImport {
   return result;
 }
 
-const at = (result: SaveImport, x: number, y: number) => result.plan.objects.find(([, ox, oy]) => ox === x && oy === y)?.[0];
+const at = (result: SaveImport, x: number, y: number) =>
+  result.plan.objects.find(([, ox, oy]) => ox === x && oy === y)?.[0];
 const tilesOf = (result: SaveImport, itemId: string) => result.plan.tiles[itemId] ?? [];
 
 describe('importSave', () => {
@@ -42,7 +54,13 @@ describe('importSave', () => {
       `<Building><buildingType>${type}</buildingType><tileX>${x}</tileX><tileY>${y}</tileY><skinId>${skin}</skinId></Building>`;
     const result = load(
       save({
-        buildings: [building('Farmhouse', 50, 20), building('Greenhouse', 10, 30), building('Cabin', 5, 5, 'Log Cabin'), building('Deluxe Coop', 30, 40), building('Pet Bowl', 70, 20)].join(''),
+        buildings: [
+          building('Farmhouse', 50, 20),
+          building('Greenhouse', 10, 30),
+          building('Cabin', 5, 5, 'Log Cabin'),
+          building('Deluxe Coop', 30, 40),
+          building('Pet Bowl', 70, 20),
+        ].join(''),
         fields: '<greenhouseMoved>true</greenhouseMoved>',
       }),
     );
@@ -63,10 +81,23 @@ describe('importSave', () => {
       save({
         objects: [
           tile(1, 1, object('Keg', '12', true)),
-          tile(2, 1, object('Iridium Sprinkler', '645', false, '<heldObject><Object><name>Pressure Nozzle</name></Object></heldObject>')),
+          tile(
+            2,
+            1,
+            object(
+              'Iridium Sprinkler',
+              '645',
+              false,
+              '<heldObject><Object><name>Pressure Nozzle</name></Object></heldObject>',
+            ),
+          ),
           tile(3, 1, object('Rarecrow', '137', true)),
           tile(4, 1, object('Chest', 'BigChest', true)),
-          tile(5, 1, `<Object xsi:type="Fence"><name>Hardwood Fence</name><itemId>298</itemId><heldObject><Object><name>Torch</name></Object></heldObject></Object>`),
+          tile(
+            5,
+            1,
+            `<Object xsi:type="Fence"><name>Hardwood Fence</name><itemId>298</itemId><heldObject><Object><name>Torch</name></Object></heldObject></Object>`,
+          ),
           tile(6, 1, object('Weeds', '674', false)),
           tile(7, 1, object('Crab Pot', '710', false)),
         ].join(''),
@@ -85,9 +116,23 @@ describe('importSave', () => {
     const result = load(
       save({
         terrain: [
-          tile(10, 10, feature('HoeDirt', '<crop><indexOfHarvest>24</indexOfHarvest><seedIndex>472</seedIndex></crop>')),
+          tile(
+            10,
+            10,
+            feature(
+              'HoeDirt',
+              '<crop><indexOfHarvest>24</indexOfHarvest><seedIndex>472</seedIndex></crop>',
+            ),
+          ),
           tile(11, 10, feature('HoeDirt', '<state>0</state>')),
-          tile(12, 10, feature('HoeDirt', '<crop><indexOfHarvest>16</indexOfHarvest><seedIndex>495</seedIndex></crop>')),
+          tile(
+            12,
+            10,
+            feature(
+              'HoeDirt',
+              '<crop><indexOfHarvest>16</indexOfHarvest><seedIndex>495</seedIndex></crop>',
+            ),
+          ),
           tile(13, 10, feature('Flooring', '<whichFloor>8</whichFloor>')),
           tile(14, 10, feature('Bush', '<size>3</size>')),
           tile(30, 30, feature('FruitTree', '<growthStage>4</growthStage><treeId>633</treeId>')),
@@ -96,7 +141,8 @@ describe('importSave', () => {
           tile(50, 30, feature('Tree', '<growthStage>1</growthStage><treeType>3</treeType>')),
         ].join(''),
         objects: tile(40, 30, object('Tapper', '105', true)),
-        clumps: '<ResourceClump><parentSheetIndex>600</parentSheetIndex><tile><X>20</X><Y>20</Y></tile></ResourceClump>',
+        clumps:
+          '<ResourceClump><parentSheetIndex>600</parentSheetIndex><tile><X>20</X><Y>20</Y></tile></ResourceClump>',
       }),
     );
     expect(tilesOf(result, 'parsnip')).toEqual([10, 10]);
@@ -132,9 +178,20 @@ describe('importSave', () => {
 
   it('knows the farm type, and says when it can’t read a file', () => {
     expect(load(save({}, '<whichFarm>6</whichFarm>')).plan.layout).toBe('beach');
-    expect(load(save({}, '<whichFarm>7</whichFarm><whichModFarm><Id>MeadowlandsFarm</Id></whichModFarm>')).plan.layout).toBe('ranching');
-    expect(importSave(save({}, '<whichFarm>7</whichFarm><whichModFarm><Id>SomeMod.Farm</Id></whichModFarm>'), LAYOUTS)).toBe('unknown-farm');
-    expect(importSave('<?xml version="1.0"?><Farmer><name>Bopper</name></Farmer>', LAYOUTS)).toBe('save-info');
+    expect(
+      load(
+        save({}, '<whichFarm>7</whichFarm><whichModFarm><Id>MeadowlandsFarm</Id></whichModFarm>'),
+      ).plan.layout,
+    ).toBe('ranching');
+    expect(
+      importSave(
+        save({}, '<whichFarm>7</whichFarm><whichModFarm><Id>SomeMod.Farm</Id></whichModFarm>'),
+        LAYOUTS,
+      ),
+    ).toBe('unknown-farm');
+    expect(importSave('<?xml version="1.0"?><Farmer><name>Bopper</name></Farmer>', LAYOUTS)).toBe(
+      'save-info',
+    );
     expect(importSave('<html></html>', LAYOUTS)).toBe('not-a-save');
   });
 });

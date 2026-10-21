@@ -2,7 +2,12 @@ import { readFileSync } from 'node:fs';
 import { LAYOUTS } from '../data/layouts';
 import { findItem } from '../data/catalog';
 import { restrictionsWithBuildings } from './building-ground';
-import { addDefaultBuildings, applyEdit, defaultBuildings, greenhouseDirtShown } from './default-buildings';
+import {
+  addDefaultBuildings,
+  applyEdit,
+  defaultBuildings,
+  greenhouseDirtShown,
+} from './default-buildings';
 import { PlanDocument, invertPatch } from './plan-document';
 import { PlacementOptions, erase, moveObjects, paintTiles, placeObjects } from './placement';
 import { RestrictionMap } from './restriction-map';
@@ -12,7 +17,11 @@ const regular = LAYOUTS.find((l) => l.id === 'regular')!;
 
 /** A new Standard Farm, with restrictions worked out like PlannerStore.restrictionsIgnoring. */
 function standardFarm() {
-  const base = RestrictionMap.decode(regular.width, regular.height, readFileSync('public/assets/restrictions/regular.txt', 'utf8'));
+  const base = RestrictionMap.decode(
+    regular.width,
+    regular.height,
+    readFileSync('public/assets/restrictions/regular.txt', 'utf8'),
+  );
   const dirt = regular.greenhouseDirt!;
   const withDirt = base.withArea(dirt.x, dirt.y, dirt.width, dirt.height, dirt.restrictions);
   const doc = new PlanDocument(regular.width, regular.height);
@@ -21,7 +30,11 @@ function standardFarm() {
     doc,
     /** Restrictions now, leaving out objects about to move. */
     map(...moving: number[]): RestrictionMap {
-      return restrictionsWithBuildings(greenhouseDirtShown(doc, regular) ? withDirt : base, doc, new Set(moving));
+      return restrictionsWithBuildings(
+        greenhouseDirtShown(doc, regular) ? withDirt : base,
+        doc,
+        new Set(moving),
+      );
     },
   };
 }
@@ -94,7 +107,15 @@ describe('default buildings', () => {
     const { doc } = farm;
     const uid = doc.objectAt(25, 10)!.uid;
     applyEdit(doc, regular, moveObjects(doc, farm.map(uid), [uid], -3, 0, options)!);
-    doc.apply(paintTiles(doc, farm.map(), findItem('road')!, { x: 30, y: 10, width: 4, height: 8 }, options));
+    doc.apply(
+      paintTiles(
+        doc,
+        farm.map(),
+        findItem('road')!,
+        { x: 30, y: 10, width: 4, height: 8 },
+        options,
+      ),
+    );
     const over = moveObjects(doc, farm.map(uid), [uid], 6, 0, options);
     expect(over).not.toBeNull();
     applyEdit(doc, regular, over!);
@@ -109,7 +130,15 @@ describe('default buildings', () => {
     const { doc } = farm;
     applyEdit(doc, regular, erase(doc, { x: 25, y: 10, width: 1, height: 1 }));
     expect(doc.objectAt(25, 10)).toBeNull();
-    expect(placeObjects(doc, farm.map(), findItem('greenhouse')!, { x: 25, y: 10, width: 1, height: 1 }, options).objects).toHaveLength(1);
+    expect(
+      placeObjects(
+        doc,
+        farm.map(),
+        findItem('greenhouse')!,
+        { x: 25, y: 10, width: 1, height: 1 },
+        options,
+      ).objects,
+    ).toHaveLength(1);
   });
 
   it('lets the shipping bin move and return', () => {

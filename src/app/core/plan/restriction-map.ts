@@ -42,7 +42,8 @@ export class RestrictionMap {
     const cells = this.cells.slice();
     for (let ty = 0; ty < height; ty++) {
       for (let tx = 0; tx < width; tx++) {
-        if (this.inBounds(x + tx, y + ty)) cells[(y + ty) * this.width + x + tx] = area.bits(tx, ty);
+        if (this.inBounds(x + tx, y + ty))
+          cells[(y + ty) * this.width + x + tx] = area.bits(tx, ty);
       }
     }
     return new RestrictionMap(this.width, this.height, cells);
@@ -59,7 +60,11 @@ export class RestrictionMap {
 
   /** Whether another map has the same size and restrictions. */
   equals(other: RestrictionMap): boolean {
-    return this.width === other.width && this.height === other.height && this.cells.every((bits, i) => bits === other.cells[i]);
+    return (
+      this.width === other.width &&
+      this.height === other.height &&
+      this.cells.every((bits, i) => bits === other.cells[i])
+    );
   }
 
   inBounds(x: number, y: number): boolean {
